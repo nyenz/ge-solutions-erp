@@ -14,7 +14,7 @@ import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestValues } from '../../utils/entryMemory';
-import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments } from '../../utils/projectStatus';
+import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments, hasNumbers, isInvoiceContractStage } from '../../utils/projectStatus';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
     FiUploadCloud, FiFileText, FiClock,
@@ -23,8 +23,7 @@ import {
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
     FiDollarSign, FiActivity, FiHome, FiArchive,
-    FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiPaperclip, FiExternalLink
-} from 'react-icons/fi';
+    FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiPaperclip, FiExternalLink, FiHash } from 'react-icons/fi';
 import landService from '../../services/landService';
 import statusTemplateService from '../../services/statusTemplateService';
 import { projectTypeOf, showsTitle } from '../../constants/projectTypes';
@@ -196,7 +195,9 @@ const ConfirmModal = ({ state, onAnswer }) => {
    - fix180: the list belongs to the project type and is no longer tied to the Title Details; every status can carry
      its own documents (ATTACH opens the upload window for that status) */
 // fix193: canTick = may tick / untick (Secretary and above); canEdit = may also add stages (Manager and above, in EDIT)
-const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
+// fix196: needsNumbers = the project has no invoice / contract number yet; onNumbers(stage) opens the numbers popup;
+// reloadKey changes when the numbers were saved (the server ticks the Invoice / Contract stage by itself)
+const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, reloadKey = 0, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
@@ -215,7 +216,7 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, canRemove
     }, [projectId]);
     // fix185: the page head shows "WAITING FOR: <next stage>"; tell it every time a tick changes the list
     useEffect(() => { if (!loading && onStages) onStages(statuses); }, [statuses, loading, onStages]);
-    useEffect(() => { loadStatuses(); }, [loadStatuses]);
+    useEffect(() => { loadStatuses(); }, [loadStatuses, reloadKey]);
     const openInsertBelow = (status) => { setInsertAfterId(status.id); setInsertAfterName(status.statusName); setNewStatusName(''); setAddingStatus(true); };
     const cancelInsert = () => { setAddingStatus(false); setNewStatusName(''); setInsertAfterId(null); setInsertAfterName(''); };
     const handleAddStatus = async () => {
@@ -240,6 +241,8 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, canRemove
     };
     const handleToggleComplete = async (status) => {
         if (toggling || !canTick) return;   // fix166: a double click used to send two ticks and flip the status back
+        // fix196: the Invoice / Contract stage is ticked by SAVING the two numbers, never by hand without them
+        if (!statusDone(status) && isInvoiceContractStage(status) && needsNumbers) { if (onNumbers) onNumbers(status); return; }
         setToggling(true);
         const next = !statusDone(status);
         try {
@@ -291,13 +294,16 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, canRemove
                     <span className={styles.statusItemName}>{status.statusName}{status.isCustom ? <span className={styles.statusCustomTag} title="Added on this project only (not in the master list)">CUSTOM</span> : null}</span>
                     {done && when && <span className={styles.statusMeta}>{when}{status.completedBy ? ' - ' + status.completedBy : ''}</span>}
                     <span className={styles.statusActions}>
+                        {onNumbers && isInvoiceContractStage(status) && (<button type="button" className={styles.plusBtn} title="See or correct the invoice number and the contract number"
+                            aria-label="Invoice and contract numbers"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onNumbers(status); }}><FiHash size={12} /></button>)}
                         {canAttach && stageTakesDocuments(statuses, i) && (<button type="button" className={styles.plusBtn} title={'Attach documents to "' + status.statusName + '"'}
                             aria-label={`Attach documents to ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAttach && onAttach(status); }}><FiPaperclip size={12} /></button>)}
                         {canEdit && canInsertStageBelow(statuses, i) && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
                             aria-label={`Insert stage below ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(status); }}><FiPlus size={12} /></button>)}
-                        {canEdit && canRemove && !isFirst && (<button type="button" className={styles.iconBtnDanger} title="Remove this stage (director only)"
+                        {canEdit && canRemove && !isFirst && !isInvoiceContractStage(status) && (<button type="button" className={styles.iconBtnDanger} title="Remove this stage (director only)"
                             aria-label={`Remove ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(status); }}><FiTrash2 size={12} /></button>)}
                     </span>
@@ -380,6 +386,11 @@ const FolderPage = () => {
     const tabRailRef = useScrollEdges({ wheel: true, activeKey: activeTab });   // fix183: sideways tab bar
     const thumbRowRef = useTabThumb(activeTab);   // fix192: the pill slides to the picked tab
     const swapRef = useSwapMotion(activeTab);     // fix192: the tab's content fades in gently
+    // fix196: the invoice / contract numbers popup ({ invoice, contract, stage }) and a counter that reloads the stage list
+    const [numModal, setNumModal] = useState(null);
+    const [numErr, setNumErr] = useState('');
+    const [numSaving, setNumSaving] = useState(false);
+    const [stagesReload, setStagesReload] = useState(0);
     const [liveStages, setLiveStages] = useState(null);   // fix185: the stage list as the checklist has it now (null = not loaded yet)
     const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
@@ -697,6 +708,23 @@ const FolderPage = () => {
         setPayReceipt(ok[0].file); setPayReceiptNote(ok[0].note);
     };
     const attachToStatus = (status) => { setAttachTo(status); fileInputRef.current?.click(); };
+    // fix196: the two numbers of the project. Opened from the page head or from the Invoice / Contract stage.
+    const openNumbers = (stage = null) => {
+        const pr = binder && binder.project;
+        setNumErr(''); setNumModal({ invoice: (pr && pr.invoiceNumber) || '', contract: (pr && pr.contractNumber) || '', stage });
+    };
+    const saveNumbers = async () => {
+        if (!numModal || numSaving) return;
+        const inv = numModal.invoice.trim().replace(/\s+/g, ' '), con = numModal.contract.trim().replace(/\s+/g, ' ');
+        if (!inv || !con) { setNumErr('ENTER BOTH: THE INVOICE NUMBER AND THE CONTRACT NUMBER.'); return; }
+        setNumSaving(true); setNumErr('');
+        try {
+            await landService.setProjectNumbers(id, inv, con);
+            setNumModal(null); toast('Invoice and contract numbers saved.', 'success');
+            await loadFolderData(); setStagesReload(n => n + 1);
+        } catch (err) { setNumErr(errText(err)); }
+        finally { setNumSaving(false); }
+    };
     const closeUploadDraft = () => { if (committing) return; setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
     const setBatchCategory = (code) => setUploadDraft(d => d && ({ ...d, error: '', batch: code, files: d.files.map(f => ({ ...f, category: code })) }));
     const setFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, error: '', files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));
@@ -860,6 +888,7 @@ const FolderPage = () => {
     const isLegacyProject = !!project.isLegacy;
     const isBacklog = !project.landTitle;
     const canEdit = canEditRole && !isDeleted;
+    const canSetNumbers = flags.isStaff && !isDeleted;   // fix196: every rank except Employee
     // fix180: project type, Title Details by type, clients (who pay) / owners / neighbors, subdivision plots
     const pType = projectTypeOf(project);
     const showTitleFields = titleShown(project, buffer);
@@ -967,6 +996,14 @@ const FolderPage = () => {
                     </div>
                     {/* fix185: quiet "waiting for" line in the sub-header of every project that is not finished */}
                     {waiting && <p className={styles.waitingLine} title={waiting.tip}><FiClock aria-hidden="true" /> <span>{waiting.text}</span></p>}
+                    {/* fix196: the project's invoice number and contract number, always in the page head */}
+                    <p className={styles.numbersLine}>
+                        {hasNumbers(project)
+                            ? (<><span className={styles.numbersItem}><b>INVOICE</b> {project.invoiceNumber}</span><span className={styles.numbersItem}><b>CONTRACT</b> {project.contractNumber}</span></>)
+                            : (<span className={styles.numbersItem}>NO INVOICE / CONTRACT NUMBER YET</span>)}
+                        {canSetNumbers && (<button type="button" className={styles.numbersBtn} onClick={() => openNumbers(null)}
+                            title="Enter or correct the invoice number and the contract number. Every change is logged.">{hasNumbers(project) ? 'CORRECT' : 'ADD NUMBERS'}</button>)}
+                    </p>
                 </div>
                 <div className={styles.ctrlZone}>
                     {!isEditing && (<div className={styles.ctrlGroup}>
@@ -1080,6 +1117,7 @@ const FolderPage = () => {
                         <StatusChecklistPanel projectId={id}
                             canEdit={canEdit && isEditing && !isReleased}
                             canTick={!isReleased && !isDeleted && (flags.isSecretary || (canEdit && isEditing))}
+                            needsNumbers={!hasNumbers(project)} onNumbers={openNumbers} reloadKey={stagesReload}
                             canRemove={isDirector && !isDeleted && isEditing && !isReleased}
                             toast={toast} confirm={confirm}
                             docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
@@ -1443,6 +1481,28 @@ const FolderPage = () => {
                 <div className={modalStyles.modalFooter}>
                     <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave} disabled={noteBusy}><FiSave aria-hidden="true" /> {noteBusy ? 'SAVING...' : 'SAVE NOTE'}</button>
                 </div>
+            </HardwareModal>
+            {/* fix196: invoice number + contract number. One way out (the X) and one action. */}
+            <HardwareModal isOpen={!!numModal} lockBackdrop onClose={() => { if (!numSaving) setNumModal(null); }} title="INVOICE AND CONTRACT NUMBERS">
+                {numModal && (<>
+                    <div className={modalStyles.modalInfoBox}>{canSetNumbers
+                        ? 'Type both numbers exactly as they are written on the papers. Any format is fine. No other project can have the same number. Every change is logged.'
+                        : 'These are the numbers of this project. A Secretary or above can correct them.'}</div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="num-invoice">INVOICE NUMBER</label>
+                        <input id="num-invoice" type="text" className={modalStyles.modalInput} value={numModal.invoice} maxLength={80} autoComplete="off" autoFocus={canSetNumbers} readOnly={!canSetNumbers}
+                            onChange={e => { setNumModal(m => ({ ...m, invoice: e.target.value })); if (numErr) setNumErr(''); }} /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="num-contract">CONTRACT NUMBER</label>
+                        <input id="num-contract" type="text" className={modalStyles.modalInput} value={numModal.contract} maxLength={80} autoComplete="off" readOnly={!canSetNumbers}
+                            onChange={e => { setNumModal(m => ({ ...m, contract: e.target.value })); if (numErr) setNumErr(''); }}
+                            onKeyDown={e => { if (e.key === 'Enter' && canSetNumbers) saveNumbers(); }} /></div>
+                    {numModal.stage && canUploadDocs && !isDeleted && !isReleased && (<div className={modalStyles.modalField}>
+                        <button type="button" className={styles.addDocBtn} onClick={() => { const st = numModal.stage; setNumModal(null); attachToStatus(st); }}
+                            title="The scan is filed under this stage and shows in Documents with the stage name"><FiPaperclip aria-hidden="true" />&nbsp;ATTACH THE INVOICE OR CONTRACT SCAN</button></div>)}
+                    <ModalError text={numErr} />
+                    {canSetNumbers && (<div className={modalStyles.modalFooter}>
+                        <HardwareButton type="button" onClick={saveNumbers} loading={numSaving} icon={FiCheckCircle}>SAVE NUMBERS</HardwareButton>
+                    </div>)}
+                </>)}
             </HardwareModal>
             <HardwareModal isOpen={payModal.open} lockBackdrop onClose={closePayModal} title={'RECORD PAYMENT - ' + plotName}>
                 {(isReceivable || keptFees > 0) && (<div className={styles.payTypeRow}><div className={styles.payTypeButtons}>

@@ -309,6 +309,15 @@ public class LandProject {
     @Column(name = "created_by", length = 100)
     private String createdBy;
 
+    // fix196: THE INVOICE NUMBER AND THE CONTRACT NUMBER of the project (David, October 2026). Any format. Each one is
+    // on ONE live project only. A project has both, or it is still Pending. Empty on projects older than fix196.
+    // The rules live in ProjectNumbersService; nothing else sets these two fields.
+    @Column(name = "invoice_number", length = 80)
+    private String invoiceNumber;
+
+    @Column(name = "contract_number", length = 80)
+    private String contractNumber;
+
     /**
      * fix181 (20.9): the moment the record was saved, set once by the server. Old rows were back-filled from the
      * entry date, else the title's created date, else the start date (left empty when none is known).

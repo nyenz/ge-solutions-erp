@@ -53,6 +53,7 @@ public class PendingProjectService {
     public static final int RESULT_DAYS = 30;
 
     private final LandService landService;
+    private final ProjectNumbersService projectNumbers;   // fix196
     private final com.gesolutions.erp.modules.client.service.ClientService clientService;   // fix194
     private final LandProjectRepository projectRepository;
     private final ProjectNeighborRepository neighborRepository;
@@ -125,6 +126,7 @@ public class PendingProjectService {
         refuseMoney(request);
         // an Employee never adds a custom status (canAddStatus is Manager and above)
         if (request.getSelectedStatuses() != null) request.getSelectedStatuses().removeIf(s -> s.isCustom());
+        request.setInvoiceNumber(null); request.setContractNumber(null);   // fix196: the office adds the numbers, never a field entry
         LandProject saved = landService.doIntake(request, scans, categories, true);
         saved.setCreatedById(me.getId());
         saved.setCreatedBy(me.getUsername());
@@ -207,6 +209,8 @@ public class PendingProjectService {
         if (money.totalCost().signum() <= 0) {
             throw new BusinessException("PRICE_REQUIRED: Enter the total cost (more than 0) before starting the project.");
         }
+        // fix196: ONE step leaves Pending -- it needs the invoice number, the contract number AND the prices together
+        String[] numbers = projectNumbers.check(p.getId(), request.getInvoiceNumber(), request.getContractNumber());
         // people / title / location corrections first, with the price held at 0 so no cost-change rules fire
         if (request.getDistrict() != null && !request.getDistrict().isBlank()) {
             LandEntryRequest people = copyWithoutMoney(request, p);
@@ -214,14 +218,18 @@ public class PendingProjectService {
             p = projectRepository.findById(id).orElseThrow();
         }
         landService.applyIntakeMoney(p, money);
+        p.setInvoiceNumber(numbers[0]);
+        p.setContractNumber(numbers[1]);
         p.setPending(false);
         p.setGraduatedAt(LocalDateTime.now());
         LandProject saved = projectRepository.save(p);
         Map<String, Client> byNin = new LinkedHashMap<>();
         for (Client c : saved.billingParties()) if (c.getNationalId() != null) byNin.put(c.getNationalId().trim().toUpperCase(), c);
         String moneyNote = landService.recordIntakeMoney(saved, money, byNin, request);
+        projectNumbers.tickStage(saved.getId());   // fix196: the Invoice / Contract stage is done
         auditService.logActionAfterCommit("PROJECT_GRADUATED", "Operator [" + AuditService.currentOperator() + "] priced and started Pending project #"
-                + saved.getProjectIndex() + " (entered by " + saved.getCreatedBy() + "). Total cost UGX " + money.totalCost().toPlainString() + moneyNote);
+                + saved.getProjectIndex() + " (entered by " + saved.getCreatedBy() + "). Invoice " + saved.getInvoiceNumber() + ", contract " + saved.getContractNumber()
+                + ". Total cost UGX " + money.totalCost().toPlainString() + moneyNote);
         notificationService.emitToAudience("PROJECT_GRADUATED", "Project " + saved.getProjectIndex() + " has been priced and started.",
                 "PROJECT", saved.getId());
         return saved;

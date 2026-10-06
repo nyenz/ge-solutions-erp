@@ -31,6 +31,7 @@ import java.util.UUID;
 public class LandController {
 
     private final LandService landService;
+    private final com.gesolutions.erp.modules.land.service.ProjectNumbersService projectNumbersService;   // fix196
     private final ProjectStatusRepository projectStatusRepository;
     // fix167: the app's own JSON reader (knows dates, ignores extra fields). A bare "new ObjectMapper()" refused
     // every New Project save that carried a date or a status list.
@@ -147,6 +148,14 @@ public class LandController {
         // fix165: the text normally arrives in the body; the old ?content= form still works
         landService.logNewNote(id, content != null ? content : (body == null ? null : body.get("content")));
         return ResponseEntity.ok().build();
+    }
+
+    /** fix196: correct the invoice number and the contract number of a started project (every rank except Employee). */
+    @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PatchMapping("/projects/{id}/numbers")
+    public ResponseEntity<java.util.Map<String, Object>> setNumbers(@PathVariable UUID id, @RequestBody java.util.Map<String, String> body) {
+        var p = projectNumbersService.correct(id, body == null ? null : body.get("invoiceNumber"), body == null ? null : body.get("contractNumber"));
+        return ResponseEntity.ok(java.util.Map.of("id", p.getId(), "invoiceNumber", p.getInvoiceNumber(), "contractNumber", p.getContractNumber()));
     }
 
     @PutMapping("/notes/{noteId}")

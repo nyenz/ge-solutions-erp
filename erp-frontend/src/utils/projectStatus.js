@@ -116,10 +116,9 @@ export function waitingFor(p, stages) {
     const st = statusOf(p).key;
     if (st === 'DELETED' || st === 'HANDED_OVER') return null;
     if (st === 'PENDING') {
-        // fix185: today the office only sets the PRICES when it starts a Pending project. When the invoice number and
-        // the contract number are stored too (needs the server), change this text to name all three.
-        return { key: 'OFFICE', text: 'WAITING FOR THE OFFICE TO SET THE PRICES',
-            tip: 'This project is Pending. A Secretary or above must check it, set the prices and start it.' };
+        // fix196: a project leaves Pending in ONE step that needs the invoice number, the contract number and the prices
+        return { key: 'OFFICE', text: 'WAITING FOR THE OFFICE: INVOICE NUMBER, CONTRACT NUMBER AND PRICES',
+            tip: 'This project is Pending. A Secretary or above must check it, enter the invoice number, the contract number and the prices, and start it.' };
     }
     if (!hasPrice(p)) {
         return { key: 'PRICES', text: 'WAITING FOR PRICES',
@@ -156,3 +155,6 @@ export function canInsertStageBelow(list, i) {
 
 /** Every stage except the first can carry its own documents (the first is ticked at intake, before any paper exists). */
 export const stageTakesDocuments = (list, i) => i > 0;
+
+/** fix196: true when the project has BOTH its invoice number and its contract number. */
+export const hasNumbers = (p) => !!(p && String(p.invoiceNumber || '').trim() && String(p.contractNumber || '').trim());

@@ -87,6 +87,7 @@ public class LandServiceTest {
                 .district("Kampala")
                 .county("Test County")
                 .clients(owners)
+                .invoiceNumber(n("INV")).contractNumber(n("CTR"))   // fix196: a started project has both numbers
                 .totalCost(new BigDecimal("5000000"))
                 .initialPayment(new BigDecimal("1000000"))
                 .isStartAsReceivable(false)
@@ -113,6 +114,9 @@ public class LandServiceTest {
         assertTrue(foundInitialPayment);
     }
 
+    /** fix196: a made-up invoice / contract number that no other test uses. */
+    private static String n(String prefix) { return prefix + "-" + java.util.UUID.randomUUID().toString().substring(0, 8); }
+
     private LandEntryRequest.OwnerRequest person(String nin, String name) {
         return LandEntryRequest.OwnerRequest.builder().fullName(name).phone("0772123456").nationalId(nin).build();
     }
@@ -122,12 +126,14 @@ public class LandServiceTest {
         LandEntryRequest fresh = LandEntryRequest.builder()
                 .projectType("FRESH_SURVEY").plotNumber("IGNORED").district("Kampala")
                 .clients(List.of(person("CM12345678FRSH1", "Fresh Client")))
+                .invoiceNumber(n("INV")).contractNumber(n("CTR"))   // fix196: a started project has both numbers
                 .totalCost(new BigDecimal("1000000")).initialPayment(BigDecimal.ZERO).build();
         assertEquals(null, landService.atomicIntake(fresh, null).getLandTitle());
 
         LandEntryRequest noArea = LandEntryRequest.builder()
                 .projectType("RESURVEY").plotNumber("P1").block("B1").titleIssueDate(java.time.LocalDate.now())
                 .district("Kampala").clients(List.of(person("CM12345678RESV1", "Resurvey Client")))
+                .invoiceNumber(n("INV")).contractNumber(n("CTR"))   // fix196: a started project has both numbers
                 .totalCost(new BigDecimal("1000000")).initialPayment(BigDecimal.ZERO).build();
         org.junit.jupiter.api.Assertions.assertThrows(com.gesolutions.erp.common.exception.BusinessException.class,
                 () -> landService.atomicIntake(noArea, null));
@@ -141,6 +147,7 @@ public class LandServiceTest {
                 .district("Wakiso")
                 .clients(List.of(person("CM12345678SUBC1", "Sub Client")))
                 .owners(List.of(person("CM12345678SUBO1", "Sub Owner")))
+                .invoiceNumber(n("INV")).contractNumber(n("CTR"))   // fix196: a started project has both numbers
                 .totalCost(new BigDecimal("3000000")).initialPayment(BigDecimal.ZERO).build();
         LandProject parent = landService.atomicIntake(sub, null);
         assertEquals(3, landService.getProjectDeepDetail(parent.getId()).getSubdivisions().size());
@@ -151,12 +158,14 @@ public class LandServiceTest {
                 .district("Wakiso")
                 .clients(List.of(person("CM12345678SUBC1", "Sub Client")))
                 .owners(List.of(person("CM12345678SUBO1", "Sub Owner")))
+                .invoiceNumber(n("INV")).contractNumber(n("CTR"))   // fix196: a started project has both numbers
                 .totalCost(new BigDecimal("500000")).initialPayment(BigDecimal.ZERO).build();
         LandProject child = landService.atomicIntake(transfer, null);
         assertEquals(parent.getId(), child.getParentProjectId());
         assertEquals(child.getId(), landService.getProjectDeepDetail(parent.getId()).getSubdivisions().get(1).getTransferProjectId());
 
         transfer.setPlotNumber("CHILD-2B");
+        transfer.setInvoiceNumber(n("INV")); transfer.setContractNumber(n("CTR"));   // fix196: fresh numbers, so only the plot rule can refuse it
         org.junit.jupiter.api.Assertions.assertThrows(com.gesolutions.erp.common.exception.BusinessException.class,
                 () -> landService.atomicIntake(transfer, null));
     }

@@ -1899,3 +1899,21 @@
 
 /* fix186: the size of a picked file, before and after the gentle photo shrink ("4.8 MB -> 1.2 MB (75% smaller)") */
 .upFileNote { display: block; margin-top: 2px; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 0.3px; color: rgba(var(--ink-rgb), 0.6); white-space: normal; }
+
+/* fix196: the invoice number and the contract number in the page head. Quiet, like the "waiting for" line. */
+.numbersLine {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px clamp(10px, 1.2vw, 16px);
+    margin: clamp(5px, 0.6vw, 8px) 0 0; max-width: 100%;
+    font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); font-weight: 700;
+    letter-spacing: 0.5px; line-height: 1.4; color: var(--hdr-sub, #64748b);
+}
+.numbersItem { min-width: 0; overflow-wrap: anywhere; }
+.numbersItem b { font-family: 'DM Sans', sans-serif; font-weight: 900; letter-spacing: 1.2px; margin-right: 4px; opacity: 0.75; }
+.numbersBtn {
+    font-family: 'DM Sans', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 1.2px;
+    padding: 3px 9px; border-radius: 5px; cursor: pointer;
+    color: var(--tx-accent, #EE8C3A); background: transparent; border: 1px solid currentColor;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.numbersBtn:hover, .numbersBtn:focus-visible { background: var(--tx-accent, #EE8C3A); color: #1a2e30; outline: none; }
+@media print { .numbersBtn { display: none; } }

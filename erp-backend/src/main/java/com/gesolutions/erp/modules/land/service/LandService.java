@@ -38,6 +38,7 @@ public class LandService {
     private final AuditService auditService;
     private final PaymentRecordRepository paymentRecordRepository;
     private final ProjectIndexService projectIndexService;
+    private final ProjectNumbersService projectNumbers;   // fix196
     private final StatusTemplateService statusTemplateService;
     private final ProjectStatusRepository projectStatusRepository;
     private final LandTitleRepository landTitleRepository;
@@ -438,6 +439,9 @@ public class LandService {
         if (request.getParentProjectId() != null) {
             parent = requireTransferableSubdivisionPlot(request.getParentProjectId(), request.getParentSubdivisionNo(), type);
         }
+        // fix196: a project the office starts itself needs the invoice number and the contract number (checked before
+        // an index number is used). An Employee's entry never has them: it is Pending until the office adds them.
+        String[] numbers = pendingEntry ? null : projectNumbers.check(null, request.getInvoiceNumber(), request.getContractNumber());
         String projectIndex = projectIndexService.generateNextIndex();
 
         // fix181 (12.2): the intake money is checked by ONE method, shared with graduatePending
@@ -510,6 +514,7 @@ public class LandService {
         LandProject project = builder.build();
         applyIntakeMoney(project, money);
         project.setPending(pendingEntry);
+        if (numbers != null) { project.setInvoiceNumber(numbers[0]); project.setContractNumber(numbers[1]); }   // fix196
         // fix181 (8.9): who entered it (account id + username as it was then)
         project.setCreatedBy(getCurrentOperator());
 
@@ -540,6 +545,7 @@ public class LandService {
         // fix180: every project type has its own status list, so every project gets its statuses
         if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
             statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
+            if (!pendingEntry) projectNumbers.tickStage(saved.getId());   // fix196: the numbers are in, so that stage is done
         }
         saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
 

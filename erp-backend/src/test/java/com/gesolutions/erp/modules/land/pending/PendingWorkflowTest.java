@@ -115,6 +115,7 @@ public class PendingWorkflowTest {
         as(sec);
         PendingProjectDTO base = pending.createPending(entry(nin), null, null);
         LandEntryRequest price = new LandEntryRequest();
+        price.setInvoiceNumber("INV-" + UUID.randomUUID()); price.setContractNumber("CTR-" + UUID.randomUUID());   // fix196
         price.setTotalCost(new BigDecimal("1000000"));
         price.setInitialPayment(new BigDecimal("100000"));
         pending.graduatePending(base.getId(), price);
@@ -181,6 +182,7 @@ public class PendingWorkflowTest {
         LandEntryRequest noPrice = new LandEntryRequest();
         assertThrows(BusinessException.class, () -> pending.graduatePending(p.getId(), noPrice));
         LandEntryRequest price = new LandEntryRequest();
+        price.setInvoiceNumber("INV-" + UUID.randomUUID()); price.setContractNumber("CTR-" + UUID.randomUUID());   // fix196
         price.setTotalCost(new BigDecimal("2000000"));
         price.setInitialPayment(new BigDecimal("500000"));
         pending.graduatePending(p.getId(), price);
