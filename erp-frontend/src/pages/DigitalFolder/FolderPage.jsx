@@ -10,6 +10,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import useScrollEdges from '../../hooks/useScrollEdges';
 import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
+import SuggestInput from '../../components/common/SuggestInput';
+import useEntryMemory from '../../hooks/useEntryMemory';
+import { suggestPlace, suggestValues } from '../../utils/entryMemory';
 import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments } from '../../utils/projectStatus';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
@@ -110,18 +113,22 @@ const DrawerHeader = ({ label, count, isOpen, onClick, icon: Icon }) => (
         <FiChevronDown className={`${styles.chevron} ${isOpen ? styles.rotated : ''}`} aria-hidden="true" />
     </div>
 );
-const SmartInput = React.forwardRef(({ label, value, onChange, onBlur, placeholder, suggestions = [], inputMode, maxLength, hint, showCaps, required = false, error = null, id: propId }, ref) => {
+// fix188: suggestions are drawn by the themed SuggestInput (the browser's own <datalist> is gone). `suggestions` is a list
+// of { key, value, label?, detail? } from utils/entryMemory.js; onPick(suggestion) lets a pick fill other boxes too.
+const SmartInput = React.forwardRef(({ label, value, onChange, onBlur, placeholder, suggestions = [], onPick, suggestHint, inputMode, maxLength, hint, showCaps, required = false, error = null, id: propId }, ref) => {
     const inputId = propId || 'inp-' + (label || '').replace(/\W/g, '-').toLowerCase();
-    const datalistId = suggestions.length ? 'dl-' + inputId : undefined;
     return (<div className={`${styles.hwInputWrap} ${error ? styles.inputError : ''}`}>
         <div className={styles.inputLabelRow}>
             <label htmlFor={inputId}>{label}{required && <span className={styles.reqStar} aria-hidden="true"> *</span>}</label>
             {showCaps && <span className={styles.capsBadge} title="Typed in CAPITAL letters automatically">CAPS</span>}
         </div>
-        <input id={inputId} ref={ref} type="text" className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
-            value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} inputMode={inputMode} maxLength={maxLength}
-            list={datalistId} autoComplete="off" aria-required={required ? 'true' : undefined} aria-invalid={error ? 'true' : 'false'} />
-        {datalistId && <datalist id={datalistId}>{suggestions.map((s, i) => <option key={i} value={s} />)}</datalist>}
+        {suggestions.length || onPick
+            ? <SuggestInput id={inputId} type="text" className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+                value={value || ''} onChange={(text) => onChange({ target: { value: text } })} onBlur={onBlur} placeholder={placeholder} inputMode={inputMode} maxLength={maxLength}
+                suggestions={suggestions} onPick={onPick} hint={suggestHint} aria-required={required ? 'true' : undefined} aria-invalid={error ? 'true' : 'false'} />
+            : <input id={inputId} ref={ref} type="text" className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+                value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} inputMode={inputMode} maxLength={maxLength}
+                autoComplete="off" aria-required={required ? 'true' : undefined} aria-invalid={error ? 'true' : 'false'} />}
         {error && <span className={styles.fieldError} role="alert"><FiAlertCircle aria-hidden="true" /> {error}</span>}
         {!error && hint && <span className={styles.inputHint}>{hint}</span>}
     </div>);
@@ -827,6 +834,17 @@ const FolderPage = () => {
         } catch { window.open(url, '_blank'); }
     };
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
+    // fix188: location suggestions while editing (same memory as New Project: utils/entryMemory.js)
+    const { places } = useEntryMemory({ wantPeople: false });
+    const placeHelp = (field) => (!isEditing || !buffer ? {} : {
+        suggestions: suggestPlace(places, field, buffer[field], buffer),
+        suggestHint: 'From past projects',
+        onPick: (sug) => {
+            const next = { ...buffer, [field]: sug.value };
+            Object.entries(sug.fill || {}).forEach(([f, v]) => { if (!String(next[f] || '').trim()) next[f] = v; });
+            touchedSetBuffer(next);
+        },
+    });
 
     if (loading) return (<div className={styles.container}><div className={styles.skeletonPage}><div className={styles.skeletonTermHeader} /><div className={styles.skeletonHUD} /><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div></div></div>);
     if (loadError || !binder || !buffer) return (<div style={{ padding: 'clamp(40px,8vw,80px) clamp(20px,4vw,40px)' }}><ErrorMessage type="error" title="Record not found" message="This archive entry could not be loaded." onRetry={loadFolderData} retryLabel="Try Again" /></div>);
@@ -1014,17 +1032,18 @@ const FolderPage = () => {
                                     hint="Cannot go below a plot that was already transferred." onChange={e => touchedSetBuffer({ ...buffer, subdivisionCount: e.target.value.replace(/[^0-9]/g, '') })} />
                             </div>)}
                             <div className={styles.inputGrid3}>
-                                <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({ ...buffer, district: e.target.value.toUpperCase() })} />
-                                <SmartInput label="COUNTY" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => touchedSetBuffer({ ...buffer, county: e.target.value.toUpperCase() })} />
-                                <SmartInput label="SUB-COUNTY" value={buffer.subCounty} showCaps onChange={e => touchedSetBuffer({ ...buffer, subCounty: e.target.value.toUpperCase() })} />
-                                <SmartInput label="PARISH" value={buffer.parish} showCaps onChange={e => touchedSetBuffer({ ...buffer, parish: e.target.value.toUpperCase() })} />
-                                <SmartInput label="VILLAGE" value={buffer.village} showCaps onChange={e => touchedSetBuffer({ ...buffer, village: e.target.value.toUpperCase() })} />
+                                {/* fix188: the five location boxes offer the places of past projects; a pick fills the empty ones */}
+                                <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} {...placeHelp('district')} onChange={e => touchedSetBuffer({ ...buffer, district: e.target.value.toUpperCase() })} />
+                                <SmartInput label="COUNTY" value={buffer.county} showCaps {...placeHelp('county')} onChange={e => touchedSetBuffer({ ...buffer, county: e.target.value.toUpperCase() })} />
+                                <SmartInput label="SUB-COUNTY" value={buffer.subCounty} showCaps {...placeHelp('subCounty')} onChange={e => touchedSetBuffer({ ...buffer, subCounty: e.target.value.toUpperCase() })} />
+                                <SmartInput label="PARISH" value={buffer.parish} showCaps {...placeHelp('parish')} onChange={e => touchedSetBuffer({ ...buffer, parish: e.target.value.toUpperCase() })} />
+                                <SmartInput label="VILLAGE" value={buffer.village} showCaps {...placeHelp('village')} onChange={e => touchedSetBuffer({ ...buffer, village: e.target.value.toUpperCase() })} />
                                 <SmartInput label="AREA" value={buffer.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value })} />
                             </div>
                             {showTitleFields && (<div className={styles.inputGrid3}>
                                 <SmartInput ref={firstInputRef} label="PLOT NUMBER" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({ ...buffer, plotNumber: e.target.value.toUpperCase() })} />
                                 <SmartSelect label="TENURE" options={['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({ ...buffer, tenure: v })} />
-                                <SmartInput label="BLOCK" value={buffer.block} showCaps required error={fieldErrors.block} suggestions={sg('block')} onChange={e => touchedSetBuffer({ ...buffer, block: e.target.value.toUpperCase() })} />
+                                <SmartInput label="BLOCK" value={buffer.block} showCaps required error={fieldErrors.block} suggestions={suggestValues(sg('block'), buffer.block)} suggestHint="Typed before on this device" onChange={e => touchedSetBuffer({ ...buffer, block: e.target.value.toUpperCase() })} />
                                 <SmartInput label="AREA (HECTARES)" value={buffer.areaHectares} required inputMode="decimal" error={fieldErrors.areaHectares} onChange={e => touchedSetBuffer({ ...buffer, areaHectares: e.target.value.replace(/[^0-9.]/g, '') })} />
                                 <SmartInput label="VOLUME" value={buffer.volume} showCaps onChange={e => touchedSetBuffer({ ...buffer, volume: e.target.value.toUpperCase() })} />
                                 <SmartInput label="FOLIO" value={buffer.folio} showCaps onChange={e => touchedSetBuffer({ ...buffer, folio: e.target.value.toUpperCase() })} />

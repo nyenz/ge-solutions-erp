@@ -13,7 +13,10 @@ import { useLocation } from 'react-router-dom';
 const Shell = ({ children }) => {
     const location = useLocation();
     // fix48: the sidebar starts contracted on the Ledger (it needs the width)
-    const [isCollapsed, setIsCollapsed] = useState(() => location.pathname.includes('/land/projects'));
+    // fix188: on a phone the menu is a drawer that covers the page, so it starts CLOSED there (it used to open over
+    // the page on every first load and had to be tapped away before anything could be typed)
+    const [isCollapsed, setIsCollapsed] = useState(() => location.pathname.includes('/land/projects')
+        || (typeof window !== 'undefined' && window.innerWidth <= 768));
     const scrollRef = useRef(null);
 
     // fix182: the Shell now stays on screen between pages (one header, one bell, one sidebar for the whole visit), so a
