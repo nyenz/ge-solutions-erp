@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Last change: fix192. Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix193. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -76,7 +76,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | P06 | Recovery, Expenses, New Project, Payments | When loading fails, the page looks **empty** instead of broken: "QUEUE CLEAR", "NO EXPENSES LOGGED", "Loading the stage list..." for ever. Staff will think there is no work. | medium | sure | recovery-secretary-phone.jpg |
 | P07 | Dashboard tiles | A tile opens a list that shows a different number. "Ready for hand-over" opens the PAID tab (which also has handed-over and problem projects). "Title money still owed" opens CRITICAL only. | medium | sure | dashboard-admin-desktop.jpg |
 | P08 | Settings > Staff, TEMPORARY KEY popup | The key is "shown once only", but one tap outside the popup closes it and the key is gone. **FIXED in fix190.** | medium | sure | settings-phone.jpg |
-| P09 | Folder page and Client page, Secretary | The Secretary makes the recovery calls but cannot fix a wrong phone number on the client page, and cannot tick a stage. David's rule says the Secretary handles the Invoice/Contract stage. (The server also blocks the tick -- see S19.) | medium | sure | folder-phone.jpg |
+| P09 | Folder page and Client page, Secretary | The Secretary makes the recovery calls but cannot fix a wrong phone number on the client page, and cannot tick a stage. David's rule says the Secretary handles the Invoice/Contract stage. (The server also blocks the tick -- see S19.) **FIXED in fix193.** | medium | sure | folder-phone.jpg |
 | P10 | Settings > Staff | The power icon **suspends a person with one tap**, no question asked. CREATE can be pressed twice while the server wakes up. The three icon buttons have no words. | medium | sure | settings-phone.jpg |
 | P11 | Folder page | A Fresh Survey or Special Project can **never be closed**. HAND OVER needs Title Details and these types never have them. A paid, finished project stays ACTIVE for ever. | medium | sure; maybe meant | folder-phone.jpg |
 | P12 | Folder page, grey buttons on a phone | The reason a button is grey (RECORD PAYMENT, HAND OVER, EDIT) shows only when a mouse hovers. On a phone it is just grey with no reason. | medium on phones | sure | folder-phone.jpg |
@@ -88,7 +88,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 
 | ID | Where | What is wrong | How bad | Sure? | Screenshot |
 |---|---|---|---|---|---|
-| S19 | Server: two rank rules disagree with themselves | The "tick a stage" door says Secretary may enter, the room behind it says Manager and above. The room wins, so the Secretary gets "not allowed". Same kind of clash on one unused endpoint. | low | sure | code |
+| S19 | Server: two rank rules disagree with themselves | The "tick a stage" door says Secretary may enter, the room behind it says Manager and above. The room wins, so the Secretary gets "not allowed". Same kind of clash on one unused endpoint. **FIXED in fix193.** | low | sure | code |
 | S20 | Server: notes | Anyone who can add a note can type one that starts with `[HANDED OVER]` or `[PROBLEM]`. The system then treats it as its own note and it can never be edited or deleted. | low | sure | code |
 | S21 | Server: storage fees | Fees can be changed on a deleted project. | low | sure | code |
 | S22 | Server: old endpoints no page uses | Three old endpoints are still open (follow-up note, bulk stage delete, reality override). They have weaker rules. | low | sure | code |
@@ -188,6 +188,7 @@ this matters before real client data goes in.
 | fix190 | From this review: P01 report periods, P02 double save, P08 temporary key popup, P17 popups with typed text, P18 "+ NEW CATEGORY" for the Employee, P23 "today" in London time. |
 | fix191 | GitHub checks (Q1 = A): server tests and page checks run by themselves on every pull request. |
 | fix192 | Gentle movement on every tab and filter bar: the orange pill slides to the picked tab and the content fades in. David's answers to Q1-Q10 written into section 5. |
+| fix193 | Q3 = B: the Secretary can tick and untick any stage (no EDIT button needed) and can correct a client's phone number (EDIT PHONE on the client page). Fixes P09 and S19. First server change checked by GitHub. |
 
 ---
 
@@ -199,7 +200,6 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 
 | Rank | Item | Size | Answer |
 |---|---|---|---|
-| 1 | P09 / S19 Secretary may tick any stage and fix client phones | small | Q3 = B |
 | 2 | P11 / S09 Fresh Survey ends through the TITLED stage (Title Details needed); 365 days -> Receivables for every type | medium | Q4 |
 | 3 | Special Projects: own goals, optional title, CLOSE PROJECT (see 5.1) | big | Q4 |
 | 4 | Q9 Invoice / Contract stage can never be removed or renamed | small | Q9 = A |

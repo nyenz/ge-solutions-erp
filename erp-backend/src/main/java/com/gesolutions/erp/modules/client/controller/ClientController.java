@@ -75,23 +75,26 @@ public class ClientController {
         Client c = clientRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Client not found"));
         // fix181 (11.1b): a Secretary may fix a client's details only while every project of that client is Pending
-        if (isSecretary() && !onlyPending(c)) {
-            throw new com.gesolutions.erp.common.exception.BusinessException("CLIENT_EDIT_BLOCKED: A Secretary can change a client only while every project of that client is Pending. Ask a Manager.");
+        // fix193 (review Q3 = B): on any other client the Secretary may still correct the PHONE (the Secretary makes
+        // the recovery calls). Name, email and address then stay as they are, whatever was sent.
+        boolean phoneOnly = isSecretary() && !onlyPending(c);
+        if (phoneOnly && (body.get("phoneNumber") == null || body.get("phoneNumber").isBlank())) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("CLIENT_EDIT_BLOCKED: A Secretary can change only the phone number of this client. Ask a Manager for the rest.");
         }
 
         // fix181 (13.6a): what each field was before, for the audit line
         String before = "name " + c.getFullName() + ", phone " + c.getPhoneNumber() + ", email " + c.getEmail() + ", address " + c.getHomeAddress();
-        if (body.containsKey("fullName") && body.get("fullName") != null && !body.get("fullName").isBlank()) {
+        if (!phoneOnly && body.containsKey("fullName") && body.get("fullName") != null && !body.get("fullName").isBlank()) {
             c.setFullName(body.get("fullName").trim());
         }
         if (body.containsKey("phoneNumber") && body.get("phoneNumber") != null && !body.get("phoneNumber").isBlank()) {
             c.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(body.get("phoneNumber")));
         }
-        if (body.containsKey("email")) {
+        if (!phoneOnly && body.containsKey("email")) {
             String email = body.get("email");
             c.setEmail(email == null || email.isBlank() ? null : email.trim());
         }
-        if (body.containsKey("homeAddress")) {
+        if (!phoneOnly && body.containsKey("homeAddress")) {
             String addr = body.get("homeAddress");
             c.setHomeAddress(addr == null || addr.isBlank() ? null : addr.trim());
         }

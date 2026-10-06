@@ -79,6 +79,8 @@ const ClientPortfolioPage = () => {
   const isDirector = roleFlags(user).isOwnerLevel;
   // Same bar Digital Folder uses for record edits: director or manager.
   const canEdit = roleFlags(user).isManager;
+  // fix193 (review Q3 = B): the Secretary makes the recovery calls, so the Secretary may correct the PHONE only
+  const phoneOnly = roleFlags(user).isSecretary;
 
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -153,12 +155,12 @@ const ClientPortfolioPage = () => {
   const cancelEdit = () => { setIsEditing(false); setFieldErrors({}); setSaveError(''); };
   const saveEdit = async () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Required';
+    if (!phoneOnly && !form.name.trim()) errs.name = 'Required';
     if (!form.phone.trim()) errs.phone = 'Required';
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({}); setSaveError(''); setSaving(true);
     try {
-      await clientService.updateClient(id, {
+      await clientService.updateClient(id, phoneOnly ? { phoneNumber: form.phone.trim() } : {
         fullName: form.name.trim(), phoneNumber: form.phone.trim(),
         email: form.email.trim(), homeAddress: form.address.trim(),
       });
@@ -195,8 +197,8 @@ const ClientPortfolioPage = () => {
           <p className={styles.subtitle}>Client dossier - every project, shilling and call in one place</p>
         </div>
         <div className={styles.headerActions}>
-          {canEdit && !isEditing && (<button type="button" className={styles.editBtn} onClick={startEdit}><FiEdit3 aria-hidden="true" /> EDIT PORTFOLIO</button>)}
-          {canEdit && isEditing && (<div className={styles.editGroup}>
+          {(canEdit || phoneOnly) && !isEditing && (<button type="button" className={styles.editBtn} onClick={startEdit}><FiEdit3 aria-hidden="true" /> {phoneOnly ? 'EDIT PHONE' : 'EDIT DETAILS'}</button>)}
+          {(canEdit || phoneOnly) && isEditing && (<div className={styles.editGroup}>
             <button type="button" className={styles.cancelBtn} onClick={cancelEdit} disabled={saving}><FiX aria-hidden="true" /> CANCEL</button>
             <button type="button" className={styles.saveBtn} onClick={saveEdit} disabled={saving}><FiSave aria-hidden="true" /> {saving ? 'SAVING...' : 'SAVE'}</button>
           </div>)}
@@ -210,7 +212,7 @@ const ClientPortfolioPage = () => {
         <div className={styles.specGrid}>
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiUser aria-hidden="true" /> FULL NAME</span>
-            {isEditing
+            {isEditing && !phoneOnly
               ? (<input className={`${styles.editInput} ${fieldErrors.name ? styles.inputError : ''}`} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />)
               : (<span className={styles.specValue}>{d.name || '---'}</span>)}
           </div>
@@ -223,13 +225,13 @@ const ClientPortfolioPage = () => {
           </div>
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiMail aria-hidden="true" /> EMAIL</span>
-            {isEditing
+            {isEditing && !phoneOnly
               ? (<input className={styles.editInput} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />)
               : (<span className={styles.specValue}>{d.email || '---'}</span>)}
           </div>
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiMapPin aria-hidden="true" /> ADDRESS</span>
-            {isEditing
+            {isEditing && !phoneOnly
               ? (<input className={styles.editInput} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />)
               : (<span className={styles.specValue}>{d.address || '---'}</span>)}
           </div>

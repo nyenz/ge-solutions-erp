@@ -195,7 +195,8 @@ const ConfirmModal = ({ state, onAnswer }) => {
    - remove asks first; RESTORE DEFAULTS is one server step, director only (it removes statuses)
    - fix180: the list belongs to the project type and is no longer tied to the Title Details; every status can carry
      its own documents (ATTACH opens the upload window for that status) */
-const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
+// fix193: canTick = may tick / untick (Secretary and above); canEdit = may also add stages (Manager and above, in EDIT)
+const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
@@ -238,7 +239,7 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
         finally { await loadStatuses(); cancelInsert(); setSaving(false); }
     };
     const handleToggleComplete = async (status) => {
-        if (toggling || !canEdit) return;   // fix166: a double click used to send two ticks and flip the status back
+        if (toggling || !canTick) return;   // fix166: a double click used to send two ticks and flip the status back
         setToggling(true);
         const next = !statusDone(status);
         try {
@@ -272,7 +273,7 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
         {loadErr && <div className={styles.modalErr} role="alert"><FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{loadErr}</span></div>}
         <div className={styles.statusListTop}>
             <span className={styles.statusProgress} title="Stages ticked so far">{doneCount} OF {statuses.length} DONE</span>
-            {canEdit && <span className={styles.inputHint}>Ticks save the moment you click them. CANCEL does not undo them.</span>}
+            {canTick && <span className={styles.inputHint}>Ticks save the moment you click them.{canEdit ? ' CANCEL does not undo them.' : ''}</span>}
             {canRemove && <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving} title="Replace this project's stages with its type's master list (director only)."><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>}
         </div>
         {statuses.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
@@ -283,9 +284,9 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
             const tip = done ? ('Done' + (when ? ' on ' + when : '') + (status.completedBy ? ' by ' + status.completedBy : '') + '.') : 'Not done yet.';
             const docs = (docsByStatus && docsByStatus.get(status.id)) || [];
             return (<React.Fragment key={status.id}>
-                <label className={`${styles.statusItem} ${done ? styles.statusItemChecked : ''} ${canEdit ? '' : styles.statusItemRO}`} title={canEdit ? tip + ' Click to ' + (done ? 'untick.' : 'tick.') : tip}>
-                    <input type="checkbox" className={styles.statusCheckbox} checked={done} readOnly={!canEdit} tabIndex={canEdit ? 0 : -1}
-                        aria-readonly={!canEdit} disabled={canEdit && toggling}
+                <label className={`${styles.statusItem} ${done ? styles.statusItemChecked : ''} ${canTick ? '' : styles.statusItemRO}`} title={canTick ? tip + ' Click to ' + (done ? 'untick.' : 'tick.') : tip}>
+                    <input type="checkbox" className={styles.statusCheckbox} checked={done} readOnly={!canTick} tabIndex={canTick ? 0 : -1}
+                        aria-readonly={!canTick} disabled={canTick && toggling}
                         onChange={() => handleToggleComplete(status)} aria-label={`${status.statusName}: ${done ? 'done' : 'not done'}`} />
                     <span className={styles.statusItemName}>{status.statusName}{status.isCustom ? <span className={styles.statusCustomTag} title="Added on this project only (not in the master list)">CUSTOM</span> : null}</span>
                     {done && when && <span className={styles.statusMeta}>{when}{status.completedBy ? ' - ' + status.completedBy : ''}</span>}
@@ -1077,7 +1078,9 @@ const FolderPage = () => {
                     <div className={`${styles.panelBody} ${drawers.statusesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
                         <StatusChecklistPanel projectId={id}
-                            canEdit={canEdit && isEditing && !isReleased} canRemove={isDirector && !isDeleted && isEditing && !isReleased}
+                            canEdit={canEdit && isEditing && !isReleased}
+                            canTick={!isReleased && !isDeleted && (flags.isSecretary || (canEdit && isEditing))}
+                            canRemove={isDirector && !isDeleted && isEditing && !isReleased}
                             toast={toast} confirm={confirm}
                             docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
                             onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} onStages={setLiveStages} />
