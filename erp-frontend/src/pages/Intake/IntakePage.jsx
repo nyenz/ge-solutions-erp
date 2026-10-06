@@ -283,10 +283,10 @@ export default function IntakePage() {
 
     const openInsertBelow = (name) => { setInsertAfterName(name); setAddingStatus(true); };
     const handleAddStatus = () => {
-        if (!canAddStatus) { toast('Only an Admin, Manager or Director can add a status.', 'error'); return; }
+        if (!canAddStatus) { toast('Only an Admin, Manager or Director can add a stage.', 'error'); return; }
         const name = newStatusName.trim();
-        if (!name) { toast('Enter a status name first.', 'error'); return; }
-        if (statusList.some(s => s.name.toLowerCase() === name.toLowerCase())) { toast('That status is already on the list.', 'error'); return; }
+        if (!name) { toast('Enter a stage name first.', 'error'); return; }
+        if (statusList.some(s => s.name.toLowerCase() === name.toLowerCase())) { toast('That stage is already on the list.', 'error'); return; }
         let k = statusList.length;
         const idx = statusList.findIndex(s => s.name === insertAfterName);
         if (idx >= 0) k = idx + 1;
@@ -294,24 +294,24 @@ export default function IntakePage() {
         const next = [...statusList]; next.splice(k, 0, { id: null, name });
         setStatusList(next); setChecked(p => ({ ...p, [name]: false }));
         setNewStatusName(''); setInsertAfterName(''); setAddingStatus(false);
-        markDirty(); toast('Status inserted.', 'success');
+        markDirty(); toast('Stage inserted.', 'success');
     };
     const handleDeleteStatus = (name) => {
         setStatusList(p => p.filter(s => s.name !== name));
         setChecked(p => { const n = { ...p }; delete n[name]; return n; });
-        markDirty(); toast('Status removed.', 'success');
+        markDirty(); toast('Stage removed.', 'success');
     };
     const handleRestoreDefaults = () => {
         loadTypeStatuses(projectType);
         setAddingStatus(false); setNewStatusName(''); setInsertAfterName('');
-        markDirty(); toast('Default statuses restored.', 'success');
+        markDirty(); toast('Default stages restored.', 'success');
     };
     const handleSavePreset = () => {
         if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
         const statusNames = statusList.filter(s => checked[s.name]).map(s => s.name);
         const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), statusNames }];
         setPresets(next); savePresets(next); setPresetName(''); setShowSavePreset(false);
-        toast('Status preset saved.', 'success');
+        toast('Stage preset saved.', 'success');
     };
     const applyPreset = (name) => {
         const preset = presets.find(p => p.name === name);
@@ -779,7 +779,7 @@ export default function IntakePage() {
                     </button>
                 </CollapsibleSection>
 
-                <CollapsibleSection icon={<FiCheckSquare />} title={`${nStatuses}. Statuses`}
+                <CollapsibleSection icon={<FiCheckSquare />} title={`${nStatuses}. Stages`}
                     right={
                         <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
                             {presets.length > 0 && (
@@ -803,14 +803,14 @@ export default function IntakePage() {
                     {addingStatus && canAddStatus && (
                         <div className={styles.inlineAddRow}>
                             <span className={styles.insertCtx}>{insertAfterName ? `Insert under: ${insertAfterName}` : 'Add at the end'}</span>
-                            <input className={styles.input} placeholder="New status name" value={newStatusName} onChange={e => setNewStatusName(e.target.value)} />
+                            <input className={styles.input} placeholder="New stage name" value={newStatusName} onChange={e => setNewStatusName(e.target.value)} />
                             <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStatus}>Add</button>
                             <button type="button" className={styles.xBtn} onClick={() => { setAddingStatus(false); setNewStatusName(''); setInsertAfterName(''); }} aria-label="Close"><FiX /></button>
                         </div>
                     )}
-                    <p className={styles.hint}>The {PROJECT_TYPES.find(pt => pt.value === projectType)?.label} status list. Tick what is already done.{canAddStatus ? '' : ' Only an Admin, Manager or Director can add a status.'}</p>
+                    <p className={styles.hint}>The {PROJECT_TYPES.find(pt => pt.value === projectType)?.label} stage list. Tick what is already done.{canAddStatus ? '' : ' Only an Admin, Manager or Director can add a stage.'}</p>
                     <div className={styles.statusList}>
-                        {statusList.length === 0 && <p className={styles.hint}>Loading the status list...</p>}
+                        {statusList.length === 0 && <p className={styles.hint}>Loading the stage list...</p>}
                         {statusList.map((s) => {
                             const isFirst = s.name === firstStatusName;
                             return (
@@ -822,8 +822,8 @@ export default function IntakePage() {
                                     <span className={styles.statusName}>{s.name}{isFirst ? ' (required)' : ''}</span>
                                     <span className={styles.statusActions}>
                                         {canAddStatus && (
-                                            <button type="button" className={styles.plusBtn} title="Insert a status below this one"
-                                                aria-label={`Insert status below ${s.name}`}
+                                            <button type="button" className={styles.plusBtn} title="Insert a stage below this one"
+                                                aria-label={`Insert stage below ${s.name}`}
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(s.name); }}>
                                                 <FiPlus size={12} />
                                             </button>
@@ -831,7 +831,7 @@ export default function IntakePage() {
                                         {!isFirst && (
                                             <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`}
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStatus(s.name); }}
-                                                aria-label={`Delete status ${s.name}`}>
+                                                aria-label={`Delete stage ${s.name}`}>
                                                 <FiTrash2 size={12} />
                                             </button>
                                         )}
