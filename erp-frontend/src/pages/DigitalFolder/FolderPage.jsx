@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import useScrollEdges from '../../hooks/useScrollEdges';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
     FiUploadCloud, FiFileText, FiClock,
@@ -357,6 +358,7 @@ const FolderPage = () => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
     });
+    const tabRailRef = useScrollEdges({ wheel: true, activeKey: activeTab });   // fix183: sideways tab bar
     const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
@@ -955,7 +957,7 @@ const FolderPage = () => {
             {isDeleted && (<div className={`${styles.infoStrip} ${styles.infoStripBad}`} role="status"><FiAlertOctagon aria-hidden="true" />
                 <span>This project is DELETED{project.deletedAt ? ' (since ' + fmtDate(project.deletedAt) + ')' : ''}. It is hidden from every list and nothing on it can be changed. The root user can restore it from Settings &gt; Archive.</span></div>)}
             <div className={styles.tabBar} role="tablist" aria-label="Record sections">
-                <div className={styles.tabDock}>
+                <div className={styles.tabDock} ref={tabRailRef}>
                     <div className={styles.tabRow}>
                         {TABS.map(tab => (<button type="button" key={tab} role="tab" aria-selected={activeTab === tab}
                             data-accent={TAB_ACCENTS[tab]}

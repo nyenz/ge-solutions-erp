@@ -20,7 +20,8 @@
 .modalBody {
     width: 100%;
     max-width: clamp(300px, 90vw, 520px);
-    max-height: 90vh;
+    /* fix183: 90% of the screen you can really see (inside the zoomed app, and above the phone keyboard) */
+    max-height: calc(var(--app-vh, 100vh) * 0.9);
     overflow-y: auto;
     background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213e40) 100%);
     border: 2px solid rgba(238, 140, 58, 0.4);
@@ -311,7 +312,7 @@
     .modalBody {
         padding: clamp(16px, 5vw, 20px);
         border-radius: 12px;
-        max-height: 88vh;
+        max-height: calc(var(--app-vh, 100vh) - 24px);
     }
     .title { font-size: 12px; letter-spacing: 1px; }
     .header { margin-bottom: 14px; padding-bottom: 10px; }

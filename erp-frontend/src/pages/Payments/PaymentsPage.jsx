@@ -9,9 +9,8 @@
 //  - a failed load says so (with RETRY) instead of looking like "no payments".
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiSearch, FiX, FiUser, FiRefreshCw, FiLayers, FiArrowUp, FiArrowDown, FiFileText, FiCheckSquare } from 'react-icons/fi';
+import { FiSearch, FiX, FiUser, FiRefreshCw, FiLayers, FiArrowUp, FiArrowDown, FiFileText, FiCheckSquare, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../../api/axios';
-import HardwarePanel from '../../components/ui/HardwarePanel';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
@@ -218,14 +217,17 @@ const PaymentsPage = () => {
             {!data && !error ? (
                 <LoadingState label="LOADING PAYMENTS..." />
             ) : (
-                <div className={styles.accentWrap} data-tab-accent={accentOf(TABS, tab)}>
-                    <HardwarePanel variant="dark" hideTop>
+                /* fix183: the SAME table card as the Project Ledger and the Client Ledger (edge-to-edge table, bottom corner
+                   brackets and pins, PREV / RANGE / NEXT footer). It used to sit inside a padded panel with its own pager. */
+                <div className={styles.tablePanel} data-tab-accent={accentOf(TABS, tab)}>
+                    <div className={styles.decorBl} aria-hidden="true" />
+                    <div className={styles.decorBr} aria-hidden="true" />
                         <div className={styles.tableScroll} ref={tableHandoffRef}>
                             <table className={styles.ledgerTable}>
                                 <thead>
                                     <tr>
                                         <th className={styles.thSortable} onClick={() => handleSort('date')} aria-sort={sort === 'date' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>DATE PAID {sortIcon('date')}</th>
-                                        <th className={styles.thSortable} onClick={() => handleSort('project')} aria-sort={sort === 'project' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>PROJECT {sortIcon('project')}</th>
+                                        <th className={`${styles.thSortable} gsStickyCol`} onClick={() => handleSort('project')} aria-sort={sort === 'project' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>PROJECT {sortIcon('project')}</th>
                                         <th className={styles.thSortable} onClick={() => handleSort('client')} aria-sort={sort === 'client' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>CLIENT WHO PAID {sortIcon('client')}</th>
                                         <th>FOR</th>
                                         <th className={styles.thSortable} onClick={() => handleSort('amount')} aria-sort={sort === 'amount' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>AMOUNT {sortIcon('amount')}</th>
@@ -253,7 +255,7 @@ const PaymentsPage = () => {
                                                         <span className={styles.time}>entered {fmtDay(pay.enteredAt)} {fmtTime(pay.enteredAt)}</span>
                                                     </div>
                                                 </td>
-                                                <td>
+                                                <td className="gsStickyCol">
                                                     <strong className={styles.plotNum}>#{pay.projectIndex || '---'}</strong>
                                                     <div className={styles.time}>{pay.projectTypeLabel || ''}{pay.plotNumber ? ' - plot ' + pay.plotNumber : ''}</div>
                                                     {pay.deleted && <span className={styles.typeBadge} style={{ color: '#ef4444' }}>DELETED</span>}
@@ -290,12 +292,19 @@ const PaymentsPage = () => {
                                 </tbody>
                             </table>
                         </div>
-                    </HardwarePanel>
-                    <div className={styles.legendRow} aria-live="polite">
-                        <span className={styles.legendItem}>{first} to {last} of {fmt(total)}</span>
-                        <button type="button" className={styles.retryBtn} disabled={page === 0} onClick={() => set({ page: page - 1 }, true)}>PREVIOUS</button>
-                        <button type="button" className={styles.retryBtn} disabled={last >= total} onClick={() => set({ page: page + 1 }, true)}>NEXT</button>
-                    </div>
+                    <div className={styles.pinsBottom} aria-hidden="true">{[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}</div>
+                    <footer className={styles.pagination} aria-label="Pagination" aria-live="polite">
+                        <button type="button" className={styles.pageBtn} disabled={page === 0} aria-label="Previous page" onClick={() => set({ page: page - 1 }, true)}>
+                            <FiChevronLeft aria-hidden="true" /> PREV
+                        </button>
+                        <span className={styles.pageIndicator} aria-current="page">
+                            RANGE {page + 1}
+                            {total > 0 && <span className={styles.recordCount}> — {first} TO {last} OF {fmt(total)} LINES</span>}
+                        </span>
+                        <button type="button" className={styles.pageBtn} disabled={last >= total} aria-label="Next page" onClick={() => set({ page: page + 1 }, true)}>
+                            NEXT <FiChevronRight aria-hidden="true" />
+                        </button>
+                    </footer>
                 </div>
             )}
         </div>

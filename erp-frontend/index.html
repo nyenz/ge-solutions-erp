@@ -4,7 +4,9 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- fix183: interactive-widget=resizes-content makes the page itself get shorter when the phone keyboard opens, so the
+         box you are typing in stays in view and no empty strip shows above the keyboard. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1a2e30" />
     <!-- fix181 (15.1d): apply the saved appearance BEFORE the first paint (no cream flash on SLATE, no size jump).

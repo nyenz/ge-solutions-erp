@@ -25,6 +25,7 @@ import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS, RANKS as RANK_INFO } from '../../utils/roles';
 import { errorText } from '../../utils/errorText';
+import useScrollEdges from '../../hooks/useScrollEdges';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 
 /* Every option here is wired to real CSS in index.css -- see the note at the
@@ -227,6 +228,8 @@ const SettingsPage = () => {
       ...(isOwner ? [{ key: 'deleted', label: 'ARCHIVE', icon: FiArchive, accent: 'yellow', count: deleted === null ? '...' : deleted.length }] : []),
     ];
   const activeTab = TABS.find(t => t.key === tab) || TABS[0];
+  // fix183: the tab bar scrolls sideways on a narrow screen (it used to run off the edge: "D...")
+  const tabRailRef = useScrollEdges({ wheel: true, activeKey: activeTab.key });
   const selectTab = (key) => { setTab(key); setPanelOpen(true); };
   // fix181 (14.6d): the subtitle names only what this person can see
   const subtitle = locked ? 'Choose your own key to unlock the system'
@@ -254,7 +257,7 @@ const SettingsPage = () => {
       <div className={styles.workstationGrid}>
         {/* ── TAB DOCK ── fix181 (15.6e): real tabs for screen readers */}
         <div className={styles.dockRow}>
-          <div className={styles.tabDock}>
+          <div className={styles.tabDock} ref={tabRailRef}>
             <div className={styles.tabRow} role="tablist" aria-label="Settings sections">
               {TABS.map(t => (
                 <button

@@ -625,3 +625,14 @@
     .pageHeader .title { font-size: clamp(18px, 2.5vw, 24px); }
     .pageHeader .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
 }
+
+/* fix183: on a phone the client's name gets its own line in the card head and is never cut ("NAMIIR..."); the
+   chips (queue place, last call, reason) sit on the line under it. Last rule wins in this file. */
+@media (max-width: 768px) {
+  .rowHead { flex-wrap: wrap; row-gap: 6px; }
+  .cardHeadLeft { flex: 1 1 100%; align-items: flex-start; }
+  .cname { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.35; }
+  .headerRight { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; min-width: 0; }
+  .reason { margin-left: 0; }
+  .chev { margin-left: auto; }
+}

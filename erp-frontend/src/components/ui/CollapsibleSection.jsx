@@ -39,24 +39,28 @@ const CollapsibleSection = ({
             onFocusCapture={() => setActive(true)}
             onBlurCapture={handleBlur}
         >
-            <button
-                type="button"
+            {/* fix183: the head bar is a div that acts as a button (Enter / Space / click). It used to be a real <button>
+                with the panel's own buttons (SAVE PRESET, RESTORE DEFAULTS ...) inside it, and a button inside a button
+                is not valid HTML. The chevron sits right after the title, so it stays on the first line when the
+                panel's buttons drop to a second line on a phone (the title no longer shrinks to "6. ST..."). */}
+            <div
+                role="button"
+                tabIndex={0}
                 className={`${styles.header} ${open ? styles.headerOpen : ''}`}
                 onClick={toggle}
+                onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } }}
                 aria-expanded={open}
             >
                 <span className={styles.headerLeft}>
                     {icon}
                     <h2 className={styles.title}>{title}</h2>
                 </span>
-                <span className={styles.headerRight}>
-                    {right && <span onClick={e => e.stopPropagation()}>{right}</span>}
-                    <FiChevronDown
-                        aria-hidden="true"
-                        className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}
-                    />
-                </span>
-            </button>
+                <FiChevronDown
+                    aria-hidden="true"
+                    className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}
+                />
+                {right && <span className={styles.headerRight} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>{right}</span>}
+            </div>
             {open && (
                 <div className={styles.body}>
                     <CornerDecor hideTop />

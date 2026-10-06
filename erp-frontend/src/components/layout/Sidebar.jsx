@@ -61,9 +61,6 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                 aria-label="System navigation">
                 <nav className={styles.sidebarNav} aria-label="Main menu">
                     <div className={styles.navSection}>
-                        <p className={styles.navSectionTitle} aria-hidden="true">
-                            {isCollapsed ? 'SYS' : 'SYSTEM MODULES'}
-                        </p>
                         {navItems.map(item => {
                             if (!item.access) return null;
                             const locked = isLocked && item.path !== '/settings';
@@ -90,9 +87,9 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                         })}
                     </div>
                 </nav>
-                <footer className={styles.sidebarFooter} aria-label="Golden Seed branding">
-                    <div className={styles.branding} aria-hidden="true">{isCollapsed ? 'GS' : 'GOLDEN SEED'}</div>
-                    {!isCollapsed && <div className={styles.version} aria-hidden="true">V.2.0.1-PROD</div>}
+                {/* fix183: the maker's mark. Same word open and collapsed, so nothing jumps when the panel moves. */}
+                <footer className={styles.sidebarFooter} aria-label="Built by nyenz">
+                    <div className={styles.branding} aria-hidden="true">nyenz</div>
                 </footer>
             </aside>
         </>

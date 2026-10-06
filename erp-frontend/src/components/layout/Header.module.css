@@ -650,3 +650,22 @@
 .signOutYes, .signOutNo { border-radius: 6px; padding: 8px 14px; font-weight: 800; cursor: pointer; border: 1px solid transparent; }
 .signOutYes { background: #ef4444; color: #fff; }
 .signOutNo { background: transparent; color: #e2e8f0; border-color: rgba(var(--ink-rgb), 0.3); }
+
+/* ===== fix183: the top bar never runs off a narrow screen ================
+   At INTERFACE SIZE 125% a phone has only about 310 px of room, and the sign-out button was pushed off the right
+   edge. The right side may now shrink: a long username is cut with "..." (the full name is in the hover text and
+   in Settings), and when the bar itself is very narrow the name hides and only the letter badge stays.
+   The rule looks at the width of the BAR (a container query), so it is right at every Interface size. */
+.header { container-type: inline-size; container-name: topbar; }
+.headerRight { flex-shrink: 1; min-width: 0; }
+.userCard { min-width: 0; flex-shrink: 1; }
+.userMeta { min-width: 0; }
+.userName { max-width: clamp(64px, 26vw, 220px); overflow: hidden; text-overflow: ellipsis; }
+@container topbar (max-width: 400px) {
+    .headerLeft, .headerRight { gap: 8px; }
+    .userName { max-width: 72px; }
+}
+@container topbar (max-width: 340px) {
+    .userMeta { display: none; }
+    .userCard { padding: 3px; border-color: transparent; background: transparent; }
+}
