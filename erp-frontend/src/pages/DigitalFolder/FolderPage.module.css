@@ -1896,3 +1896,6 @@
 .waitingLine svg { flex-shrink: 0; font-size: 1.05em; transform: translateY(1px); color: var(--tx-accent, #EE8C3A); opacity: 0.9; }
 .waitingLine span { min-width: 0; overflow-wrap: anywhere; }
 @media print { .waitingLine { display: none; } }
+
+/* fix186: the size of a picked file, before and after the gentle photo shrink ("4.8 MB -> 1.2 MB (75% smaller)") */
+.upFileNote { display: block; margin-top: 2px; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 0.3px; color: rgba(var(--ink-rgb), 0.6); white-space: normal; }

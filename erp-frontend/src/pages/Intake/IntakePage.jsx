@@ -24,6 +24,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { PROJECT_TYPES, showsTitle } from '../../constants/projectTypes';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { canInsertStageBelow, isInvoiceContractStage } from '../../utils/projectStatus';
+import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
 import styles from './IntakePage.module.css';
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
@@ -339,20 +340,16 @@ export default function IntakePage() {
     const copyClientsToOwners = () => { setOwners(clients.map(c => ({ ...c }))); setOwnersLinked(true); markDirty(); };
     const updateNeighbor = (idx, field, val) => { markDirty(); setNeighbors(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o)); };
     // fix175: picking files opens the same UPLOAD DOCUMENTS popup the Folder page uses; files join the list only once each has a type
-    const handleFileUpload = (e) => {
+    // fix186: photos are gently shrunk first (utils/imageShrink.js); the size limit is checked on the file that is sent
+    const handleFileUpload = async (e) => {
         const picked = Array.from(e.target.files || []);
         e.target.value = '';
         if (!picked.length) return;
-        const ok = []; const bad = [];
-        picked.forEach(f => {
-            if (!SCAN_EXT.includes(fileExt(f.name))) bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)');
-            else if (!f.size) bad.push(f.name + ' (the file is empty)');
-            else if (f.size > 50 * 1024 * 1024) bad.push(f.name + ' (over 50 MB)');
-            else ok.push(f);
-        });
+        if (anyToShrink(picked)) toast('Preparing the photos...', 'info');
+        const { ok, bad } = await prepareUploads(picked, { exts: SCAN_EXT });
         if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
         if (!ok.length) return;
-        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })) });
+        setUploadDraft({ batch: '', error: '', files: ok.map(({ file, note }) => ({ file, category: '', note })) });
     };
     const removeFile = (i) => setFileQueue(p => { URL.revokeObjectURL(p[i].url); return p.filter((_, idx) => idx !== i); });
     const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
@@ -374,7 +371,7 @@ export default function IntakePage() {
     const confirmUploadDraft = () => {
         if (!uploadDraft) return;
         if (uploadDraft.files.some(f => !f.category)) { setUploadDraft(d => d && ({ ...d, error: 'PICK A CATEGORY FOR EVERY FILE.' })); return; }
-        const items = uploadDraft.files.map(({ file, category }) => ({ name: file.name, size: file.size, file, url: URL.createObjectURL(file), category }));
+        const items = uploadDraft.files.map(({ file, category, note }) => ({ name: file.name, size: file.size, file, url: URL.createObjectURL(file), category, note }));
         setFileQueue(p => [...p, ...items]); markDirty();
         closeUploadDraft();
     };
@@ -981,7 +978,7 @@ export default function IntakePage() {
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
                         <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
-                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}</span>
+                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}{f.note && <small className={styles.upFileNote}>{f.note}</small>}</span>
                         <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setDraftFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
                     {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
                         <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
