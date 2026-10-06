@@ -481,6 +481,11 @@
    arm-switch instead of a text box stretched the width of the
    whole panel. */
 .wipeField { margin: var(--gap-md) 0; max-width: clamp(260px, 40vw, 420px); }
+/* fix198: the FRESH START tick box in the Danger Zone */
+.wipeFresh { display: flex; align-items: flex-start; gap: 10px; margin: var(--gap-md) 0; max-width: clamp(260px, 60vw, 620px); cursor: pointer; }
+.wipeFresh input { flex-shrink: 0; margin-top: 2px; }
+.wipeFresh span { font-family: 'DM Sans', sans-serif; color: rgba(var(--ink-rgb), 0.78); font-size: var(--fs-meta); font-weight: 700; line-height: 1.5; }
+.wipeFresh strong { color: var(--tx-red); }
 
 .wipeBtn {
     background: var(--red); color: #fff; border: 1.5px solid var(--red);

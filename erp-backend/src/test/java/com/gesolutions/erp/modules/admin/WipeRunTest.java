@@ -87,4 +87,39 @@ public class WipeRunTest {
         assertTrue(audit.findAll().stream().anyMatch(a -> "DATA_WIPED".equals(a.getAction())));
         assertTrue(audit.findAll().stream().anyMatch(a -> "WIPE_REFUSED".equals(a.getAction())));
     }
+
+    /** fix198: a FRESH START also empties the audit trail (one line is left), removes demo staff and keeps real staff. */
+    @Test
+    public void freshStartAlsoClearsTheAuditTrailAndDemoStaff() throws Exception {
+        projects.save(LandProject.builder().projectIndex("W002").totalCost(BigDecimal.TEN).amountPaid(BigDecimal.ZERO).build());
+        User root = users.findByUsername("admin_root").orElseThrow();
+        root.setMustChangePassword(false);
+        root = users.save(root);
+        users.save(User.builder().username("demo.clerk").email("demo.clerk@demo.gesolutions.local").password("x")
+                .role(com.gesolutions.erp.modules.auth.model.Role.ROLE_EMPLOYEE).isRoot(false).isActive(true).mustChangePassword(false).build());
+        users.save(User.builder().username("real.clerk").email("real.clerk@gesolutions.com").password("x")
+                .role(com.gesolutions.erp.modules.auth.model.Role.ROLE_EMPLOYEE).isRoot(false).isActive(true).mustChangePassword(false).build());
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sv", root.getSessionVersion());
+        String token = jwt.generateToken(claims, new com.gesolutions.erp.config.ApplicationConfig.CustomUserPrincipal(root));
+
+        // a refused try first, so the trail has older lines to clear
+        mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WRONG").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+        assertTrue(audit.count() >= 1);
+
+        mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WIPE-EVERYTHING").header("Authorization", "Bearer " + token)
+                        .contentType("application/json").content("{\"password\":\"TestPassword123\",\"freshStart\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.auditCleared").value(true));
+
+        assertEquals(0, projects.findAllIncludingPending().size());
+        assertEquals(1, audit.count(), "the trail holds only the line about the fresh start");
+        assertEquals("DATA_WIPED", audit.findAll().get(0).getAction());
+        assertTrue(audit.findAll().get(0).getDetails().contains("FRESH START"));
+        assertTrue(users.findByUsername("demo.clerk").isEmpty(), "demo staff accounts are removed");
+        assertTrue(users.findByUsername("real.clerk").isPresent(), "real staff accounts are kept");
+        assertTrue(users.findByUsername("admin_root").isPresent(), "the Admin is kept");
+    }
 }

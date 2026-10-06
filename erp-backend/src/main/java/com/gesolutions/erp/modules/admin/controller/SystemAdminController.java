@@ -38,6 +38,14 @@ import java.util.UUID;
  *  - the settings tables listed in KEPT_ON_PURPOSE.
  * The table list is checked against the database at run time: a table that does not exist (an old one, or a brand-new
  * database) is skipped instead of failing the whole wipe. WipeTableListTest fails when an entity table is in neither list.
+ *
+ * fix198: FRESH START (David, before the manual test rounds). The same wipe with "freshStart": true in the body ALSO
+ *  - empties the audit trail (it then holds ONE line: who did the fresh start, when, and how many lines were cleared);
+ *  - removes the demo staff accounts (username "demo. ..."); real staff accounts are still kept;
+ *  - writes the app_flags row NO_DEMO_DATA, so the demo dataset never comes back (not after this wipe, not after a
+ *    restart), whatever GE_SOLUTIONS_SEED_DEMO_DATA says. To get the demo data back, delete that row.
+ * A wipe WITHOUT freshStart is unchanged: the audit trail is never touched. This option is for the time BEFORE real
+ * data goes in; take the tick box off the Danger Zone at go-live (see the guide, DATA WIPE).
  */
 @RestController
 @RequestMapping("/api/v1/admin/system")
@@ -90,7 +98,7 @@ public class SystemAdminController {
 
     @PostMapping("/wipe-all-data")
     public ResponseEntity<Map<String, Object>> wipeAllData(@RequestParam(required = false) String confirm,
-                                                           @RequestBody(required = false) Map<String, String> body) {
+                                                           @RequestBody(required = false) Map<String, Object> body) {
         if (!CONFIRM_PHRASE.equals(confirm)) {
             auditService.logAction("WIPE_REFUSED", "Data wipe refused: the confirmation phrase was missing or wrong.");
             return ResponseEntity.badRequest().body(Map.of(
@@ -99,7 +107,8 @@ public class SystemAdminController {
             ));
         }
         // fix181 (14.4f): the Admin's own key is asked again, so an open, unattended screen cannot wipe the system
-        String password = body == null ? null : body.get("password");
+        String password = body == null || body.get("password") == null ? null : String.valueOf(body.get("password"));
+        boolean freshStart = body != null && "true".equalsIgnoreCase(String.valueOf(body.get("freshStart")));
         String me = AuditService.currentOperator();
         boolean keyOk = password != null && !password.isEmpty() && userRepository.findByUsername(me)
                 .map(u -> passwordEncoder.matches(password, u.getPassword())).orElse(false);
@@ -113,7 +122,8 @@ public class SystemAdminController {
 
         Map<String, Long> before = counts();
         auditService.logAction("DATA_WIPED", "Data wipe STARTED. Existing records: " + before
-                + ". Staff accounts and the audit trail are kept.");
+                + (freshStart ? ". FRESH START: the audit trail and the demo staff accounts go too."
+                              : ". Staff accounts and the audit trail are kept."));
 
         List<String> wiped = new ArrayList<>();
         try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
@@ -128,6 +138,13 @@ public class SystemAdminController {
                 finally { st.execute("SET REFERENTIAL_INTEGRITY TRUE"); }
             }
             st.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1");
+            if (freshStart) {
+                // fix198: the demo dataset must not come back, and the demo staff accounts go with it
+                st.execute("CREATE TABLE IF NOT EXISTS app_flags (name VARCHAR(60) PRIMARY KEY, set_at TIMESTAMP)");
+                st.execute("DELETE FROM app_flags WHERE name = '" + DataInitializer.NO_DEMO_DATA_FLAG + "'");
+                st.execute("INSERT INTO app_flags (name, set_at) VALUES ('" + DataInitializer.NO_DEMO_DATA_FLAG + "', CURRENT_TIMESTAMP)");
+                st.execute("DELETE FROM users WHERE username LIKE 'demo.%' AND (is_root IS NULL OR is_root = false)");
+            }
         } catch (Exception e) {
             System.err.println(">>> [WIPE] FATAL: " + e.getMessage());
             auditService.logAction("DATA_WIPED", "Data wipe FAILED: " + e.getMessage());
@@ -154,8 +171,23 @@ public class SystemAdminController {
 
         Map<String, Object> files = fileStorageService.deleteAllFiles();
 
+        // fix198: FRESH START empties the audit trail LAST, so the one line written below is its first line
+        long auditCleared = -1;
+        if (freshStart) {
+            long had = count("audit_logs");
+            try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+                st.execute("TRUNCATE TABLE audit_logs");
+                auditCleared = had;
+            } catch (Exception e) {
+                System.err.println(">>> [WIPE] audit trail not cleared: " + e.getMessage());
+            }
+        }
+
         auditService.logAction("DATA_WIPED", "Data wipe FINISHED. Deleted: " + before + ". Files deleted: "
-                + files.get("filesDeleted") + ", files not deleted: " + files.get("filesFailed") + ".");
+                + files.get("filesDeleted") + ", files not deleted: " + files.get("filesFailed") + "."
+                + (!freshStart ? "" : auditCleared >= 0
+                    ? " FRESH START: the audit trail was cleared (" + auditCleared + " older lines); this is its first line. Demo data is switched off."
+                    : " FRESH START was asked but the audit trail could NOT be cleared."));
         notificationService.emitNow("SYSTEM_WIPE", "All business data was wiped by " + AuditService.currentOperator()
                 + " (" + before.get("projects") + " projects, " + before.get("clients") + " clients, " + before.get("payments") + " payments).",
                 "SYSTEM", UUID.nameUUIDFromBytes("system-wipe".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
@@ -168,7 +200,12 @@ public class SystemAdminController {
         response.put("filesFailed", files.get("filesFailed"));
         if (files.get("error") != null) response.put("filesError", files.get("error"));
         response.put("kept", KEPT_ON_PURPOSE);
-        response.put("message", "All business data was deleted. Staff accounts and the audit trail were kept.");
+        response.put("freshStart", freshStart);
+        response.put("auditCleared", auditCleared >= 0);
+        response.put("auditLinesCleared", Math.max(auditCleared, 0));
+        response.put("message", freshStart && auditCleared >= 0
+                ? "Fresh start done. All business data and the audit trail were deleted. Real staff accounts were kept."
+                : "All business data was deleted. Staff accounts and the audit trail were kept.");
         return ResponseEntity.ok(response);
     }
 

@@ -55,8 +55,27 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println(">>> [SEED] demo dataset is switched off (ge.solutions.seed-demo-data=false)");
             return;
         }
+        if (demoSwitchedOffByFreshStart()) {
+            System.out.println(">>> [SEED] demo dataset is switched off (a FRESH START wipe wrote app_flags " + NO_DEMO_DATA_FLAG + ")");
+            return;
+        }
         scenarioSeeder.seedOnce();
         demoNumbersOnce();
+    }
+
+    /** fix198: written by the FRESH START wipe (SystemAdminController). While this row exists the demo data stays away. */
+    public static final String NO_DEMO_DATA_FLAG = "NO_DEMO_DATA";
+
+    private boolean demoSwitchedOffByFreshStart() {
+        try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE IF NOT EXISTS app_flags (name VARCHAR(60) PRIMARY KEY, set_at TIMESTAMP)");
+            try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM app_flags WHERE name = '" + NO_DEMO_DATA_FLAG + "'")) {
+                return rs.next() && rs.getLong(1) > 0;
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [SEED] could not read the fresh-start flag: " + e.getMessage());
+            return false;
+        }
     }
 
     // fix196: DEMO DATA ONLY. The demo projects were made before invoice and contract numbers existed, so every started

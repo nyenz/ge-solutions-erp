@@ -41,8 +41,8 @@ const settingsService = {
      * DANGER ZONE: wipe all business data (Admin only). Needs the typed phrase AND the Admin's own key (14.4f).
      * Staff accounts and the audit trail are kept.
      */
-    wipeAllData: (password) =>
-        api.post('/admin/system/wipe-all-data', { password }, { params: { confirm: 'WIPE-EVERYTHING' }, timeout: 180000 })
+    wipeAllData: (password, freshStart = false) =>
+        api.post('/admin/system/wipe-all-data', { password, freshStart: !!freshStart }, { params: { confirm: 'WIPE-EVERYTHING' }, timeout: 180000 })
             .then(r => r.data).catch(fail),
 };
 

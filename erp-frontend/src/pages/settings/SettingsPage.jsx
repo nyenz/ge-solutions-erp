@@ -105,6 +105,7 @@ const SettingsPage = () => {
   const [resetFor, setResetFor] = useState(null);    // the person whose key is about to be reset (14.3d)
   const [wipeText, setWipeText] = useState('');
   const [wipeKey, setWipeKey] = useState('');
+  const [wipeFresh, setWipeFresh] = useState(false);   // fix198: FRESH START (also clears the audit trail)
   const [wiping, setWiping] = useState(false);
   const [wipeResult, setWipeResult] = useState(null);
   const [deleted, setDeleted] = useState(null); const [delLoading, setDelLoading] = useState(false); const [delError, setDelError] = useState('');
@@ -186,12 +187,12 @@ const SettingsPage = () => {
   const wipe = async () => {
     setWiping(true);
     try {
-      const r = await settingsService.wipeAllData(wipeKey);
+      const r = await settingsService.wipeAllData(wipeKey, wipeFresh);
       setWipeResult(r);              // 14.4e: a result box with what was deleted
       setOps(null); setDeleted(null); // the local lists are stale now
     }
     catch (e) { toast(e.message, 'error'); }
-    finally { setWiping(false); setWipeText(''); setWipeKey(''); }
+    finally { setWiping(false); setWipeText(''); setWipeKey(''); setWipeFresh(false); }
   };
   const restore = async (p, force = false) => {
     try {
@@ -429,7 +430,10 @@ const SettingsPage = () => {
                     <span> Deleted: {Object.entries(wipeResult.deleted || {}).map(([k, v]) => `${v} ${k}`).join(', ') || 'nothing'}.</span>
                     <span> Files deleted: {wipeResult.filesDeleted ?? 0}.</span>
                     {Number(wipeResult.filesFailed) > 0 && <span className={styles.ruleBad}> {wipeResult.filesFailed} files could NOT be deleted. Check the Cloudinary dashboard.</span>}
-                    <span> Staff accounts and the audit trail were kept.</span>
+                    <span>{wipeResult.auditCleared
+                      ? ` Fresh start: the audit trail was cleared (${wipeResult.auditLinesCleared ?? 0} older lines) and the demo data is switched off. Real staff accounts were kept.`
+                      : ' Staff accounts and the audit trail were kept.'}</span>
+                    {wipeResult.freshStart && !wipeResult.auditCleared && <span className={styles.ruleBad}> The audit trail could NOT be cleared.</span>}
                   </div>
                 )}
                 <div className={styles.wipeField}>
@@ -439,8 +443,13 @@ const SettingsPage = () => {
                   {/* fix181 (14.4f): the Admin's own key, checked on the server */}
                   <HardwareInput id="wipe-key" name="current-password" autoComplete="current-password" label="YOUR KEY" type="password" value={wipeKey} onChange={e => setWipeKey(e.target.value)} />
                 </div>
+                {/* fix198: FRESH START -- for the time before real data goes in */}
+                <label className={styles.wipeFresh} htmlFor="wipe-fresh">
+                  <input id="wipe-fresh" type="checkbox" checked={wipeFresh} onChange={e => setWipeFresh(e.target.checked)} disabled={wiping} />
+                  <span><strong>FRESH START.</strong> Also clear the whole audit trail, remove the demo staff accounts and keep the demo data away for good. Only for the time before real data goes in.</span>
+                </label>
                 <button type="button" className={styles.wipeBtn} disabled={wipeText !== 'WIPE-EVERYTHING' || !wipeKey || wiping} onClick={wipe}>
-                  <FiTrash2 aria-hidden="true" /> {wiping ? 'WIPING...' : 'WIPE ALL BUSINESS DATA'}
+                  <FiTrash2 aria-hidden="true" /> {wiping ? 'WIPING...' : wipeFresh ? 'FRESH START: WIPE EVERYTHING' : 'WIPE ALL BUSINESS DATA'}
                 </button>
               </>
             )}
