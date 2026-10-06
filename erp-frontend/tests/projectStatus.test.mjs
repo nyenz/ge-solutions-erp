@@ -81,3 +81,16 @@ test('every stage except the first takes documents', () => {
     assert.equal(stageTakesDocuments([], 0), false);
     assert.equal(stageTakesDocuments([], 1), true);
 });
+
+// fix196 + fix197: the two special stages and the project numbers
+test('the Invoice / Contract stage, the Titled stage and "has both numbers" are recognised', async () => {
+    const { isInvoiceContractStage, isTitledStage, hasNumbers } = await import('../src/utils/projectStatus.js');
+    assert.equal(isInvoiceContractStage({ statusName: 'Invoice / Contract Number' }), true);
+    assert.equal(isInvoiceContractStage({ statusName: 'Progressive Invoice' }), false);
+    assert.equal(isTitledStage({ statusName: ' Titled ' }), true);
+    assert.equal(isTitledStage({ name: 'Title Registration' }), true);
+    assert.equal(isTitledStage({ statusName: 'Deed Plan' }), false);
+    assert.equal(hasNumbers({ invoiceNumber: 'INV 1', contractNumber: 'C-9' }), true);
+    assert.equal(hasNumbers({ invoiceNumber: 'INV 1', contractNumber: '  ' }), false);
+    assert.equal(hasNumbers(null), false);
+});

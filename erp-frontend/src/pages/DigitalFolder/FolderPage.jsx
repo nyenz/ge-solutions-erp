@@ -14,7 +14,7 @@ import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestValues } from '../../utils/entryMemory';
-import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments, hasNumbers, isInvoiceContractStage } from '../../utils/projectStatus';
+import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments, hasNumbers, isInvoiceContractStage, isTitledStage } from '../../utils/projectStatus';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
     FiUploadCloud, FiFileText, FiClock,
@@ -197,7 +197,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
 // fix193: canTick = may tick / untick (Secretary and above); canEdit = may also add stages (Manager and above, in EDIT)
 // fix196: needsNumbers = the project has no invoice / contract number yet; onNumbers(stage) opens the numbers popup;
 // reloadKey changes when the numbers were saved (the server ticks the Invoice / Contract stage by itself)
-const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, reloadKey = 0, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
+const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, needsTitle = false, onTitled, reloadKey = 0, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
@@ -243,6 +243,8 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumb
         if (toggling || !canTick) return;   // fix166: a double click used to send two ticks and flip the status back
         // fix196: the Invoice / Contract stage is ticked by SAVING the two numbers, never by hand without them
         if (!statusDone(status) && isInvoiceContractStage(status) && needsNumbers) { if (onNumbers) onNumbers(status); return; }
+        // fix197: "Titled" is ticked TOGETHER with the Title Details when the project has none yet (a Fresh Survey)
+        if (!statusDone(status) && isTitledStage(status) && needsTitle) { if (onTitled) onTitled(status); return; }
         setToggling(true);
         const next = !statusDone(status);
         try {
@@ -391,6 +393,10 @@ const FolderPage = () => {
     const [numErr, setNumErr] = useState('');
     const [numSaving, setNumSaving] = useState(false);
     const [stagesReload, setStagesReload] = useState(0);
+    // fix197: the Title Details popup of the "Titled" stage (a project that has no title yet)
+    const [titleModal, setTitleModal] = useState(null);
+    const [titleErr, setTitleErr] = useState('');
+    const [titleSaving, setTitleSaving] = useState(false);
     const [liveStages, setLiveStages] = useState(null);   // fix185: the stage list as the checklist has it now (null = not loaded yet)
     const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
@@ -708,6 +714,24 @@ const FolderPage = () => {
         setPayReceipt(ok[0].file); setPayReceiptNote(ok[0].note);
     };
     const attachToStatus = (status) => { setAttachTo(status); fileInputRef.current?.click(); };
+    // fix197: ticking "Titled" on a project with no title opens this; the details and the tick are saved together
+    const openTitled = (stage) => { setTitleErr(''); setTitleModal({ stage, plotNumber: '', block: '', areaHectares: '', tenure: 'FREEHOLD', volume: '', folio: '', titleIssueDate: '' }); };
+    const saveTitled = async () => {
+        if (!titleModal || titleSaving) return;
+        const m = titleModal;
+        if (!m.plotNumber.trim()) { setTitleErr('PLOT NUMBER IS REQUIRED.'); return; }
+        if (!m.block.trim()) { setTitleErr('BLOCK IS REQUIRED.'); return; }
+        if (!(Number(m.areaHectares) > 0)) { setTitleErr('AREA (HECTARES) MUST BE MORE THAN 0.'); return; }
+        if (!m.titleIssueDate) { setTitleErr('TITLE DATE IS REQUIRED.'); return; }
+        setTitleSaving(true); setTitleErr('');
+        try {
+            await statusTemplateService.completeTitledStage(id, m.stage.id, { plotNumber: m.plotNumber.trim(), block: m.block.trim(),
+                areaHectares: Number(m.areaHectares), tenure: m.tenure, volume: m.volume.trim() || null, folio: m.folio.trim() || null, titleIssueDate: m.titleIssueDate });
+            setTitleModal(null); toast('Title Details saved. "Titled" is ticked.', 'success');
+            await loadFolderData(); setStagesReload(n => n + 1);
+        } catch (err) { setTitleErr(errText(err)); }
+        finally { setTitleSaving(false); }
+    };
     // fix196: the two numbers of the project. Opened from the page head or from the Invoice / Contract stage.
     const openNumbers = (stage = null) => {
         const pr = binder && binder.project;
@@ -1118,6 +1142,7 @@ const FolderPage = () => {
                             canEdit={canEdit && isEditing && !isReleased}
                             canTick={!isReleased && !isDeleted && (flags.isSecretary || (canEdit && isEditing))}
                             needsNumbers={!hasNumbers(project)} onNumbers={openNumbers} reloadKey={stagesReload}
+                            needsTitle={!project.landTitle} onTitled={openTitled}
                             canRemove={isDirector && !isDeleted && isEditing && !isReleased}
                             toast={toast} confirm={confirm}
                             docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
@@ -1481,6 +1506,35 @@ const FolderPage = () => {
                 <div className={modalStyles.modalFooter}>
                     <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave} disabled={noteBusy}><FiSave aria-hidden="true" /> {noteBusy ? 'SAVING...' : 'SAVE NOTE'}</button>
                 </div>
+            </HardwareModal>
+            {/* fix197: Title Details asked for when "Titled" is ticked on a project that has none (a Fresh Survey) */}
+            <HardwareModal isOpen={!!titleModal} lockBackdrop onClose={() => { if (!titleSaving) setTitleModal(null); }} title="TITLE DETAILS">
+                {titleModal && (<>
+                    <div className={modalStyles.modalInfoBox}>The title now exists, so type its details. "Titled" is ticked only when they are saved. After that, when everything is paid, the title can be handed over.</div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-plot">PLOT NUMBER</label>
+                        <input id="tt-plot" type="text" className={modalStyles.modalInput} value={titleModal.plotNumber} maxLength={100} autoComplete="off" autoFocus
+                            onChange={e => { setTitleModal(m => ({ ...m, plotNumber: e.target.value })); if (titleErr) setTitleErr(''); }} /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-block">BLOCK</label>
+                        <input id="tt-block" type="text" className={modalStyles.modalInput} value={titleModal.block} maxLength={100} autoComplete="off"
+                            onChange={e => { setTitleModal(m => ({ ...m, block: e.target.value })); if (titleErr) setTitleErr(''); }} /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-area">AREA (HECTARES)</label>
+                        <input id="tt-area" type="text" inputMode="decimal" className={modalStyles.modalInput} value={titleModal.areaHectares} autoComplete="off"
+                            onChange={e => { setTitleModal(m => ({ ...m, areaHectares: e.target.value.replace(/[^0-9.]/g, '') })); if (titleErr) setTitleErr(''); }} /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>TENURE</label>
+                        <HardwareModalSelect value={titleModal.tenure} options={['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'].map(t => ({ value: t, label: t }))} onChange={v => setTitleModal(m => ({ ...m, tenure: v }))} placeholder="Choose the tenure" ariaLabel="Tenure" /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-vol">VOLUME (OPTIONAL)</label>
+                        <input id="tt-vol" type="text" className={modalStyles.modalInput} value={titleModal.volume} maxLength={60} autoComplete="off"
+                            onChange={e => setTitleModal(m => ({ ...m, volume: e.target.value }))} /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-folio">FOLIO (OPTIONAL)</label>
+                        <input id="tt-folio" type="text" className={modalStyles.modalInput} value={titleModal.folio} maxLength={60} autoComplete="off"
+                            onChange={e => setTitleModal(m => ({ ...m, folio: e.target.value }))} /></div>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>TITLE DATE</label>
+                        <HardwareDatePicker block value={titleModal.titleIssueDate} max={localISO()} onChange={v => { setTitleModal(m => ({ ...m, titleIssueDate: v })); if (titleErr) setTitleErr(''); }} ariaLabel="Title date" /></div>
+                    <ModalError text={titleErr} />
+                    <div className={modalStyles.modalFooter}>
+                        <HardwareButton type="button" onClick={saveTitled} loading={titleSaving} icon={FiCheckCircle}>SAVE AND TICK TITLED</HardwareButton>
+                    </div>
+                </>)}
             </HardwareModal>
             {/* fix196: invoice number + contract number. One way out (the X) and one action. */}
             <HardwareModal isOpen={!!numModal} lockBackdrop onClose={() => { if (!numSaving) setNumModal(null); }} title="INVOICE AND CONTRACT NUMBERS">
