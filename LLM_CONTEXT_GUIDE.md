@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -1235,6 +1235,58 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 - Backups: about EUR 4-10 a month.
 - **Total: about $20-30 a month.**
 - Disk size is a GUESS (80-400 GB, assuming 20-100 MB of uploads per project). Ask David for the real average upload size per project before choosing the disk.
+*SUPERSEDED by 18.3a (October 2026): the prices above are out of date and the disk guess is replaced.*
+
+### 18.3a Cost plan, October 2026 (PLANNING ONLY -- nothing bought, nothing set up)
+**David said on 6 October 2026: keep the move PENDING. Do not start anything.** This section is only a plan on paper.
+
+**How much disk?**
+- 3000 titles x about 15 files x about 1.5 MB = about 70 GB. Small case 18 GB. Raw-phone-photo case 240 GB. Database about 1 GB.
+- Since fix186 big phone photos are shrunk before upload (11 MB -> about 1.3 MB), so the raw-photo case is now unlikely for NEW uploads.
+- **Plan a 100 GB disk.** Start with less and grow. Check again when David knows real file sizes.
+
+**WARNING found while checking prices (not on hetzner.com itself -- that site could not be opened by the tool):**
+- Hetzner raised prices on 1 April 2026 and again on 15 June 2026.
+- Several third-party pages (September 2026) say the CHEAP Hetzner servers (CX and CAX) cannot be ordered at the moment ("not available"), with no date for when they come back. If that is still true, the cheapest server you can order there costs about EUR 12-20 a month, which breaks the budget.
+- So: **open hetzner.com WITH David before paying anything and see what can really be ordered.**
+
+**Prices (all WITHOUT VAT; a Uganda address is normally not charged EU VAT, but check at checkout):**
+
+| Option | What you get | Per month | Per year | Source |
+|---|---|---|---|---|
+| Hetzner CX23 (IF it can be ordered) | 2 CPU, 4 GB RAM, 40 GB disk | EUR 5.49 + EUR 0.50 for the IPv4 address | about EUR 72 | Hetzner price-adjustment page (docs.hetzner.com), costgoat.com |
+| Hetzner CX33 (IF it can be ordered) | 4 CPU, 8 GB RAM, 80 GB disk | EUR 8.49 + EUR 0.50 | about EUR 108 | same |
+| Hetzner extra disk (Volume) | per GB | EUR 0.0572 per GB (100 GB = EUR 5.72) | 100 GB = about EUR 69 | costgoat.com |
+| Hetzner automatic backups | of the SERVER disk only, not of a Volume | 20% of the server price | CX23: about EUR 13 | costgoat.com |
+| Netcup VPS 500 | 2 CPU, 4 GB RAM, 64 GB disk | EUR 6.94 (12-month deal), EUR 7.98 (month by month) | about EUR 83 | netcupvoucher.com price list, 23 Sep 2026 |
+| Netcup extra disk | per GB | EUR 0.012 per GB (100 GB = EUR 1.20) | 100 GB = about EUR 14 | same |
+| Contabo Cloud VPS 10 | 4 CPU, 8 GB RAM, 75 GB disk | about USD 4.95 (January 2026 figure, may have changed) | about USD 60 | affinco.com |
+| Contabo object storage | 250 GB | about USD 2.99 | about USD 36 | same |
+
+- Hetzner has no free plan and no yearly billing (monthly bill; hourly billing is capped at the monthly price).
+- **Hetzner total if the cheap servers CAN be ordered:** CX23 + IPv4 + 100 GB Volume + backups = about EUR 12.80 a month = **about EUR 155 a year**. With only 50 GB of extra disk at first: about EUR 120 a year. CX33 instead of CX23: about EUR 200 a year (over the budget).
+- **David's budget is about USD 200 a year.** CX23 fits. CX33 with 100 GB does not.
+- 4 GB of RAM is enough for this app (Java server + PostgreSQL + the website) with a small staff. Move up only if it is slow.
+
+**Other cheap options, and what is risky about each**
+- **Netcup (Germany):** cheapest disk by far. Risk: a 12-month deal is needed for the low price, the price list changed in September 2026 (+40% for new orders), support is slower and mostly German-first.
+- **Contabo:** most hardware for the money. Risk: servers are shared more heavily (it can be slow at busy times), and the price here is from January 2026 and was not re-checked.
+- **DigitalOcean:** simple and reliable, but about USD 24 a month for 4 GB RAM plus about USD 10 for 100 GB (figures from memory, NOT re-checked today). Over the budget.
+- **Oracle Cloud "Always Free":** free server and 200 GB disk. Risk: Oracle cut the free server in half in 2026 without a clear announcement, new servers are often "out of capacity", and a free account has no promise of staying. Not safe for a company's only copy of client records.
+- **Staying on Render + Neon + Cloudinary free plans:** costs nothing. Risk: the server sleeps, the free database and file limits are small, and three separate free services can each change their rules. Fine for demo data, not for real client data.
+
+**Recommendation (for David to decide later)**
+1. First choice stays **Hetzner CX23 + a 50 GB Volume, grown to 100 GB when needed** -- IF it can be ordered when David looks. About EUR 120-155 a year.
+2. If the cheap Hetzner servers still cannot be ordered: **Netcup VPS 500 with 100 GB of extra disk**, about EUR 97 a year on the 12-month deal. Same setup steps (18.5), same Docker files.
+3. Whatever is chosen: backups copied to the office every week (18.6) matter more than which company it is.
+
+**Domain**
+- ONE domain gives unlimited sub-addresses for free (erp.mydomain.com, site1.mydomain.com). Do not buy bundles.
+- A `.com`: Cloudflare about USD 10.44 a year, Porkbun about USD 10.99 a year; the renewal price is the same as the first year at both (source: domaindetails.com, 2026). Five years at once: about USD 52-55. (The September figures in David's notes, USD 9.77 / 10.99, were a little lower for Cloudflare.)
+- Uganda names: `.co.ug` is about USD 30 a year at the cheapest registrar found (Truehost; source: domnest.com). A bare `.ug` price was not found. They cost about three times a `.com`.
+- Until then: a free DuckDNS sub-address, as decided in 18.1.
+
+**What was NOT checked:** hetzner.com itself, VAT at checkout, whether David's card works there, today's Contabo and DigitalOcean prices, a bare `.ug` price.
 
 ### 18.4 DO THIS FIRST (open items)
 - A. **Reset the Neon database password and make the GitHub repo private -- BEFORE real client data goes in.** David chose to leave this for now because the app only holds fake data. render.yaml in the repo contains the password in plain text and the repo is public; the old password stays in git history, so resetting is the only real fix. Then put the new password only in the host's environment settings, never in a file in the repo.
