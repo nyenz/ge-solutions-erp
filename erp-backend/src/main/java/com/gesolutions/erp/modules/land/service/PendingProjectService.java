@@ -53,6 +53,7 @@ public class PendingProjectService {
     public static final int RESULT_DAYS = 30;
 
     private final LandService landService;
+    private final com.gesolutions.erp.modules.client.service.ClientService clientService;   // fix194
     private final LandProjectRepository projectRepository;
     private final ProjectNeighborRepository neighborRepository;
     private final UserRepository userRepository;
@@ -290,9 +291,14 @@ public class PendingProjectService {
         return b.build();
     }
 
-    private static List<PendingProjectDTO.Person> people(Set<Client> cs) {
+    // fix194 (review S01): an Employee gets the name and National ID they typed, but never the phone, email or address
+    // of a client the office already has (ClientService.contactsLockedForCaller)
+    private List<PendingProjectDTO.Person> people(Set<Client> cs) {
         if (cs == null) return List.of();
-        return cs.stream().map(c -> new PendingProjectDTO.Person(c.getId(), c.getFullName(), c.getPhoneNumber(),
-                c.getNationalId(), c.getEmail(), c.getHomeAddress())).sorted(Comparator.comparing(PendingProjectDTO.Person::fullName)).toList();
+        return cs.stream().map(c -> {
+            boolean hide = clientService.contactsLockedForCaller(c);
+            return new PendingProjectDTO.Person(c.getId(), c.getFullName(), hide ? null : c.getPhoneNumber(),
+                c.getNationalId(), hide ? null : c.getEmail(), hide ? null : c.getHomeAddress());
+        }).sorted(Comparator.comparing(PendingProjectDTO.Person::fullName)).toList();
     }
 }

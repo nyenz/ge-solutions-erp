@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Last change: fix193. Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix194. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -45,7 +45,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 
 | ID | Where | What is wrong | How bad | Sure? | Screenshot |
 |---|---|---|---|---|---|
-| S01 | Server: saving a project entry (`LandService` person rows, `PendingProjectService`) | An **Employee** who types a National ID and name that match a client already in the system gets that client's phone, email and home address back in the answer. The Employee's entry can also **replace** that client's phone, email and address. A Secretary is blocked from doing this on the client page, so the lowest rank can do more than a higher one. | high | likely | code |
+| S01 | Server: saving a project entry (`LandService` person rows, `PendingProjectService`) | An **Employee** who types a National ID and name that match a client already in the system gets that client's phone, email and home address back in the answer. The Employee's entry can also **replace** that client's phone, email and address. A Secretary is blocked from doing this on the client page, so the lowest rank can do more than a higher one. **FIXED in fix194.** | high | likely | code |
 | S02 | Server: file storage (`CloudinaryStorageServiceImpl`) | Every uploaded file (title scan, receipt, ID copy) is stored as a **public link**. Anyone who has the link can open the file without signing in, for ever, even after the staff account is switched off or the project is deleted. | high | sure | code |
 | S03 | Server: New Project and Pending uploads | The file-type check is **skipped** for files uploaded with a new project. Any kind of file is accepted, up to 50 MB each. (The Folder upload does check.) | high | sure | code |
 | S04 | Server: `application.properties` | The repo holds **fallback values** for the token secret, the database password and the first admin password. If a setting is missing on the host, the server starts quietly with those known values. (The values are not repeated here.) | high if a setting is missing | sure about code; Render not seen | code |
@@ -64,7 +64,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | S09 | Server: the yearly move to Receivables | The automatic job skips every project that has no Title Details (Fresh Survey, Special Projects...). They never go to Receivables by themselves. | medium | sure about code; maybe meant | code |
 | S10 | Server: Recovery "answered call" | No guard against a double tap. Two taps count as two good calls and the client is rested for 30 days. | medium | sure | code |
 | S11 | Server: Expenses | A Manager is meant to see the last 24 hours. The server lets a Manager ask for any number of hours, so the whole history can be read. | medium | sure | code |
-| S12 | Server: audit | Changing a client's phone, email or address through a project edit writes **no audit line**. The same change on the client page does. | medium | sure | code |
+| S12 | Server: audit | Changing a client's phone, email or address through a project edit writes **no audit line**. The same change on the client page does. **FIXED in fix194.** | medium | sure | code |
 | S13 | Server: audit | A stage price change is audited **without the numbers** (no old price, no new price). A price below zero is accepted. | medium | sure | code |
 | S14 | Server: New Project | The server accepts an office project with total cost 0. Only the page stops it. Such a project is not Pending and not in Recovery. | medium | sure | code |
 | S15 | Server: checks on typed text | A name made of spaces is saved. Text that is too long fails with a wrong message ("Active data links found"). The National ID has no shape check. | medium | sure | code |
@@ -189,6 +189,7 @@ this matters before real client data goes in.
 | fix191 | GitHub checks (Q1 = A): server tests and page checks run by themselves on every pull request. |
 | fix192 | Gentle movement on every tab and filter bar: the orange pill slides to the picked tab and the content fades in. David's answers to Q1-Q10 written into section 5. |
 | fix193 | Q3 = B: the Secretary can tick and untick any stage (no EDIT button needed) and can correct a client's phone number (EDIT PHONE on the client page). Fixes P09 and S19. First server change checked by GitHub. |
+| fix194 | S01: an Employee no longer gets back, and can no longer replace, the phone, email and address of a client the office already has. S12: a contact change made through a project edit now writes an audit line with the old and new values. |
 
 ---
 
@@ -213,7 +214,6 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 
 | Rank | Item | Size |
 |---|---|---|
-| 1 | S01 Employee must not read or change an existing client's contacts | medium |
 | 2 | S03 file-type check on new-project uploads | small |
 | 3 | S04 + S05 refuse to start with fallback secrets or without storage settings (when not in demo mode) | small |
 | 4 | Invoice number + contract number: stored, unique, needed together with the prices to leave Pending, correctable by every rank but Employee, audited (David's Task C) | big |

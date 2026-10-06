@@ -752,8 +752,33 @@ public class LandService {
             throw new BusinessException("NIN_REQUIRED: " + what + " \"" + o.getFullName() + "\" is missing a National ID (NIN).");
         }
         Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
-        if (o.getAddress() != null && !o.getAddress().isBlank()) c.setHomeAddress(o.getAddress());
+        // fix194 (review S01): an Employee never changes the contacts of a client the office already has
+        if (o.getAddress() != null && !o.getAddress().isBlank() && !clientService.contactsLockedForCaller(c)) c.setHomeAddress(o.getAddress());
         return c;
+    }
+
+    private static String contactLine(Client c) {
+        return "phone " + c.getPhoneNumber() + ", email " + c.getEmail() + ", address " + c.getHomeAddress();
+    }
+
+    /**
+     * fix194 (review S01, S12): the phone, email and address typed on a project edit go onto the person -- unless the
+     * signed-in person may not change them (ClientService.contactsLockedForCaller). A real change to a person who
+     * already existed writes a CLIENT_UPDATED audit line with the old and the new values, like the client page does.
+     */
+    private void applyContacts(Client person, LandEntryRequest.OwnerRequest incoming, boolean addressFromForm) {
+        if (clientService.contactsLockedForCaller(person)) return;
+        String before = contactLine(person);
+        person.setEmail(incoming.getEmail() != null ? incoming.getEmail().toLowerCase() : null);
+        if (addressFromForm) person.setHomeAddress(incoming.getAddress());
+        if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
+            person.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(incoming.getPhone()));
+        }
+        String after = contactLine(person);
+        if (!person.isFreshlyCreated() && !before.equals(after)) {
+            auditService.logActionAfterCommit("CLIENT_UPDATED", "Client " + person.getId() + " (NIN " + person.getNationalId()
+                    + ") changed through a project edit. Old: " + before + " -> New: " + after);
+        }
     }
 
     private static String blankToNull(String v) {
@@ -982,12 +1007,7 @@ public class LandService {
                 // changes via the explicit mismatch-confirmation flow).
                 Client person = clientService.findOrCreateClientByNin(
                         incoming.getFullName(), incoming.getNationalId(), incoming.getPhone(), incoming.getEmail());
-                person.setEmail(incoming.getEmail() != null
-                        ? incoming.getEmail().toLowerCase() : null);
-                person.setHomeAddress(incoming.getAddress());
-                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
-                    person.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(incoming.getPhone()));
-                }
+                applyContacts(person, incoming, true);
                 clientRepository.save(person);
                 updatedRegistry.add(person);
             }
@@ -999,10 +1019,7 @@ public class LandService {
             Set<Client> updatedClients = new HashSet<>();
             for (LandEntryRequest.OwnerRequest incoming : request.getClients()) {
                 Client person = personFromRow(incoming, "Client");
-                person.setEmail(incoming.getEmail() != null ? incoming.getEmail().toLowerCase() : null);
-                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
-                    person.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(incoming.getPhone()));
-                }
+                applyContacts(person, incoming, false);
                 clientRepository.save(person);
                 updatedClients.add(person);
             }

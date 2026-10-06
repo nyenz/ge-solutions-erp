@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix194: an Employee cannot read or change an existing client's contacts; fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -192,6 +192,18 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - *Light* (pictures inside the PDF are re-saved at 300 dpi): Ghostscript can do it. Typical saving on phone-scanned PDFs: about 30-60%, with a small quality loss. Never use it on a digitally SIGNED PDF (the signature breaks).
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
+
+### AN EMPLOYEE AND A CLIENT'S CONTACT DETAILS (fix194, review S01 + S12)
+
+- ONE RULE, ONE PLACE: `ClientService.contactsLockedForCaller(client)`.
+  - Not an Employee -> never locked.
+  - An Employee -> locked, UNLESS the person was created in this same request (`Client.freshlyCreated`, a field that is
+    never stored) or EVERY project of that person is one of this Employee's own Pending entries.
+- Locked means: (1) the Pending answer (`PendingProjectService.people`) sends the name and National ID but NO phone,
+  email or address; (2) `LandService.personFromRow` / `applyContacts` leave the stored phone, email and address alone.
+- `LandService.applyContacts` is the only place a project edit writes a person's contacts. When an office edit really
+  changes them it writes a `CLIENT_UPDATED` audit line with the old and the new values.
+- Test: `PendingWorkflowTest.anEmployeeCannotReadOrChangeAnExistingClientsContacts`.
 
 ### WHAT THE SECRETARY MAY DO (fix193, David's answer Q3 = B)
 
