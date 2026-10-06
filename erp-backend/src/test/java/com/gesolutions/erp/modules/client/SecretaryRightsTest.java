@@ -78,7 +78,7 @@ public class SecretaryRightsTest {
     private Map<String, String> edit() {
         Map<String, String> body = new HashMap<>();
         body.put("fullName", "Changed Name");
-        body.put("phoneNumber", "0772345678");
+        body.put("phoneNumber", "0772405913");
         body.put("email", "new@t.co");
         body.put("homeAddress", "New address");
         return body;
@@ -114,7 +114,7 @@ public class SecretaryRightsTest {
         clientController.updateClient(c.getId(), edit());
         Client after = clients.findById(c.getId()).orElseThrow();
         assertNotEquals(oldPhone, after.getPhoneNumber(), "the phone number is corrected");
-        assertTrue(after.getPhoneNumber().contains("772345678"));
+        assertTrue(after.getPhoneNumber().contains("772405913"));
         assertEquals(c.getFullName(), after.getFullName(), "the name stays");
         assertEquals("old@t.co", after.getEmail(), "the email stays");
         assertEquals("Old address", after.getHomeAddress(), "the address stays");
