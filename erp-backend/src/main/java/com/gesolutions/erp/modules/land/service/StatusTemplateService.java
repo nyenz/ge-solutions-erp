@@ -213,6 +213,9 @@ public class StatusTemplateService {
             throw new BusinessException("STATUS_ADD_DENIED: Only an Admin, Manager or Director can add a status.");
         }
         int startOrder = projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(projectId).size();
+        // fix197: a stage list sent with a new project cannot arrive with "Titled" already ticked when there is no title
+        LandProject fix197Project = projectRepository.findById(projectId).orElse(null);
+        boolean fix197NoTitle = fix197Project != null && fix197Project.getLandTitle() == null;
         java.util.List<ProjectStatus> created = new java.util.ArrayList<>();
         int i = 0;
         for (ProjectStatusRequest req : requests) {
@@ -231,11 +234,12 @@ public class StatusTemplateService {
                 cost = req.getCost() != null ? req.getCost() : template.getDefaultCost();
             }
             // fix167: a status ticked on New Project arrives ticked, with when and by whom
+            boolean done = req.isCompleted() && !(fix197NoTitle && LandService.isTitledStatus(name));
             created.add(projectStatusRepository.save(ProjectStatus.builder()
                     .projectId(projectId).statusName(name).cost(cost).notes(req.getNotes())
-                    .isCustom(req.isCustom()).isCompleted(req.isCompleted())
-                    .completedAt(req.isCompleted() ? LocalDateTime.now() : null)
-                    .completedBy(req.isCompleted() ? getCurrentOperator() : null)
+                    .isCustom(req.isCustom()).isCompleted(done)
+                    .completedAt(done ? LocalDateTime.now() : null)
+                    .completedBy(done ? getCurrentOperator() : null)
                     .displayOrder(startOrder + (i++))
                     .build()));
         }
@@ -293,6 +297,14 @@ public class StatusTemplateService {
             LandProject project = projectRepository.findById(status.getProjectId()).orElse(null);
             if (project != null && !ProjectNumbersService.hasBoth(project)) {
                 throw new BusinessException("NUMBERS_REQUIRED: Enter the invoice number and the contract number first. This stage is ticked by itself when they are saved.");
+            }
+        }
+        // fix197 (David, Q4): the "Titled" stage is never ticked on a project without Title Details. The folder page asks
+        // for them and sends both together (TitledStageService.completeTitled).
+        if (completed && LandService.isTitledStatus(status.getStatusName())) {
+            LandProject project = projectRepository.findById(status.getProjectId()).orElse(null);
+            if (project != null && project.getLandTitle() == null) {
+                throw new BusinessException("TITLE_DETAILS_REQUIRED: Enter the Title Details (plot number, block, area, title date) to tick \"Titled\".");
             }
         }
         status.setCompleted(completed);
