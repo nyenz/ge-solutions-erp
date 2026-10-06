@@ -26,7 +26,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         { path: '/dashboard',     label: 'DASHBOARD',   icon: <FiGrid         aria-hidden="true" />, access: flags.isStaff,       hint: 'Company-wide numbers at a glance' },
         { path: '/land/new',      label: 'NEW PROJECT', icon: <FiPlusSquare   aria-hidden="true" />, access: true,                hint: 'Start a new folder, title, or legacy title' },
         { path: '/my-entries',    label: 'MY ENTRIES',  icon: <FiInbox        aria-hidden="true" />, access: flags.isEmployee,    hint: 'The projects you entered, and what the office did with them' },
-        { path: '/land/projects', label: 'LEDGER',      icon: <FiLayers       aria-hidden="true" />, access: flags.isStaff,       hint: 'Every project, searchable by status, client and debt' },
+        { path: '/land/projects', label: 'LEDGER',      icon: <FiLayers       aria-hidden="true" />, access: flags.isStaff,       hint: 'Every project, searchable by stage, client and debt' },
         { path: '/recovery',      label: 'RECOVERY',    icon: <FiPhoneCall    aria-hidden="true" />, access: flags.isStaff,       hint: 'Who to call about money owed, and who is due today' },
         { path: '/clients',       label: 'CLIENTS',     icon: <FiUsers        aria-hidden="true" />, access: flags.isStaff,       hint: 'Client register and full dossiers' },
         { path: '/payments',      label: 'PAYMENTS',    icon: <FiDollarSign   aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Every payment received, across all projects' },

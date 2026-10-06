@@ -15,6 +15,9 @@ export const GLOSSARY = {
     LEGACY: 'Triggered automatically after 365 days with no payment, or set manually by an admin.',
     STORAGE_FEE: 'The monthly storage fee (the system default unless the project has its own rate), added every 30 days. The 30-day clock only starts once the work becomes Legacy.',
     TWO_FOURTEEN: 'The 2-14 rule: at most 2 calls per client per month, and at least 14 days between calls.',
+    // fix184: the two words that were mixed up. The full list of statuses and their explainers is utils/projectStatus.js
+    STAGE: 'A stage is ONE step of a project\'s checklist (Field Measurement, Invoice / Contract Number ... Titled). Staff tick the stages one by one.',
+    STATUS: 'The status is the overall state of the whole project: PENDING, ACTIVE, RECEIVABLES or HANDED OVER. A project has one status at a time.',
     NIN: 'National ID Number. This is what makes an owner unique in the system -- not their phone number.',
 };
 

@@ -23,6 +23,7 @@ import clientService from '../../services/clientService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import CornerDecor from '../../components/ui/CornerDecor';
+import { PROJECT_STATUS } from '../../utils/projectStatus';
 import styles from './ClientPortfolioPage.module.css';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -315,13 +316,15 @@ const ClientPortfolioPage = () => {
                           </td>
                           <td>
                             {/* fix181 (11.8, 6.3, 6.5, 6.8, 6.2): the honest status words, type, Recovery state, the first-month note and subdivision links */}
-                            <span className={`${styles.tag} ${p.receivable ? styles.tagBad : p.released ? styles.tagGood : p.hasTitleDetails ? styles.tagGood : styles.tagWarn}`}>
-                              {p.receivable ? 'RECEIVABLE' : p.released ? 'RELEASED' : p.hasTitleDetails ? 'HAS TITLE DETAILS' : 'FOLDER'}</span>
+                            {/* fix184: the ONE status word first (utils/projectStatus.js); whether title details are saved is a separate quiet line */}
+                            <span className={`${styles.tag} ${p.released ? styles.tagGood : p.receivable ? styles.tagBad : styles.tagNeutral}`}
+                              title={(p.released ? PROJECT_STATUS.HANDED_OVER : p.receivable ? PROJECT_STATUS.RECEIVABLES : PROJECT_STATUS.ACTIVE).tip}>
+                              {(p.released ? PROJECT_STATUS.HANDED_OVER : p.receivable ? PROJECT_STATUS.RECEIVABLES : PROJECT_STATUS.ACTIVE).label}</span>
                             {p.problem && <span className={`${styles.tag} ${styles.tagBad}`}>PROBLEM</span>}
                             {p.critical && <span className={`${styles.tag} ${styles.tagBad}`}>CRITICAL</span>}
                             {p.recoveryState && (<button type="button" className={styles.coChip} title="Open this client in Recovery"
                               onClick={(e) => { e.stopPropagation(); navigate('/recovery?client=' + id); }}>{p.recoveryState}</button>)}
-                            <span className={styles.coLine}>{p.projectTypeLabel || ''}</span>
+                            <span className={styles.coLine}>{p.projectTypeLabel || ''}{p.hasTitleDetails ? ' - has title details' : ' - no title details yet'}</span>
                             {p.recoveryStartsOn && <span className={styles.coLine}>new project - recovery starts {String(p.recoveryStartsOn).slice(0, 10)}</span>}
                             {p.parentProjectId && (<button type="button" className={styles.coChip} onClick={(e) => { e.stopPropagation(); navigate('/folder/' + p.parentProjectId); }}>
                               From #{p.parentProjectIndex || '?'} plot {p.parentSubdivisionNo}</button>)}

@@ -202,3 +202,7 @@
 
 /* fix167: RELEASED is cyan everywhere (attention colours: cyan = released) */
 .tagReleased{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;color:#06b6d4;}
+
+/* fix184: the neutral "waiting" word (PENDING, WAITING FOR PRICES): quiet grey-blue, never green, never red */
+.tagWaiting{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;color:rgba(var(--ink-rgb), 0.62);}
+.statusGroup [title]{cursor:help;}

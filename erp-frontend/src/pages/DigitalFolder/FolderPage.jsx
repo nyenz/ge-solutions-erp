@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import useScrollEdges from '../../hooks/useScrollEdges';
+import { PROJECT_STATUS } from '../../utils/projectStatus';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
     FiUploadCloud, FiFileText, FiClock,
@@ -178,7 +179,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
     </HardwareModal>);
 };
 
-/* STATUS CHECKLIST (fix116/117 Intake mirror, fix167; fix180: was the Stage checklist):
+/* STAGE CHECKLIST (fix116/117 Intake mirror, fix167; fix180: was the Stage checklist):
    - ticks are drawn ORANGE in view mode too (a disabled checkbox was grey and looked unticked)
    - hovering a ticked status says when and by whom; the date shows on the row
    - no auto-tick on opening EDIT (New Project ticks the first status; the tick really arrives)
@@ -199,7 +200,7 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
         try {
             const list = await statusTemplateService.getProjectStatuses(projectId) || [];
             setStatuses(list); setLoadErr('');
-        } catch (err) { setLoadErr('STATUSES COULD NOT BE LOADED: ' + errText(err)); }
+        } catch (err) { setLoadErr('STAGES COULD NOT BE LOADED: ' + errText(err)); }
         finally { setLoading(false); }
     }, [projectId]);
     useEffect(() => { loadStatuses(); }, [loadStatuses]);
@@ -207,12 +208,12 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
     const cancelInsert = () => { setAddingStatus(false); setNewStatusName(''); setInsertAfterId(null); setInsertAfterName(''); };
     const handleAddStatus = async () => {
         const name = newStatusName.trim();
-        if (!name) { toast && toast('Enter a status name first.', 'error'); return; }
-        if (statuses.some(s => (s.statusName || '').toLowerCase() === name.toLowerCase())) { toast && toast('That status is already on the list.', 'error'); return; }
+        if (!name) { toast && toast('Enter a stage name first.', 'error'); return; }
+        if (statuses.some(s => (s.statusName || '').toLowerCase() === name.toLowerCase())) { toast && toast('That stage is already on the list.', 'error'); return; }
         setSaving(true);
         let created;
         try { created = await statusTemplateService.attachStatuses(projectId, [{ statusName: name, cost: 0, isCustom: true }]); }
-        catch (err) { setSaving(false); toast && toast('STATUS NOT ADDED: ' + errText(err), 'error'); return; }
+        catch (err) { setSaving(false); toast && toast('STAGE NOT ADDED: ' + errText(err), 'error'); return; }
         try {
             const createdIds = (created || []).map(c => c.id).filter(Boolean);
             if (createdIds.length && insertAfterId) {
@@ -221,8 +222,8 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
                 const ordered = idx >= 0 ? [...currentIds.slice(0, idx + 1), ...createdIds, ...currentIds.slice(idx + 1)] : [...currentIds, ...createdIds];
                 await statusTemplateService.reorderProjectStatuses(projectId, ordered);
             }
-            toast && toast('Status inserted.', 'success');
-        } catch (err) { toast && toast('Status added, but at the END of the list (moving it failed: ' + errText(err) + ').', 'warn', 12000); }
+            toast && toast('Stage inserted.', 'success');
+        } catch (err) { toast && toast('Stage added, but at the END of the list (moving it failed: ' + errText(err) + ').', 'warn', 12000); }
         finally { await loadStatuses(); cancelInsert(); setSaving(false); }
     };
     const handleToggleComplete = async (status) => {
@@ -232,19 +233,19 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
         try {
             await statusTemplateService.toggleStatusCompletion(projectId, status.id, next);
             await loadStatuses();
-        } catch (err) { await loadStatuses(); toast && toast('STATUS NOT UPDATED: ' + errText(err), 'error'); }
+        } catch (err) { await loadStatuses(); toast && toast('STAGE NOT UPDATED: ' + errText(err), 'error'); }
         finally { setToggling(false); }
     };
     const handleRemove = async (status) => {
-        const ok = confirm ? await confirm('REMOVE STATUS', 'Remove "' + status.statusName + '" from this project? Its tick goes with it (its documents stay in Documents). The audit log keeps a record.', 'danger', 'REMOVE STATUS') : true;
+        const ok = confirm ? await confirm('REMOVE STAGE', 'Remove "' + status.statusName + '" from this project? Its tick goes with it (its documents stay in Documents). The audit log keeps a record.', 'danger', 'REMOVE STAGE') : true;
         if (!ok) return;
-        try { await statusTemplateService.removeStatus(projectId, status.id); await loadStatuses(); toast && toast('Status removed.', 'warn'); }
-        catch (err) { toast && toast('STATUS NOT REMOVED: ' + errText(err), 'error'); }
+        try { await statusTemplateService.removeStatus(projectId, status.id); await loadStatuses(); toast && toast('Stage removed.', 'warn'); }
+        catch (err) { toast && toast('STAGE NOT REMOVED: ' + errText(err), 'error'); }
     };
     const handleRestoreDefaults = async () => {
-        if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace this project\'s status list with the master list of its project type? Every current tick and every custom status is removed; only the first status stays ticked. The old list is written to the audit log.', 'danger', 'RESTORE DEFAULTS'); if (!ok) return; }
+        if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace this project\'s stage list with the master list of its project type? Every current tick and every custom stage is removed; only the first stage stays ticked. The old list is written to the audit log.', 'danger', 'RESTORE DEFAULTS'); if (!ok) return; }
         setSaving(true);
-        try { await statusTemplateService.restoreProjectDefaults(projectId); await loadStatuses(); cancelInsert(); toast && toast('Default statuses restored.', 'success'); }
+        try { await statusTemplateService.restoreProjectDefaults(projectId); await loadStatuses(); cancelInsert(); toast && toast('Default stages restored.', 'success'); }
         catch (err) { await loadStatuses(); toast && toast('DEFAULTS NOT RESTORED: ' + errText(err), 'error'); }
         finally { setSaving(false); }
     };
@@ -253,11 +254,11 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
     return (<div className={styles.statusList}>
         {loadErr && <div className={styles.modalErr} role="alert"><FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{loadErr}</span></div>}
         <div className={styles.statusListTop}>
-            <span className={styles.statusProgress} title="Statuses ticked so far">{doneCount} OF {statuses.length} DONE</span>
+            <span className={styles.statusProgress} title="Stages ticked so far">{doneCount} OF {statuses.length} DONE</span>
             {canEdit && <span className={styles.inputHint}>Ticks save the moment you click them. CANCEL does not undo them.</span>}
-            {canRemove && <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving} title="Replace this project's statuses with its type's master list (director only)."><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>}
+            {canRemove && <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving} title="Replace this project's stages with its type's master list (director only)."><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>}
         </div>
-        {statuses.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STATUSES ATTACHED YET</span></div>}
+        {statuses.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
         {statuses.map((status, i) => {
             const isFirst = i === 0;
             const done = statusDone(status);
@@ -275,10 +276,10 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
                         {canAttach && (<button type="button" className={styles.plusBtn} title={'Attach documents to "' + status.statusName + '"'}
                             aria-label={`Attach documents to ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAttach && onAttach(status); }}><FiPaperclip size={12} /></button>)}
-                        {canEdit && (<button type="button" className={styles.plusBtn} title="Insert a status below this one"
-                            aria-label={`Insert status below ${status.statusName}`}
+                        {canEdit && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
+                            aria-label={`Insert stage below ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(status); }}><FiPlus size={12} /></button>)}
-                        {canEdit && canRemove && !isFirst && (<button type="button" className={styles.iconBtnDanger} title="Remove this status (director only)"
+                        {canEdit && canRemove && !isFirst && (<button type="button" className={styles.iconBtnDanger} title="Remove this stage (director only)"
                             aria-label={`Remove ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(status); }}><FiTrash2 size={12} /></button>)}
                     </span>
@@ -290,8 +291,8 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
                 {addingStatus && insertAfterId === status.id && (<div className={styles.insertRow}>
                     <span className={styles.insertCtx}>INSERT UNDER: {insertAfterName}</span>
                     <input type="text" className={styles.insertInput} value={newStatusName} autoFocus maxLength={200}
-                        onChange={e => setNewStatusName(e.target.value)} placeholder="New status name"
-                        aria-label="New status name"
+                        onChange={e => setNewStatusName(e.target.value)} placeholder="New stage name"
+                        aria-label="New stage name"
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddStatus(); } if (e.key === 'Escape') cancelInsert(); }} />
                     <HardwareButton type="button" onClick={handleAddStatus} loading={saving} icon={FiCheckCircle}>ADD</HardwareButton>
                     <button type="button" className={styles.ghostBtn} onClick={cancelInsert} aria-label="Cancel insert" title="Close without adding"><FiX aria-hidden="true" /></button>
@@ -604,7 +605,7 @@ const FolderPage = () => {
             else if (m.kind === 'SET_ASIDE') { await folderPortalService.exit(id, 'SET_ASIDE', why); toast('Set aside. Unpaid fees are kept on the project.', 'success'); }
             else if (m.kind === 'CAPITALIZE') { await folderPortalService.exit(id, 'CAPITALIZE', why); toast('Storage fees added to the total cost.', 'success'); }
             else if (m.kind === 'CLEAR_PROBLEM') { await folderPortalService.toggleProblem(id, why, false); toast('Problem flag removed.', 'info'); }
-            else if (m.kind === 'RELEASE') { await landService.authorizeRelease(id, why); toast('Title handed over. Plot is now RELEASED.', 'success'); }
+            else if (m.kind === 'RELEASE') { await landService.authorizeRelease(id, why); toast('Title handed over. The project is now HANDED OVER.', 'success'); }
             else if (m.kind === 'DELETE') {
                 await landService.purgeAsset(id, why);
                 setIsEditing(false);
@@ -624,7 +625,7 @@ const FolderPage = () => {
         try { await landService.logDossierUnlock(id); } catch { /* audit only */ }
     };
     const handleAbort = async () => {
-        const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Status ticks are saved the moment you click them, so they stay as they are.', 'warn', 'DISCARD');
+        const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are.', 'warn', 'DISCARD');
         if (!ok) return;
         setIsEditing(false); setFieldErrors({}); loadFolderData();
     };
@@ -891,7 +892,7 @@ const FolderPage = () => {
                     <span><strong>INDEX:</strong> #{project.projectIndex}</span>
                     <span><strong>PRINTED:</strong> {new Date().toLocaleDateString()}</span>
                     {project.problem && <span><strong>PROBLEM</strong></span>}
-                    {project.landTitle?.isReleased && <span><strong>RELEASED</strong></span>}
+                    {project.landTitle?.isReleased && <span><strong>HANDED OVER</strong></span>}
                     {project.isReceivable && <span><strong>IN RECEIVABLES</strong></span>}
                     {project.pending && <span><strong>PENDING</strong></span>}
                 </div>
@@ -912,13 +913,13 @@ const FolderPage = () => {
                         {project.parentProjectId && <button type="button" className={`${styles.textBadge} ${styles.badgeLegacy} ${styles.typeBadgeLink}`} onClick={() => navigate('/folder/' + project.parentProjectId)}
                             title="This Transfer of Title was made from a subdivision plot. Open the subdivision project.">FROM #{binder.parentProjectIndex || '---'} PLOT {project.parentSubdivisionNo}</button>}
                         {isDeleted && <span className={`${styles.textBadge} ${styles.badgeProblem}`} title={'Deleted' + (project.deletedAt ? ' on ' + fmtDate(project.deletedAt) : '') + '. The root user can restore it from Settings > Archive.'}>DELETED</span>}
-                        {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`} title="No title details saved on this project.">PROCESSING</span>
-                            : <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="The title details are saved.">TITLED</span>}
+                        {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`} title="No title details are saved on this project yet.">NO TITLE DETAILS</span>
+                            : <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="The title details (plot number, block, area ...) are saved on this project. This is not the stage called Titled.">HAS TITLE DETAILS</span>}
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`} title="In receivables: storage fees are added every 30 days.">IN RECEIVABLES</span>
                             : fullyPaid ? <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="Nothing is owed on this project.">FULLY PAID</span>
                             : isCritical ? <span className={`${styles.textBadge} ${styles.badgeCritical}`} title="Less than 25% of the title money has been paid (the same rule on every page).">CRITICAL</span>
                             : totalValue > 0 ? <span className={`${styles.textBadge} ${styles.badgeActive}`} title={'UGX ' + fmt(amountOwed) + ' still owed.'}>ACTIVE</span> : null}
-                        {isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`} title={'Handed over' + (project.landTitle.releasedAt ? ' on ' + fmtDate(project.landTitle.releasedAt) : '') + (project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : '') + '.'}>RELEASED</span>}
+                        {isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`} title={'Handed over' + (project.landTitle.releasedAt ? ' on ' + fmtDate(project.landTitle.releasedAt) : '') + (project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : '') + '.'}>HANDED OVER</span>}
                         {isLegacyProject && <span className={`${styles.textBadge} ${styles.badgeLegacy}`} title="Entered as a Legacy Titles project (an old title brought into the system).">LEGACY</span>}
                         {project.problem && <span className={`${styles.textBadge} ${styles.badgeProblem}`} title={'PROBLEM' + (project.problemBy ? ' flagged by ' + project.problemBy : '') + (project.problemAt ? ' on ' + fmtDate(project.problemAt) : '') + (project.problemNote ? ': ' + project.problemNote : '')}>PROBLEM</span>}
                         {isReceivable && isPaused && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="No storage fees are added while paused. The paused days are not charged later.">{pausedUntil ? 'FEES PAUSED UNTIL ' + pausedUntil : 'FEES PAUSED'}</span>}
@@ -934,7 +935,7 @@ const FolderPage = () => {
                                 <button type="button" className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
                                 <button type="button" className={styles.ghostBtn} title="Mark the title as NOT handed over again (reason required)."
                                     onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
-                                        info: 'This marks the title as NOT handed over again and unlocks the record (status goes back to ' + (isReceivable ? 'RECEIVABLE' : 'ACTIVE') + '). Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
+                                        info: 'This marks the title as NOT handed over again and unlocks the record (status goes back to ' + (isReceivable ? 'RECEIVABLES' : 'ACTIVE') + '). Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
                               </>)
                             : <button type="button" className={styles.releaseBtn} disabled={project.releaseBlocker !== undefined ? !!project.releaseBlocker : (amountOwed > 0 || !!project.problem || keptFees > 0)}
                                 onClick={() => openReasonModal({ kind: 'RELEASE', title: 'HAND OVER TITLE', confirmLabel: 'HAND OVER',
@@ -943,7 +944,7 @@ const FolderPage = () => {
                         {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && pType.titleMode !== 'ALWAYS' && (
                             <button type="button" className={styles.ghostBtn} title="Take the saved Title Details off this project (reason required)."
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REMOVE TITLE DETAILS', confirmLabel: 'REMOVE TITLE DETAILS',
-                                    info: 'This removes the saved Title Details (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the Titled status. The old values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REMOVE TITLE DETAILS</button>)}
+                                    info: 'This removes the saved Title Details (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the Titled stage. The old values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REMOVE TITLE DETAILS</button>)}
                         {(canEdit || (flags.isSecretary && !isDeleted)) && <button type="button" className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot (reason required).' : 'Flag this plot as having a problem and alert staff (say what it is).'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
                         {canEdit && <button type="button" className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={isReleased} title={isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
@@ -1028,8 +1029,8 @@ const FolderPage = () => {
                         </>)}
                     </div></div>
                 </section>
-                <section className={styles.hwPanel} aria-label="Status Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
-                    <DrawerHeader label={'STATUS CHECKLIST - ' + pType.label.toUpperCase()} isOpen={drawers.statusesPanel} onClick={() => toggleDrawer('statusesPanel')} icon={FiCheckCircle} />
+                <section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
+                    <DrawerHeader label={'STAGE CHECKLIST - ' + pType.label.toUpperCase()} isOpen={drawers.statusesPanel} onClick={() => toggleDrawer('statusesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.statusesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
                         <StatusChecklistPanel projectId={id}
@@ -1037,7 +1038,7 @@ const FolderPage = () => {
                             toast={toast} confirm={confirm}
                             docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
                             onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} />
-                        {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick statuses. The paperclip attaches documents to a status.</span>}
+                        {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick stages. The paperclip attaches documents to a stage.</span>}
                     </div></div>
                 </section>
                 {pType.value === 'SUBDIVISION' && (<section className={styles.hwPanel} aria-label="Subdivisions" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
@@ -1274,10 +1275,10 @@ const FolderPage = () => {
                                             onKeyDown={e => { if (e.key === 'Enter') navigate('/folder/' + r.projectId); }}>
                                             <td>#{r.index}</td><td>{r.plot || '---'}</td>
                                             <td className={styles.relStatus}>
-                                                {r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span>
-                                                    : r.released ? <span className={`${styles.textBadge} ${styles.badgeReleased}`}>RELEASED</span>
-                                                    : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span>
-                                                    : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>PROCESSING</span>}
+                                                {/* fix184: the ONE status word (utils/projectStatus.js), not a mix of status and title-details words */}
+                                                {r.released ? <span className={`${styles.textBadge} ${styles.badgeReleased}`} title={PROJECT_STATUS.HANDED_OVER.tip}>{PROJECT_STATUS.HANDED_OVER.label}</span>
+                                                    : r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`} title={PROJECT_STATUS.RECEIVABLES.tip}>{PROJECT_STATUS.RECEIVABLES.label}</span>
+                                                    : <span className={`${styles.textBadge} ${styles.badgeActive}`} title={PROJECT_STATUS.ACTIVE.tip}>{PROJECT_STATUS.ACTIVE.label}</span>}
                                                 {r.problem && <span className={`${styles.textBadge} ${styles.badgeProblem}`}>PROBLEM</span>}
                                             </td>
                                         </tr>))}</tbody>
@@ -1298,7 +1299,7 @@ const FolderPage = () => {
                                     <DocGroup key={cat} label={cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)} count={docs.length}>
                                         {docs.map((doc) => (
                                             <DocRow key={doc.id} className={styles.docPrintRow} name={doc.fileName}
-                                                meta={(doc.statusId && statusNameOf(doc.statusId) ? '[' + statusNameOf(doc.statusId) + '] ' : '') + (doc.uploadedBy || '---') + (doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : '')} metaTitle="Status / uploaded by / on"
+                                                meta={(doc.statusId && statusNameOf(doc.statusId) ? '[' + statusNameOf(doc.statusId) + '] ' : '') + (doc.uploadedBy || '---') + (doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : '')} metaTitle="Stage / uploaded by / on"
                                                 onView={() => handleOpenDoc(doc.filePath, doc.fileName)}
                                                 onDelete={(canEdit && !isReleased && doc.category !== 'PAYMENT_RECEIPT') ? () => handleDeleteDoc(doc.id, doc.fileName) : undefined}
                                                 locked={doc.category === 'PAYMENT_RECEIPT'} lockTitle="A payment receipt is proof of money received and can never be deleted. Reverse the payment instead." />
@@ -1370,7 +1371,7 @@ const FolderPage = () => {
                 </div>, portalRoot())}
             <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title={uploadDraft && uploadDraft.statusName ? 'UPLOAD DOCUMENTS - ' + uploadDraft.statusName.toUpperCase() : 'UPLOAD DOCUMENTS'}>
                 {uploadDraft && (<>
-                    {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the status &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}
+                    {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the stage &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
                         <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>

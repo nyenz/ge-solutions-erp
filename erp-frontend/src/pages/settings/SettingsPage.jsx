@@ -418,7 +418,7 @@ const SettingsPage = () => {
             {activeTab.key === 'danger' && flags.canWipe && (
               <>
                 {/* fix181 (14.4a, owner choice B): the text says exactly what is deleted and what is kept */}
-                <div className={styles.dangerAlert}><FiAlertTriangle aria-hidden="true" /><span>This deletes every project, client, payment, expense, document and uploaded file, every note and notification, the custom status lists and the expense presets. There is no undo. Kept: all staff accounts, the audit trail, document types and the appearance choices.</span></div>
+                <div className={styles.dangerAlert}><FiAlertTriangle aria-hidden="true" /><span>This deletes every project, client, payment, expense, document and uploaded file, every note and notification, the custom stage lists and the expense presets. There is no undo. Kept: all staff accounts, the audit trail, document types and the appearance choices.</span></div>
                 {wipeResult && (
                   <div className={styles.wipeResult} role="status">
                     <strong>Wipe complete.</strong>

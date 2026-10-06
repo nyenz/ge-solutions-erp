@@ -77,7 +77,7 @@ export const projectFields = [
   f('ownerCount', 'Owner Count', 'number', p => (p.proprietors || []).length),
   f('ownership', 'Ownership', 'text', p => ((p.proprietors || []).length > 1 ? 'JOINT' : 'SOLO')),
   f('status', 'Status', 'text', p => p.status || ''),
-  f('statusIndex', 'Status Index', 'number', p => num(p.currentStatusIndex)),
+  f('statusIndex', 'Stage Index', 'number', p => num(p.currentStatusIndex)),
   // fix181 (9.5): the Recovery state and the shared CRITICAL rule (the same ones the Recovery and client pages show)
   f('recoveryState', 'Recovery State', 'text', p => recoveryLabel(p.recoveryState)),
   f('critical', 'Critical', 'bool', p => !!p.critical),
@@ -217,7 +217,7 @@ export const DATASET_META = {
   },
   COMPANY: {
     key: 'COMPANY', label: 'Company', restricted: true, dateField: 'Timestamp', fields: companyFields,
-    blurb: 'Every staff action in the audit trail: logins, edits, deletes, overrides, status moves.',
+    blurb: 'Every staff action in the audit trail: logins, edits, deletes, overrides, stage moves.',
     defaultColumns: ['timestamp', 'operator', 'action', 'details'],
   },
 };

@@ -340,8 +340,8 @@ const Dashboard = () => {
                     )}
 
                     {b.has('pipeline') && (
-                        <Card title="Projects by type and status" icon={FiLayers} wide accent="cyan"
-                            right={<span className={styles.headNote}>Click a type to see every status</span>}>
+                        <Card title="Projects by type and stage" icon={FiLayers} wide accent="cyan"
+                            right={<span className={styles.headNote}>Click a type to see every stage</span>}>
                             <Pipeline byType={data.pipeline} />
                         </Card>
                     )}

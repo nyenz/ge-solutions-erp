@@ -10,7 +10,7 @@
 export const RANKS = {
     ROLE_ADMIN:     { rank: 5, label: 'Admin',     chip: 'ADMIN',     hint: 'The system designer. Only one Admin exists.' },
     ROLE_DIRECTOR:  { rank: 4, label: 'Director',  chip: 'DIRECTOR',  hint: 'The owner: all money, staff below Director, archive.' },
-    ROLE_MANAGER:   { rank: 3, label: 'Manager',   chip: 'MANAGER',   hint: 'Runs the work: statuses, payments, edits. No company money totals.' },
+    ROLE_MANAGER:   { rank: 3, label: 'Manager',   chip: 'MANAGER',   hint: 'Runs the work: stages, payments, edits. No company money totals.' },
     ROLE_SECRETARY: { rank: 2, label: 'Secretary', chip: 'SECRETARY', hint: 'Office entry and recovery calls; sets prices on Pending projects.' },
     ROLE_EMPLOYEE:  { rank: 1, label: 'Employee',  chip: 'EMPLOYEE',  hint: 'Field entry only: new projects go in as Pending. Sees no money.' },
 };

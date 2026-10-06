@@ -16,6 +16,8 @@ import { LoadingRow } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { projectTypeOf } from '../../constants/projectTypes';
+import { statusOf, moneyWordsOf, hasPrice, MONEY_WORD } from '../../utils/projectStatus';
+import { GLOSSARY } from '../../components/common/glossary';
 
 // fix180: the clients (who pay, whom Recovery calls) are the people shown on the ledger; old rows fall back to the owners
 const clientsOf = (proj) => ((proj.clients && proj.clients.length) ? proj.clients : (proj.proprietors || []));
@@ -156,8 +158,8 @@ const LedgerPage = () => {
         : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
     const FILTERS = [
-        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING', accent: 'yellow' },
-        { key: 'TITLED', label: 'HAS TITLE DETAILS', accent: 'green' }, { key: 'LEGACY', label: 'LEGACY', accent: 'cyan' },
+        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'NO TITLE DETAILS', accent: 'yellow', title: 'Projects with no title details saved yet' },
+        { key: 'TITLED', label: 'HAS TITLE DETAILS', accent: 'green', title: 'Projects whose title details (plot, block, area ...) are saved. Not the same as the stage called Titled.' }, { key: 'LEGACY', label: 'LEGACY', accent: 'cyan' },
         { key: 'RECEIVABLES', label: 'RECEIVABLES', accent: 'red' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
         { key: 'PAID', label: 'PAID', accent: 'green' }, { key: 'PROBLEM', label: 'PROBLEM', accent: 'red' },
         { key: 'PENDING', label: 'PENDING ' + projects.filter(p => p.pending).length, accent: 'yellow' },   // fix181 (2.1)
@@ -233,8 +235,8 @@ const LedgerPage = () => {
                                 <th>PHONE</th>
                                 <th>PARISH</th>
                                 <th>VILLAGE</th>
-                                <th>STATUS</th>
-                                <th><FiLayers aria-hidden="true" /> STATUSES</th>
+                                <th title={GLOSSARY.STATUS}>STATUS</th>
+                                <th title={GLOSSARY.STAGE + ' This column shows the stage the project is on now; the dots are all its stages.'}><FiLayers aria-hidden="true" /> STAGE</th>
                                 <th onClick={() => handleSort('paid')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
@@ -263,6 +265,9 @@ const LedgerPage = () => {
                                     : Math.max(0, isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0));
                                 const pct = proj.totalCost > 0 ? Math.min((titlePaidOf(proj) / proj.totalCost) * 100, 100) : 0;
                                 const isCritical = isCriticalProject(proj);
+                                const status = statusOf(proj);
+                                const moneyWords = moneyWordsOf(proj);
+                                const WORD_CLASS = { PENDING: styles.tagWaiting, ACTIVE: styles.tagStandard, RECEIVABLES: styles.tagReceivable, HANDED_OVER: styles.tagReleased, DELETED: styles.tagCritical, NO_PRICE: styles.tagWaiting, FULLY_PAID: styles.tagPaid, CRITICAL: styles.tagCritical };
                                 const people = clientsOf(proj);
                                 const names  = people.map(p => p.fullName).filter(Boolean);
                                 const nins   = people.map(p => p.nationalId).filter(Boolean);
@@ -283,7 +288,7 @@ const LedgerPage = () => {
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
-                                                    {proj.pending && <span className={styles.stackSub} title="Waiting for prices">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
+                                                    {proj.pending && <span className={styles.stackSub} title="How long this entry has been waiting for the office">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                     {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>
@@ -302,12 +307,12 @@ const LedgerPage = () => {
                                         <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
                                         <td><span className={styles.ownerName}>{proj.village || '---'}</span></td>
                                         <td>
+                                            {/* fix184: ONE status per project (PENDING / ACTIVE / RECEIVABLES / HANDED OVER) and under it the money
+                                                word, both from utils/projectStatus.js with their hover explainers. A project with no price says
+                                                WAITING FOR PRICES; it used to say FULLY PAID ("owes 0" was read as "paid"). */}
                                             <div className={styles.statusGroup}>
-                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
-                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagReleased} title="The title has been handed over to the client.">RELEASED</span>}
-                                                {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
+                                                <span className={WORD_CLASS[status.key] || styles.tagStandard} title={status.tip}>{status.label}</span>
+                                                {moneyWords.map(w => <span key={w.key} className={WORD_CLASS[w.key] || styles.tagStandard} title={w.tip}>{w.label}</span>)}
                                             </div>
                                         </td>
                                         <td className={styles.statusCell}>
@@ -324,6 +329,10 @@ const LedgerPage = () => {
                                                 </div>
                                             )}
                                         </td>
+                                        {!hasPrice(proj) ? (
+                                            /* fix184: no price = no debt figure and no 0% bar; a quiet "no price yet" instead */
+                                            <td className={styles.moneyCell}><span className={styles.tagWaiting} title={MONEY_WORD.NO_PRICE.tip}>NO PRICE YET</span></td>
+                                        ) : (
                                         <td className={styles.moneyCell}>
                                             <div className={styles.moneyRow}>
                                                 <span className={styles.debtLabel}>DEBT:</span>
@@ -337,6 +346,7 @@ const LedgerPage = () => {
                                             </div>
                                             <span className={styles.pctLabel}>{Math.round(pct)}%</span>
                                         </td>
+                                        )}
                                     </tr>
                                 );
                             })}
