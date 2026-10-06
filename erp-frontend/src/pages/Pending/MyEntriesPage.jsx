@@ -6,7 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import pendingService from '../../services/pendingService';
 import { errorText } from '../../utils/errorText';
 import { LoadingState, EmptyState } from '../../components/common/LoadingState';
+import { waitingFor } from '../../utils/projectStatus';
 import styles from './Pending.module.css';
+
+const WAITING = waitingFor({ pending: true });   // fix185: one wording for every Pending entry
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
 
@@ -57,6 +60,7 @@ export default function MyEntriesPage() {
                             {(r.projectType || '').replace(/_/g, ' ')} {r.district ? '- ' + r.district : ''} {r.clientNames && r.clientNames.length ? '- ' + r.clientNames.join(', ') : ''}
                         </div>
                         <div className={styles.muted}>Entered {day(r.enteredAt)}</div>
+                        {r.pending && !r.rejected && <div className={styles.waiting} title={WAITING.tip}>{WAITING.text}</div>}
                         {r.rejected && r.rejectedReason && <div className={styles.error}>Reason: {r.rejectedReason}</div>}
                     </div>
                 );

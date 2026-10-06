@@ -1,7 +1,7 @@
 // fix184: the project words (status, money word, "waiting for"). Run with `npm test`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { statusOf, moneyWordsOf, waitingFor, owedOf, PROJECT_STATUS, MONEY_WORD, STATUS_ORDER } from '../src/utils/projectStatus.js';
+import { statusOf, moneyWordsOf, waitingFor, owedOf, PROJECT_STATUS, MONEY_WORD, STATUS_ORDER, canInsertStageBelow, isInvoiceContractStage, stageTakesDocuments } from '../src/utils/projectStatus.js';
 
 const stage = (name, done, order) => ({ statusName: name, isCompleted: done, displayOrder: order });
 
@@ -51,6 +51,7 @@ test('"waiting for" follows the rule, first match wins', () => {
     assert.equal(waitingFor({ deleted: true, pending: true }, stages), null);
     assert.equal(waitingFor({ totalCost: 5, landTitle: { isReleased: true } }, stages), null);
     assert.equal(waitingFor({ pending: true }, stages).key, 'OFFICE');
+    assert.match(waitingFor({ pending: true }, stages).text, /^WAITING FOR THE OFFICE/);
     assert.equal(waitingFor({ totalCost: 0 }, stages).text, 'WAITING FOR PRICES');
     assert.equal(waitingFor({ totalCost: 5, problem: true }, stages).key, 'PROBLEM');
     // the first stage NOT ticked, by list order (not by array order)
@@ -63,4 +64,20 @@ test('a project with every stage ticked (Titled) shows no "waiting for" line', (
     const done = [stage('Field Measurement', true, 0), stage('Titled', true, 1)];
     assert.equal(waitingFor({ totalCost: 5, amountPaid: 1 }, done), null);
     assert.equal(waitingFor({ totalCost: 5 }, []), null);
+});
+
+test('no stage can be added above the Invoice / Contract stage', () => {
+    const list = [{ name: 'Field Measurement' }, { statusName: 'Invoice / Contract Number' }, { name: 'Area Land Committee' }];
+    assert.equal(isInvoiceContractStage(list[1]), true);
+    assert.equal(isInvoiceContractStage(list[0]), false);
+    assert.equal(canInsertStageBelow(list, 0), false);   // would land between Field Measurement and Invoice / Contract
+    assert.equal(canInsertStageBelow(list, 1), true);
+    assert.equal(canInsertStageBelow(list, 2), true);
+    // a list without that stage keeps the old rule
+    assert.equal(canInsertStageBelow([{ name: 'A' }, { name: 'B' }], 0), true);
+});
+
+test('every stage except the first takes documents', () => {
+    assert.equal(stageTakesDocuments([], 0), false);
+    assert.equal(stageTakesDocuments([], 1), true);
 });

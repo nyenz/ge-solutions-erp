@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import useScrollEdges from '../../hooks/useScrollEdges';
-import { PROJECT_STATUS } from '../../utils/projectStatus';
+import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments } from '../../utils/projectStatus';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
     FiUploadCloud, FiFileText, FiClock,
@@ -186,7 +186,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
    - remove asks first; RESTORE DEFAULTS is one server step, director only (it removes statuses)
    - fix180: the list belongs to the project type and is no longer tied to the Title Details; every status can carry
      its own documents (ATTACH opens the upload window for that status) */
-const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc }) => {
+const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
@@ -203,6 +203,8 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
         } catch (err) { setLoadErr('STAGES COULD NOT BE LOADED: ' + errText(err)); }
         finally { setLoading(false); }
     }, [projectId]);
+    // fix185: the page head shows "WAITING FOR: <next stage>"; tell it every time a tick changes the list
+    useEffect(() => { if (!loading && onStages) onStages(statuses); }, [statuses, loading, onStages]);
     useEffect(() => { loadStatuses(); }, [loadStatuses]);
     const openInsertBelow = (status) => { setInsertAfterId(status.id); setInsertAfterName(status.statusName); setNewStatusName(''); setAddingStatus(true); };
     const cancelInsert = () => { setAddingStatus(false); setNewStatusName(''); setInsertAfterId(null); setInsertAfterName(''); };
@@ -233,6 +235,12 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
         try {
             await statusTemplateService.toggleStatusCompletion(projectId, status.id, next);
             await loadStatuses();
+            // fix185: a stage that was just TICKED (any stage except the first) offers to attach its document right away
+            const idx = statuses.findIndex(x => x.id === status.id);
+            if (next && canAttach && onAttach && stageTakesDocuments(statuses, idx) && confirm) {
+                const now = await confirm('ATTACH A DOCUMENT', '"' + status.statusName + '" is ticked. Attach its document now? It is filed under this stage and shows in Documents with the stage name. You can also do it later with the paperclip.', 'info', 'ATTACH NOW');
+                if (now) onAttach(status);
+            }
         } catch (err) { await loadStatuses(); toast && toast('STAGE NOT UPDATED: ' + errText(err), 'error'); }
         finally { setToggling(false); }
     };
@@ -273,10 +281,10 @@ const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, d
                     <span className={styles.statusItemName}>{status.statusName}{status.isCustom ? <span className={styles.statusCustomTag} title="Added on this project only (not in the master list)">CUSTOM</span> : null}</span>
                     {done && when && <span className={styles.statusMeta}>{when}{status.completedBy ? ' - ' + status.completedBy : ''}</span>}
                     <span className={styles.statusActions}>
-                        {canAttach && (<button type="button" className={styles.plusBtn} title={'Attach documents to "' + status.statusName + '"'}
+                        {canAttach && stageTakesDocuments(statuses, i) && (<button type="button" className={styles.plusBtn} title={'Attach documents to "' + status.statusName + '"'}
                             aria-label={`Attach documents to ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAttach && onAttach(status); }}><FiPaperclip size={12} /></button>)}
-                        {canEdit && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
+                        {canEdit && canInsertStageBelow(statuses, i) && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
                             aria-label={`Insert stage below ${status.statusName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(status); }}><FiPlus size={12} /></button>)}
                         {canEdit && canRemove && !isFirst && (<button type="button" className={styles.iconBtnDanger} title="Remove this stage (director only)"
@@ -360,6 +368,7 @@ const FolderPage = () => {
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
     });
     const tabRailRef = useScrollEdges({ wheel: true, activeKey: activeTab });   // fix183: sideways tab bar
+    const [liveStages, setLiveStages] = useState(null);   // fix185: the stage list as the checklist has it now (null = not loaded yet)
     const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
@@ -879,6 +888,8 @@ const FolderPage = () => {
     const isPaused = !!project.negotiationDeadline || !!project.storagePaused;
     const plotName = project.landTitle?.plotNumber || ('#' + project.projectIndex);
     const reasonCfg = REASON_KINDS[reasonModal.kind] || {};
+    // fix185: the ONE thing this project is waiting for (the rule is in utils/projectStatus.js); nothing once it is finished
+    const waiting = waitingFor(project, liveStages || binder.statuses);
 
     return (
         <div className={styles.container}>
@@ -895,6 +906,7 @@ const FolderPage = () => {
                     {project.landTitle?.isReleased && <span><strong>HANDED OVER</strong></span>}
                     {project.isReceivable && <span><strong>IN RECEIVABLES</strong></span>}
                     {project.pending && <span><strong>PENDING</strong></span>}
+                    {waiting && <span>{waiting.text}</span>}
                 </div>
                 <div className={styles.printDossierMeta}>
                     <span><strong>PLOT NUMBER:</strong> {project.landTitle?.plotNumber || '#' + project.projectIndex}</span>
@@ -925,11 +937,13 @@ const FolderPage = () => {
                         {isReceivable && isPaused && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="No storage fees are added while paused. The paused days are not charged later.">{pausedUntil ? 'FEES PAUSED UNTIL ' + pausedUntil : 'FEES PAUSED'}</span>}
                         {keptFees > 0 && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="Storage fees kept when this project was set aside. They are not owed now, but block the hand-over until they are paid, or a director waives them or adds them to the cost.">SET-ASIDE FEES UGX {fmt(keptFees)}</span>}
                     </div>
+                    {/* fix185: quiet "waiting for" line in the sub-header of every project that is not finished */}
+                    {waiting && <p className={styles.waitingLine} title={waiting.tip}><FiClock aria-hidden="true" /> <span>{waiting.text}</span></p>}
                 </div>
                 <div className={styles.ctrlZone}>
                     {!isEditing && (<div className={styles.ctrlGroup}>
                         <button type="button" className={styles.printBtn} onClick={() => window.print()} aria-label="Print record" title="Print this record (payment statement included)"><FiPrinter aria-hidden="true" /></button>
-                        {canEdit && <button type="button" className={styles.ctrlBtnPay} disabled={amountOwed <= 0} title={amountOwed <= 0 ? 'Nothing is owed on this project.' : 'Record a payment with its receipt.'} onClick={openPayModal}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
+                        {canEdit && <button type="button" className={styles.ctrlBtnPay} disabled={amountOwed <= 0} title={totalValue <= 0 ? 'No price has been set on this project yet, so no payment can be recorded.' : amountOwed <= 0 ? 'Nothing is owed on this project.' : 'Record a payment with its receipt.'} onClick={openPayModal}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
                         {canMoney && !isDeleted && project.landTitle && (isReleased
                             ? (<>
                                 <button type="button" className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
@@ -1037,7 +1051,7 @@ const FolderPage = () => {
                             canEdit={canEdit && isEditing && !isReleased} canRemove={isDirector && !isDeleted && isEditing && !isReleased}
                             toast={toast} confirm={confirm}
                             docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
-                            onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} />
+                            onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} onStages={setLiveStages} />
                         {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick stages. The paperclip attaches documents to a stage.</span>}
                     </div></div>
                 </section>

@@ -23,6 +23,7 @@ import statusTemplateService from '../../services/statusTemplateService';
 import { useAuth } from '../../hooks/useAuth';
 import { PROJECT_TYPES, showsTitle } from '../../constants/projectTypes';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
+import { canInsertStageBelow, isInvoiceContractStage } from '../../utils/projectStatus';
 import styles from './IntakePage.module.css';
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
@@ -291,6 +292,9 @@ export default function IntakePage() {
         const idx = statusList.findIndex(s => s.name === insertAfterName);
         if (idx >= 0) k = idx + 1;
         k = Math.max(k, 1);
+        // fix185: never above the Invoice / Contract stage
+        const gate = statusList.findIndex(isInvoiceContractStage);
+        if (gate >= 0) k = Math.max(k, gate + 1);
         const next = [...statusList]; next.splice(k, 0, { id: null, name });
         setStatusList(next); setChecked(p => ({ ...p, [name]: false }));
         setNewStatusName(''); setInsertAfterName(''); setAddingStatus(false);
@@ -811,7 +815,7 @@ export default function IntakePage() {
                     <p className={styles.hint}>The {PROJECT_TYPES.find(pt => pt.value === projectType)?.label} stage list. Tick what is already done.{canAddStatus ? '' : ' Only an Admin, Manager or Director can add a stage.'}</p>
                     <div className={styles.statusList}>
                         {statusList.length === 0 && <p className={styles.hint}>Loading the stage list...</p>}
-                        {statusList.map((s) => {
+                        {statusList.map((s, si) => {
                             const isFirst = s.name === firstStatusName;
                             return (
                                 <label key={s.name} className={`${styles.statusItem} ${checked[s.name] ? styles.checked : ''}`}>
@@ -821,7 +825,7 @@ export default function IntakePage() {
                                         onChange={() => toggleStatus(s.name)} />
                                     <span className={styles.statusName}>{s.name}{isFirst ? ' (required)' : ''}</span>
                                     <span className={styles.statusActions}>
-                                        {canAddStatus && (
+                                        {canAddStatus && canInsertStageBelow(statusList, si) && (
                                             <button type="button" className={styles.plusBtn} title="Insert a stage below this one"
                                                 aria-label={`Insert stage below ${s.name}`}
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(s.name); }}>

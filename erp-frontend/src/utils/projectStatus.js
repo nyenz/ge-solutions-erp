@@ -104,7 +104,7 @@ export function stagesOf(p, stages) {
  * "WAITING FOR ..." -- the ONE thing a project is waiting for now, or null when there is nothing to say.
  * THE RULE (first match wins):
  *   1. deleted, or handed over                      -> nothing
- *   2. Pending                                      -> the office (invoice / contract numbers and prices)
+ *   2. Pending                                      -> the office (to set the prices and start it)
  *   3. no price yet                                 -> prices
  *   4. flagged PROBLEM                              -> the problem to be cleared
  *   5. a stage is not ticked yet                    -> that stage (the first one not ticked, in list order)
@@ -116,8 +116,10 @@ export function waitingFor(p, stages) {
     const st = statusOf(p).key;
     if (st === 'DELETED' || st === 'HANDED_OVER') return null;
     if (st === 'PENDING') {
-        return { key: 'OFFICE', text: 'WAITING FOR INVOICE / CONTRACT NUMBERS AND PRICES',
-            tip: 'This project is Pending. A Secretary or above must enter the invoice number, the contract number and the prices to start it.' };
+        // fix185: today the office only sets the PRICES when it starts a Pending project. When the invoice number and
+        // the contract number are stored too (needs the server), change this text to name all three.
+        return { key: 'OFFICE', text: 'WAITING FOR THE OFFICE TO SET THE PRICES',
+            tip: 'This project is Pending. A Secretary or above must check it, set the prices and start it.' };
     }
     if (!hasPrice(p)) {
         return { key: 'PRICES', text: 'WAITING FOR PRICES',
@@ -134,3 +136,23 @@ export function waitingFor(p, stages) {
     }
     return null;
 }
+
+// ---- fix185: stage list rules shared by New Project and the Folder page -------------------------------------------
+const nameOf = (s) => String((s && (s.statusName ?? s.name)) || '');
+
+/** true for the stage that holds the invoice and contract numbers ("Invoice / Contract Number"). */
+export const isInvoiceContractStage = (s) => { const n = nameOf(s).toLowerCase(); return n.includes('invoice') && n.includes('contract'); };
+
+/**
+ * NO STAGE MAY BE ADDED ABOVE THE INVOICE / CONTRACT STAGE (David, October 2026): a project is accepted by the office at
+ * that stage, so nothing may be slipped in before it. "Insert below row i" is allowed only from the Invoice / Contract
+ * row downwards. A list without that stage keeps the old rule (anywhere below the first row).
+ */
+export function canInsertStageBelow(list, i) {
+    const k = (list || []).findIndex(isInvoiceContractStage);
+    if (k < 0) return i >= 0;
+    return i >= k;
+}
+
+/** Every stage except the first can carry its own documents (the first is ticked at intake, before any paper exists). */
+export const stageTakesDocuments = (list, i) => i > 0;

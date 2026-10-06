@@ -1883,3 +1883,16 @@
 .subdivLink:hover { text-decoration: underline; }
 .peopleActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .typeBadgeLink { background: none; border: none; padding: 0; cursor: pointer; }
+
+/* fix185: the "WAITING FOR ..." line in the folder's sub-header. Small and quiet (no box, no banner), the colour of
+   the other sub-header text, readable on CREAM, SLATE and LIGHT, and it wraps on a phone instead of being cut. */
+.waitingLine {
+    display: flex; align-items: baseline; gap: 6px;
+    margin: clamp(5px, 0.6vw, 8px) 0 0; max-width: 100%;
+    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 800;
+    letter-spacing: 1px; text-transform: uppercase; line-height: 1.4;
+    color: var(--hdr-sub, #64748b); cursor: help;
+}
+.waitingLine svg { flex-shrink: 0; font-size: 1.05em; transform: translateY(1px); color: var(--tx-accent, #EE8C3A); opacity: 0.9; }
+.waitingLine span { min-width: 0; overflow-wrap: anywhere; }
+@media print { .waitingLine { display: none; } }
