@@ -241,7 +241,7 @@ export default function RecoveryPortal() {
           {rowsF.length === 0 && (<div className={styles.emptyState}><span>{term ? 'NO RECORDS MATCH "' + term.toUpperCase() + '"' : 'QUEUE CLEAR'}</span></div>)}
         </div>
       )}
-      <HardwareModal isOpen={!!sel} onClose={() => setSel(null)} title={sel ? 'CALL LOG - ' + sel.name : 'CALL LOG'}>
+      <HardwareModal isOpen={!!sel} onClose={() => setSel(null)} title={sel ? 'CALL LOG - ' + sel.name : 'CALL LOG'} lockBackdrop>
         {sel && (<>
           <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span>{splitPhones(sel.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span></div>
           {sel.unlock && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}

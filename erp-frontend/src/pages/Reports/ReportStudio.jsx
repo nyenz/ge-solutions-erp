@@ -14,6 +14,7 @@ import { CATALOGUE, ENTITIES, GROUPS, DEFAULTS } from './reportsCatalog';
 import CornerDecor from '../../components/ui/CornerDecor';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import styles from './ReportStudio.module.css';
+import { periodRange, localISO } from '../../utils/reportPeriod';   // fix190: device calendar, not UTC
 import useScrollEdges from '../../hooks/useScrollEdges';
 
 const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
@@ -27,32 +28,6 @@ const SEARCH_HINT = {
   PAYMENTS: 'Receipt no, project, client...',
   EXPENSES: 'Item, category, project...',
   COMPANY: 'Any row across the company...',
-};
-
-const periodRange = (period, fromArg, toArg) => {
-  const now = new Date();
-  let start = null;
-  let end = null;
-  if (period === 'TODAY') { start = new Date(now); end = new Date(now); }
-  else if (period === 'THIS WEEK') { const day = (now.getDay() + 6) % 7; start = new Date(now); start.setDate(now.getDate() - day); end = new Date(now); }
-  else if (period === 'LAST WEEK') { const day = (now.getDay() + 6) % 7; start = new Date(now); start.setDate(now.getDate() - day - 7); end = new Date(start); end.setDate(start.getDate() + 6); }
-  else if (period === 'THIS MONTH') { start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now); }
-  else if (period === 'LAST MONTH') { start = new Date(now.getFullYear(), now.getMonth() - 1, 1); end = new Date(now.getFullYear(), now.getMonth(), 0); }
-  else if (period === 'THIS QUARTER') { start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); end = new Date(now); }
-  else if (period === 'THIS YEAR') { start = new Date(now.getFullYear(), 0, 1); end = new Date(now); }
-  else if (period === 'LAST YEAR') { start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() - 1, 11, 31); }
-  else if (period === 'CUSTOM') {
-    let a = fromArg || '';
-    let b = toArg || '';
-    if (a && b && a > b) { const tmp = a; a = b; b = tmp; }
-    if (!a && !b) return null;
-    start = a ? new Date(a) : null;
-    end = b ? new Date(b) : null;
-  } else {
-    return null;
-  }
-  if (!start || !end) return null;
-  return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
 };
 
 const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
@@ -390,7 +365,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const measureField = appliedDef && appliedDef.measure && appliedDef.measure.field ? fieldByLabelMap[appliedDef.measure.field] : null;
   const fmtChart = useCallback((v) => formatValue(v, measureField ? measureField.type : 'number'), [measureField]);
 
-  const stamp = () => new Date().toISOString().slice(0, 10);
+  const stamp = () => localISO();
   const exportCSV = () => {
     const def = appliedDef;
     if (!def || !tableCols.length) return;

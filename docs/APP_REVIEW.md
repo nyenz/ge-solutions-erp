@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix190. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -50,8 +50,8 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | S03 | Server: New Project and Pending uploads | The file-type check is **skipped** for files uploaded with a new project. Any kind of file is accepted, up to 50 MB each. (The Folder upload does check.) | high | sure | code |
 | S04 | Server: `application.properties` | The repo holds **fallback values** for the token secret, the database password and the first admin password. If a setting is missing on the host, the server starts quietly with those known values. (The values are not repeated here.) | high if a setting is missing | sure about code; Render not seen | code |
 | S05 | Server: file storage settings | If the Cloudinary settings are missing, uploads are **thrown away silently**: the page says "saved" but nothing is stored. This includes payment receipts. These settings are not in the go-live checklist. | high if not set | sure about code; Render not seen | code |
-| P01 | Reports page, the WHEN buttons | Report periods are **one day early** in Uganda. "LAST MONTH" in October gives 31 Aug to 29 Sep. "THIS MONTH" starts on 30 Sep. Money totals, CSV and PDF are all affected. Cause: the dates are changed to London time before use. | high | sure | reports-phone.jpg |
-| P02 | New Project page, SAVE PROJECT | After a good save the button works again for about 1 second before the page moves on. A second tap saves a **second copy** of the project. | high | sure | new-project-money-phone.jpg |
+| P01 | Reports page, the WHEN buttons | Report periods are **one day early** in Uganda. "LAST MONTH" in October gives 31 Aug to 29 Sep. "THIS MONTH" starts on 30 Sep. Money totals, CSV and PDF are all affected. Cause: the dates are changed to London time before use. **FIXED in fix190.** | high | sure | reports-phone.jpg |
+| P02 | New Project page, SAVE PROJECT | After a good save the button works again for about 1 second before the page moves on. A second tap saves a **second copy** of the project. **FIXED in fix190.** | high | sure | new-project-money-phone.jpg |
 | P03 | Pending project view | The office must START or REJECT an entry **without seeing its documents, notes or stages**. The Pending view shows only place, title and people. The Employee also never sees what they uploaded. | high | sure | pending-view-phone.jpg |
 
 ### 1.2 Medium
@@ -75,7 +75,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | P05 | All pages, error messages | Staff see technical text: "Rank not authorized for this command", "Core error (NullPointerException). Look at Render Logs", "OVERPAYMENT_BLOCKED: ... (HTTP 400)", "SYSTEM_CRITICAL_FAULT". | medium | sure | code |
 | P06 | Recovery, Expenses, New Project, Payments | When loading fails, the page looks **empty** instead of broken: "QUEUE CLEAR", "NO EXPENSES LOGGED", "Loading the stage list..." for ever. Staff will think there is no work. | medium | sure | recovery-secretary-phone.jpg |
 | P07 | Dashboard tiles | A tile opens a list that shows a different number. "Ready for hand-over" opens the PAID tab (which also has handed-over and problem projects). "Title money still owed" opens CRITICAL only. | medium | sure | dashboard-admin-desktop.jpg |
-| P08 | Settings > Staff, TEMPORARY KEY popup | The key is "shown once only", but one tap outside the popup closes it and the key is gone. | medium | sure | settings-phone.jpg |
+| P08 | Settings > Staff, TEMPORARY KEY popup | The key is "shown once only", but one tap outside the popup closes it and the key is gone. **FIXED in fix190.** | medium | sure | settings-phone.jpg |
 | P09 | Folder page and Client page, Secretary | The Secretary makes the recovery calls but cannot fix a wrong phone number on the client page, and cannot tick a stage. David's rule says the Secretary handles the Invoice/Contract stage. (The server also blocks the tick -- see S19.) | medium | sure | folder-phone.jpg |
 | P10 | Settings > Staff | The power icon **suspends a person with one tap**, no question asked. CREATE can be pressed twice while the server wakes up. The three icon buttons have no words. | medium | sure | settings-phone.jpg |
 | P11 | Folder page | A Fresh Survey or Special Project can **never be closed**. HAND OVER needs Title Details and these types never have them. A paid, finished project stays ACTIVE for ever. | medium | sure; maybe meant | folder-phone.jpg |
@@ -102,13 +102,13 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | S30 | Server: words | Audit details, alerts and some error text written by the server still say "status" for a checklist step. | low | sure | audit-phone.jpg |
 | S31 | Render / GitHub | GitHub shows a **failed deploy** for the old service `ge-solutions-api` (the one that was retired). The real backend service is not visible from here. | low | sure it shows; cause unknown | code |
 | P16 | Popups | The design rule is ONE way to close plus the action buttons. These have both an X and a CANCEL-type button: Expenses (LOG EXPENSE, NEW PRESET, EDIT EXPENSE, delete), Settings (CHANGE RANK, RESET KEY, RESTORE PROJECT), SIGN OUT, FORGOT YOUR KEY. | low | sure | expenses-phone.jpg |
-| P17 | Popups with typed text | Recovery CALL LOG, the Expenses popups and ADD STAFF close on a tap outside and the typed text is lost. | low | sure | expenses-phone.jpg |
-| P18 | New Project, Employee | The Employee sees "+ NEW CATEGORY" for documents but the server refuses it. | low | sure | code |
+| P17 | Popups with typed text | Recovery CALL LOG, the Expenses popups and ADD STAFF close on a tap outside and the typed text is lost. **FIXED in fix190.** | low | sure | expenses-phone.jpg |
+| P18 | New Project, Employee | The Employee sees "+ NEW CATEGORY" for documents but the server refuses it. **FIXED in fix190 (the button is hidden for the Employee).** | low | sure | code |
 | P19 | Dashboard "Recent activity" | The links go to the Audit page but do not open the line that was clicked. | low | sure | dashboard-admin-desktop.jpg |
 | P20 | Client page edit | No "saved" message, no phone check, no warning on leaving with unsaved changes. The button says EDIT PORTFOLIO but edits name and phone. | low | sure | code |
 | P21 | Date picker | Old dates are slow: the year moves one tap at a time and cannot be typed. A 1998 title date needs about 28 taps. | low | sure | new-project-money-phone.jpg |
 | P22 | Reports | Only the first 8 rows show on screen. The rest need a download. Hard on a phone. | low | sure | reports-phone.jpg |
-| P23 | Dates | Five date styles are in use (05 Oct 2026, 05/10/2026, 2026-10-05, the device style on Expenses, and one more in Settings). "Today" on New Project and Folder is worked out in London time, so it is yesterday between midnight and 3 am. | low | sure | expenses-phone.jpg |
+| P23 | Dates | Five date styles are in use (05 Oct 2026, 05/10/2026, 2026-10-05, the device style on Expenses, and one more in Settings). "Today" on New Project and Folder is worked out in London time, so it is yesterday between midnight and 3 am. **"Today" FIXED in fix190; the five date styles are still to do.** | low | sure | expenses-phone.jpg |
 | P24 | Money | Money boxes on New Project have no commas while typing (1500000 is easy to get wrong). Expenses accept decimals; everything else is whole shillings. The Dashboard shortens (271.7M). | low | sure | new-project-money-phone.jpg |
 | P25 | Same thing, different names | Money owed is called DEBT, AMOUNT OWED, BALANCE OWED, TOTAL OWED. "Key" in most places but "PASSWORD" on the sign-in page. GOLDEN SEED on screen, GE SOLUTIONS on the print-out. "The root user can restore it" is wrong (a Director can too). | low | sure | code |
 | P26 | Hard words | "COMMITTING DATA...", "LEDGER SYNC FAULT", "Recovery Cockpit", "QUEUE CLEAR", "OPERATOR ID", "PROTOCOL CLASS", "NO SIGNALS", "SCOPE", "tenure split", and the Folder phone tabs "OV / FIN / PPL / DOC / NTS". | low | sure | folder-phone.jpg |
@@ -185,6 +185,7 @@ this matters before real client data goes in.
 | fix187 | Hosting cost plan with prices and sources (guide section 18.3a). The Hetzner move itself is still PENDING. Nothing was set up. |
 | fix188 | Data entry helpers: the village fills the rest of the place, known clients are offered by name / National ID / phone, "Did you mean ...?" for likely typos, expense categories remembered. |
 | fix189 | This review document. |
+| fix190 | From this review: P01 report periods, P02 double save, P08 temporary key popup, P17 popups with typed text, P18 "+ NEW CATEGORY" for the Employee, P23 "today" in London time. |
 
 ---
 
@@ -239,7 +240,7 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 | 6 | P14 + P15 one set of status words everywhere; Ledger search hints at the PENDING tab | medium |
 | 7 | P07 + P19 Dashboard tiles and links open exactly what they count | medium |
 | 8 | P16 one way to close each popup | small |
-| 9 | P23 + P24 one date style and one money style; commas while typing money | medium |
+| 9 | P23 + P24 one date style and one money style; commas while typing money ("today" is already fixed) | medium |
 | 10 | P21 type the year in the date picker | small |
 | 11 | P20, P22, P25, P26, P27, P28, P30, P31, P34, P35 tidy-ups | small each |
 | 12 | P32 a screen for the master stage lists | medium |

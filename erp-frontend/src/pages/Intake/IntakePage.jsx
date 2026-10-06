@@ -44,13 +44,14 @@ const TYPE_HINTS = {
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 const sameRows = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here.
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// fix190: "today" is the day on THIS device's calendar (it used to be London time: yesterday until 3 am in Kampala)
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const todayDMY = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 // fix175: same file rules as the Folder page
 const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
 const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
-// fix172: today as yyyy-mm-dd in the user's own time zone (todayISO above is UTC and can be yesterday early in the morning)
+// fix172: today as yyyy-mm-dd in the user's own time zone (the device's own calendar)
 const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 // fix172: whole 30-day months between an "in receivables since" date (yyyy-mm-dd) and today, the same count the nightly fee job uses
 const monthsSince = (iso) => {
@@ -77,6 +78,7 @@ export default function IntakePage() {
     const topRef = useRef(null);
     const fileInputRef = useRef(null);
     const [saving, setSaving] = useState(false);
+    const [leaving, setLeaving] = useState(false);   // fix190: saved, about to leave the page -- SAVE stays off so a second tap cannot save a second copy
     const [nextIndex, setNextIndex] = useState('');
     const [projectType, setProjectType] = useState('FRESH_SURVEY');
     const [titleSwitch, setTitleSwitch] = useState(false);          // fix180: Topographic Survey only
@@ -523,8 +525,10 @@ export default function IntakePage() {
     };
 
     const handleSubmit = async () => {
+        if (leaving) return;
         const ok = await doSave();
         if (ok) {
+            setLeaving(true);
             toast(isEmployee ? 'Saved as PENDING. The office will add the prices.' : 'Project registered successfully!', 'success');
             // fix180: a transfer goes back to the subdivision it came from; fix181: the Employee goes to MY ENTRIES
             setTimeout(() => navigate(isEmployee ? '/my-entries' : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects')), 1200);
@@ -649,7 +653,7 @@ export default function IntakePage() {
                     <p className={styles.subtitle}>Intake Form</p>
                 </div>
                 <div className={styles.actions}>
-                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving || leaving} onClick={handleSubmit}>
                         <FiSave /> Save
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.cancelBtn}`} onClick={() => navigate(-1)}>Cancel</button>
@@ -993,10 +997,10 @@ export default function IntakePage() {
 
             <div className={styles.bottomBar}>
                 <div className={styles.bottomBarRight}>
-                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving}>
+                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}>
                         <FiCopy /> Duplicate
                     </button>
-                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving || leaving} onClick={handleSubmit}>
                         <FiSave /> Save Project
                     </button>
                 </div>
@@ -1017,7 +1021,7 @@ export default function IntakePage() {
                             <button type="button" className={styles.upBtn} onClick={handleAddCategory} disabled={catBusy || newCatName.trim().length < 2}>SAVE CATEGORY</button>
                             <button type="button" className={styles.upBtn} onClick={() => { setNewCatOpen(false); setNewCatName(''); }}>CLOSE</button>
                         </div></div>)
-                        : (<button type="button" className={styles.upBtn} onClick={() => setNewCatOpen(true)} title="Add a category that is not in the list yet">+ NEW CATEGORY</button>)}
+                        : (!isEmployee && <button type="button" className={styles.upBtn} onClick={() => setNewCatOpen(true)} title="Add a category that is not in the list yet">+ NEW CATEGORY</button>)}
                     {uploadDraft.error && <div className={styles.upErr} role="alert">{uploadDraft.error}</div>}
                     <div className={modalStyles.modalFooter}>
                         <button type="button" className={modalStyles.modalBtnPrimary} onClick={confirmUploadDraft}>ADD</button>
