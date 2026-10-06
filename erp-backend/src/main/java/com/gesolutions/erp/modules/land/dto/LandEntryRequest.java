@@ -53,6 +53,9 @@ public class LandEntryRequest {
     @Builder.Default
     private List<NeighborRequest> neighbors = new ArrayList<>();
 
+    // fix196: both are needed, together with the prices, for a project that is not Pending
+    private String invoiceNumber;
+    private String contractNumber;
     private BigDecimal totalCost;
     private BigDecimal initialPayment;
 

@@ -56,6 +56,7 @@ public final class AuditActions {
     public static final String PENDING_UPDATED = "PENDING_UPDATED";
     public static final String PROBLEM_FLAG = "PROBLEM_FLAG";
     public static final String PROJECT_GRADUATED = "PROJECT_GRADUATED";
+    public static final String PROJECT_NUMBERS_CHANGED = "PROJECT_NUMBERS_CHANGED";
     public static final String PROJECT_PENDING_REJECTED = "PROJECT_PENDING_REJECTED";
     public static final String PROJECT_STATUSES_ATTACHED = "PROJECT_STATUSES_ATTACHED";
     public static final String PROJECT_STATUSES_REORDERED = "PROJECT_STATUSES_REORDERED";
@@ -158,6 +159,7 @@ public final class AuditActions {
             PENDING_UPDATED,
             PROBLEM_FLAG,
             PROJECT_GRADUATED,
+            PROJECT_NUMBERS_CHANGED,
             PROJECT_PENDING_REJECTED,
             PROJECT_STATUSES_ATTACHED,
             PROJECT_STATUSES_REORDERED,

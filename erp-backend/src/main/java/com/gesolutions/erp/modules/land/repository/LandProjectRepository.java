@@ -88,6 +88,13 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
          + "WHERE p.deleted = false AND p.pending = false AND (c.id = :clientId OR (o.id = :clientId AND p.clients IS EMPTY))")
     List<LandProject> findByBillingClient(@org.springframework.data.repository.query.Param("clientId") UUID clientId);
 
+    // fix196: who already uses this invoice / contract number (deleted projects do not count; capitals do not matter)
+    @Query("SELECT p FROM LandProject p WHERE p.deleted = false AND LOWER(p.invoiceNumber) = LOWER(:n)")
+    List<LandProject> findLiveByInvoiceNumber(@org.springframework.data.repository.query.Param("n") String n);
+
+    @Query("SELECT p FROM LandProject p WHERE p.deleted = false AND LOWER(p.contractNumber) = LOWER(:n)")
+    List<LandProject> findLiveByContractNumber(@org.springframework.data.repository.query.Param("n") String n);
+
     /** fix181 (8.10b, 11.1b): every live project (Pending included) where this person is a client or an owner. */
     @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN p.clients c LEFT JOIN p.proprietors o "
          + "WHERE p.deleted = false AND (c.id = :clientId OR o.id = :clientId)")

@@ -56,6 +56,20 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
         scenarioSeeder.seedOnce();
+        demoNumbersOnce();
+    }
+
+    // fix196: DEMO DATA ONLY. The demo projects were made before invoice and contract numbers existed, so every started
+    // demo project that has neither gets a made-up pair ("INV-<index>", "CTR-<index>"). It never runs when the demo
+    // dataset is switched off (go-live), and it never touches a project that already has a number.
+    private void demoNumbersOnce() {
+        try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+            int n = st.executeUpdate("UPDATE land_projects SET invoice_number = 'INV-' || project_index, contract_number = 'CTR-' || project_index "
+                    + "WHERE pending = false AND project_index IS NOT NULL AND invoice_number IS NULL AND contract_number IS NULL");
+            if (n > 0) System.out.println(">>> [SEED] demo invoice / contract numbers added to " + n + " project(s)");
+        } catch (Exception e) {
+            System.err.println(">>> [SEED] demo numbers skipped: " + e.getMessage());
+        }
     }
 
     // fix181: OWNER RECOVERY without email. Set ADMIN_RESET_ONCE=true in the Render dashboard and restart: the Admin's key

@@ -172,6 +172,11 @@ public class StatusTemplateService {
     public StatusTemplate updateTemplateStatus(UUID id, String statusName, BigDecimal defaultCost, Integer displayOrder) {
         StatusTemplate status = templateRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("STATUS_TEMPLATE_NOT_FOUND"));
+        // fix196 (David, Q9): the Invoice / Contract stage keeps its name in every master list
+        if (statusName != null && !statusName.isBlank() && ProjectNumbersService.isInvoiceContractStage(status.getStatusName())
+                && !ProjectNumbersService.isInvoiceContractStage(statusName)) {
+            throw new BusinessException("STAGE_LOCKED: The \"Invoice / Contract Number\" stage cannot be renamed.");
+        }
         if (statusName != null && !statusName.isBlank()) status.setStatusName(statusName.trim());
         if (defaultCost != null) status.setDefaultCost(defaultCost);
         if (displayOrder != null) status.setDisplayOrder(displayOrder);
@@ -186,6 +191,9 @@ public class StatusTemplateService {
     public void deactivateTemplateStatus(UUID id) {
         StatusTemplate status = templateRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("STATUS_TEMPLATE_NOT_FOUND"));
+        if (ProjectNumbersService.isInvoiceContractStage(status.getStatusName())) {   // fix196 (David, Q9)
+            throw new BusinessException("STAGE_LOCKED: The \"Invoice / Contract Number\" stage cannot be removed from a stage list.");
+        }
         status.setActive(false);
         templateRepository.save(status);
         auditService.logActionAfterCommit("STATUS_TEMPLATE_REMOVED",
@@ -251,6 +259,22 @@ public class StatusTemplateService {
             if (st != null) { st.setDisplayOrder(order++); toSave.add(st); }
         }
         for (ProjectStatus st : byId.values()) { st.setDisplayOrder(order++); toSave.add(st); }
+        // fix196 (review S29): NO STAGE MAY BE MOVED ABOVE THE INVOICE / CONTRACT STAGE. The stages that were above it
+        // before (for example Field Measurement) may stay there; nothing else may join them.
+        java.util.Set<UUID> wasAbove = new java.util.HashSet<>();
+        boolean hasIc = false;
+        for (ProjectStatus st : statuses) {
+            if (ProjectNumbersService.isInvoiceContractStage(st.getStatusName())) { hasIc = true; break; }
+            wasAbove.add(st.getId());
+        }
+        if (hasIc) {
+            for (ProjectStatus st : toSave) {
+                if (ProjectNumbersService.isInvoiceContractStage(st.getStatusName())) break;
+                if (!wasAbove.contains(st.getId())) {
+                    throw new BusinessException("STAGE_ORDER_BLOCKED: No stage can be placed above \"Invoice / Contract Number\". Put \"" + st.getStatusName() + "\" below it.");
+                }
+            }
+        }
         projectStatusRepository.saveAll(toSave);
         auditService.logActionAfterCommit("PROJECT_STATUSES_REORDERED",
             "Operator [" + getCurrentOperator() + "] reordered statuses on project: " + projectId);
@@ -264,6 +288,13 @@ public class StatusTemplateService {
     public ProjectStatus toggleStatusCompletion(UUID statusId, boolean completed) {
         ProjectStatus status = projectStatusRepository.findById(statusId)
                 .orElseThrow(() -> new BusinessException("PROJECT_STATUS_NOT_FOUND"));
+        // fix196: the Invoice / Contract stage stands for the two numbers -- it cannot be ticked while they are missing
+        if (completed && ProjectNumbersService.isInvoiceContractStage(status.getStatusName())) {
+            LandProject project = projectRepository.findById(status.getProjectId()).orElse(null);
+            if (project != null && !ProjectNumbersService.hasBoth(project)) {
+                throw new BusinessException("NUMBERS_REQUIRED: Enter the invoice number and the contract number first. This stage is ticked by itself when they are saved.");
+            }
+        }
         status.setCompleted(completed);
         status.setCompletedAt(completed ? LocalDateTime.now() : null);
         status.setCompletedBy(completed ? getCurrentOperator() : null);
@@ -293,6 +324,10 @@ public class StatusTemplateService {
     public void removeProjectStatus(UUID statusId) {
         ProjectStatus status = projectStatusRepository.findById(statusId)
                 .orElseThrow(() -> new BusinessException("PROJECT_STATUS_NOT_FOUND"));
+        // fix196 (David, Q9): the Invoice / Contract stage can never be removed from a project
+        if (ProjectNumbersService.isInvoiceContractStage(status.getStatusName())) {
+            throw new BusinessException("STAGE_LOCKED: The \"Invoice / Contract Number\" stage cannot be removed. Every project needs it.");
+        }
         projectStatusRepository.delete(status);
         auditService.logActionAfterCommit("PROJECT_STATUS_REMOVED",
             "Operator [" + getCurrentOperator() + "] removed status \"" + status.getStatusName()
