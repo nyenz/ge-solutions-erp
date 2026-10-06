@@ -400,7 +400,7 @@ const ExpensesPage = () => {
             </CollapsibleSection>
 
             {/* LOG EXPENSE MODAL */}
-            <HardwareModal isOpen={logModal.open} onClose={closeLogModal}
+            <HardwareModal isOpen={logModal.open} onClose={closeLogModal} lockBackdrop /* fix190: typed text is not lost to a tap outside */
                 title={logModal.isOther ? 'LOG EXPENSE -- OTHER' : `LOG EXPENSE -- ${logModal.presetName.toUpperCase()}`}>
                 {logModal.isOther && (
                     <div className={modalStyles.modalField}>
@@ -449,7 +449,7 @@ const ExpensesPage = () => {
             </HardwareModal>
 
             {/* NEW PRESET MODAL */}
-            <HardwareModal isOpen={presetModal} onClose={() => setPresetModal(false)} title="NEW PRESET">
+            <HardwareModal isOpen={presetModal} onClose={() => setPresetModal(false)} title="NEW PRESET" lockBackdrop>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>PRESET NAME</label>
                     <input
@@ -472,7 +472,7 @@ const ExpensesPage = () => {
             </HardwareModal>
 
             {/* EDIT MODAL */}
-            <HardwareModal isOpen={editModal.open} onClose={() => setEditModal({ open: false, expense: null })}
+            <HardwareModal isOpen={editModal.open} onClose={() => setEditModal({ open: false, expense: null })} lockBackdrop
                 title="EDIT EXPENSE">
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>CATEGORY</label>

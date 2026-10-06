@@ -71,9 +71,9 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 // fix167: the server sends isCompleted (fix167) -- older answers said "completed"
 const statusDone = (s) => !!(s && (s.isCompleted ?? s.completed));
-const todayISO = () => new Date().toISOString().slice(0, 10);
 // fix181 (16.9): today's date on THIS device's calendar (toISOString is UTC and is a day off around midnight in Kampala)
 const localISO = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const todayISO = () => localISO();   // fix190: was UTC
 
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const useToast = () => {

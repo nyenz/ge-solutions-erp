@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -192,6 +192,17 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - *Light* (pictures inside the PDF are re-saved at 300 dpi): Ghostscript can do it. Typical saving on phone-scanned PDFs: about 30-60%, with a small quality loss. Never use it on a digitally SIGNED PDF (the signature breaks).
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
+
+### FIRST FIXES FROM THE REVIEW (fix190)
+
+- DATES ARE THE DEVICE'S CALENDAR, NEVER UTC. `utils/reportPeriod.js` has `localISO()` and `periodRange()` (tested in
+  `tests/reportPeriod.test.mjs` with the time zone set to Kampala). NEVER use `toISOString().slice(0, 10)` for "today"
+  or for a period: Uganda is 3 hours ahead, so it gives yesterday until 3 am and made every report period one day early.
+- NEW PROJECT: after a good save the SAVE buttons stay off (`leaving`) until the page moves on, so a second tap cannot
+  save a second copy. (The server still has no guard of its own -- review item S17.)
+- POPUPS WITH TYPED TEXT, or that show something ONCE, use `lockBackdrop` on `HardwareModal` (a tap outside does not
+  close them; the X does): TEMPORARY KEY, ADD STAFF, Recovery CALL LOG, the Expenses popups.
+- The Employee does not see "+ NEW CATEGORY" on the upload popup (the server keeps it for Secretary and above).
 
 ### THE APP REVIEW DOCUMENT (fix189)
 

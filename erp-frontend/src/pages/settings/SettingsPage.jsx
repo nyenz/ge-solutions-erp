@@ -478,7 +478,7 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      <HardwareModal isOpen={addOpen} onClose={() => setAddOpen(false)} title="ADD STAFF">
+      <HardwareModal isOpen={addOpen} onClose={() => setAddOpen(false)} title="ADD STAFF" lockBackdrop>
         <div className={styles.modalBody}>
           <HardwareInput id="new-username" label="USERNAME" value={newOp.username} onChange={e => setNewOp({ ...newOp, username: e.target.value })} required autoCapitalize="none" spellCheck={false} />
           <p className={newOp.username && !newUserOk ? styles.ruleBad : styles.ruleTodo}>3 to 30 letters, digits, dot, underscore or hyphen. No spaces.</p>
@@ -555,7 +555,7 @@ const SettingsPage = () => {
         )}
       </HardwareModal>
 
-      <HardwareModal isOpen={!!reveal} onClose={() => setReveal(null)} title="TEMPORARY KEY">
+      <HardwareModal isOpen={!!reveal} onClose={() => setReveal(null)} title="TEMPORARY KEY" lockBackdrop>{/* fix190: shown once only -- a stray tap outside must not close it */}
         <div className={styles.revealBox}>
           <FiAlertTriangle className={styles.warningIcon} aria-hidden="true" />
           <p className={styles.revealHint}>Give this key to {reveal ? reveal.username : ''}. They must change it when they first sign in. It is valid for 7 days.</p>
