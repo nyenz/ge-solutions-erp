@@ -32,6 +32,7 @@ public class LandController {
 
     private final LandService landService;
     private final com.gesolutions.erp.modules.land.service.ProjectNumbersService projectNumbersService;   // fix196
+    private final com.gesolutions.erp.modules.land.service.TitledStageService titledStageService;       // fix197
     private final ProjectStatusRepository projectStatusRepository;
     // fix167: the app's own JSON reader (knows dates, ignores extra fields). A bare "new ObjectMapper()" refused
     // every New Project save that carried a date or a status list.
@@ -148,6 +149,15 @@ public class LandController {
         // fix165: the text normally arrives in the body; the old ?content= form still works
         landService.logNewNote(id, content != null ? content : (body == null ? null : body.get("content")));
         return ResponseEntity.ok().build();
+    }
+
+    /** fix197: tick the "Titled" stage; when the project has no Title Details yet they come in the body and are saved first. */
+    @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/statuses/{statusId}/complete-titled")
+    public ResponseEntity<java.util.Map<String, Object>> completeTitled(@PathVariable UUID id, @PathVariable UUID statusId,
+                                                                        @RequestBody(required = false) LandEntryRequest body) {
+        var p = titledStageService.completeTitled(id, statusId, body);
+        return ResponseEntity.ok(java.util.Map.of("ok", true, "id", p.getId()));
     }
 
     /** fix196: correct the invoice number and the contract number of a started project (every rank except Employee). */

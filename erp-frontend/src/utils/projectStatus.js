@@ -156,5 +156,8 @@ export function canInsertStageBelow(list, i) {
 /** Every stage except the first can carry its own documents (the first is ticked at intake, before any paper exists). */
 export const stageTakesDocuments = (list, i) => i > 0;
 
+/** fix197: true for the stage that means "the title exists" (same test as the server's LandService.isTitledStatus). */
+export const isTitledStage = (s) => { const n = nameOf(s).trim().toLowerCase(); return n === 'titled' || n.includes('registration'); };
+
 /** fix196: true when the project has BOTH its invoice number and its contract number. */
 export const hasNumbers = (p) => !!(p && String(p.invoiceNumber || '').trim() && String(p.contractNumber || '').trim());

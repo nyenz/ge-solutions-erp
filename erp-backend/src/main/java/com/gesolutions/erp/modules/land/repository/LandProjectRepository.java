@@ -67,10 +67,14 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     // that have had no payment for over 365 days — candidates for auto-receivable
     // Fixed: require BOTH registration date AND last payment date to be older than cutoff
     // This prevents newly registered plots with no initial payment from being instantly flagged
-    @Query("SELECT p FROM LandProject p WHERE p.isReceivable = false " +
+    // fix197 (David, Q4; review S09): EVERY project type goes to Receivables after 365 days without payment. The query
+    // used to read the title's date only, so a project with no Title Details (Fresh Survey, Special Projects) was never
+    // found. Now: a project WITH Title Details is judged by the title's date, as before; a project WITHOUT them is judged
+    // by its own entry date. (A Fresh Survey that gets its title later is judged by the new title's date from then on.)
+    @Query("SELECT p FROM LandProject p LEFT JOIN p.landTitle t WHERE p.isReceivable = false " +
            "AND p.deleted = false AND p.pending = false " +
            "AND p.amountPaid < p.totalCost " +
-           "AND p.landTitle.createdAt < :cutoff " +
+           "AND (t.createdAt < :cutoff OR (t IS NULL AND p.createdAt < :cutoff)) " +
            "AND (p.graduatedAt IS NULL OR p.graduatedAt < :cutoff) " +   // fix181 (4.4): the clock starts at the LATER of the two
            "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")
     List<LandProject> findAutoReceivableCandidates(LocalDateTime cutoff);

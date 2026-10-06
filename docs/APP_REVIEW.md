@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Last change: fix196. Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix197. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -61,7 +61,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | S06 | Server: Dashboard "projects by type and stage" | The count never moves. It reads a number that is only set when the project is created. Ticking stages does not change it. The demo data sets it by hand, which hides the fault. | medium | sure | dashboard-admin-desktop.jpg |
 | S07 | Server: reversing a storage-fee payment | If a storage payment is reversed after the project has left Receivables, the books end up wrong (a fee that was dropped can come back as title money owed). | medium | likely | code |
 | S08 | Server: Dashboard vs Payments page | The two pages split "title money" and "storage money" by different rules, so "title collected" will not match between them. | medium | sure | code |
-| S09 | Server: the yearly move to Receivables | The automatic job skips every project that has no Title Details (Fresh Survey, Special Projects...). They never go to Receivables by themselves. | medium | sure about code; maybe meant | code |
+| S09 | Server: the yearly move to Receivables | The automatic job skips every project that has no Title Details (Fresh Survey, Special Projects...). They never go to Receivables by themselves. **FIXED in fix197.** | medium | sure about code; maybe meant | code |
 | S10 | Server: Recovery "answered call" | No guard against a double tap. Two taps count as two good calls and the client is rested for 30 days. | medium | sure | code |
 | S11 | Server: Expenses | A Manager is meant to see the last 24 hours. The server lets a Manager ask for any number of hours, so the whole history can be read. | medium | sure | code |
 | S12 | Server: audit | Changing a client's phone, email or address through a project edit writes **no audit line**. The same change on the client page does. **FIXED in fix194.** | medium | sure | code |
@@ -78,7 +78,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | P08 | Settings > Staff, TEMPORARY KEY popup | The key is "shown once only", but one tap outside the popup closes it and the key is gone. **FIXED in fix190.** | medium | sure | settings-phone.jpg |
 | P09 | Folder page and Client page, Secretary | The Secretary makes the recovery calls but cannot fix a wrong phone number on the client page, and cannot tick a stage. David's rule says the Secretary handles the Invoice/Contract stage. (The server also blocks the tick -- see S19.) **FIXED in fix193.** | medium | sure | folder-phone.jpg |
 | P10 | Settings > Staff | The power icon **suspends a person with one tap**, no question asked. CREATE can be pressed twice while the server wakes up. The three icon buttons have no words. | medium | sure | settings-phone.jpg |
-| P11 | Folder page | A Fresh Survey or Special Project can **never be closed**. HAND OVER needs Title Details and these types never have them. A paid, finished project stays ACTIVE for ever. | medium | sure; maybe meant | folder-phone.jpg |
+| P11 | Folder page | A Fresh Survey or Special Project can **never be closed**. HAND OVER needs Title Details and these types never have them. A paid, finished project stays ACTIVE for ever. **Fresh Survey FIXED in fix197. Special Projects still to do (see 5.1).** | medium | sure; maybe meant | folder-phone.jpg |
 | P12 | Folder page, grey buttons on a phone | The reason a button is grey (RECORD PAYMENT, HAND OVER, EDIT) shows only when a mouse hovers. On a phone it is just grey with no reason. | medium on phones | sure | folder-phone.jpg |
 | P13 | New Project, errors | Each error shows for 4 seconds, one at a time, with no red mark on the box and no jump to it. Easy to miss on a phone. | medium on phones | sure | new-project-money-phone.jpg |
 | P14 | Project status words | Reports and the Folder print-out still use the old words (RECEIVABLE / RELEASED / COMPLETED). The Folder header can show two badges at once. Related Projects and the Client page cannot show PENDING. | medium | sure | reports-phone.jpg |
@@ -192,6 +192,7 @@ this matters before real client data goes in.
 | fix194 | S01: an Employee no longer gets back, and can no longer replace, the phone, email and address of a client the office already has. S12: a contact change made through a project edit now writes an audit line with the old and new values. |
 | fix195 | S03: files sent with a New Project (office or Employee) must be PDF, JPG, PNG or WEBP and not empty, the same check as in the folder. |
 | fix196 | INVOICE NUMBER + CONTRACT NUMBER (David's Task C). A project leaves Pending in one step that needs both numbers and the price. Each number is on one project only, any format. Every rank except Employee can correct them (logged). Shown in the folder head, found by Ledger search, in Reports. The Invoice / Contract stage ticks by itself, cannot be ticked without the numbers, cannot be removed or renamed (Q9), and no stage can be moved above it on the server (S29). |
+| fix197 | Q4, Fresh Survey: ticking "Titled" on a project with no title opens a Title Details popup; the tick is saved only together with the details. After that the normal HAND OVER works when everything is paid. S09: every project type now goes to Receivables after 365 days without payment (a project with no title is judged by its entry date). |
 
 ---
 
@@ -203,7 +204,6 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 
 | Rank | Item | Size | Answer |
 |---|---|---|---|
-| 2 | P11 / S09 Fresh Survey ends through the TITLED stage (Title Details needed); 365 days -> Receivables for every type | medium | Q4 |
 | 3 | Special Projects: own goals, optional title, CLOSE PROJECT (see 5.1) | big | Q4 |
 | 5 | S26 money per project for Manager and Secretary on the Client page too | medium | Q6 = A |
 | 6 | P04 Employee edits own Pending entry (do S01 first) | medium | Q7 = A |

@@ -57,6 +57,12 @@ const statusTemplateService = {
         return response.data;
     },
 
+    // fix197: tick the "Titled" stage of a project that has no Title Details yet -- the details are saved first
+    completeTitledStage: async (projectId, statusId, details) => {
+        const response = await api.post(`/land/projects/${projectId}/statuses/${statusId}/complete-titled`, details || {});
+        return response.data;
+    },
+
     toggleStatusCompletion: async (projectId, statusId, completed) => {
         const response = await api.patch(
             `/land/projects/${projectId}/statuses/${statusId}/complete`,
