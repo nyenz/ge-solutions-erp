@@ -207,3 +207,6 @@
 .toggleRow { display: flex; align-items: center; gap: var(--gap-md); cursor: pointer; color: var(--ink-solid); font-weight: 700; font-size: var(--fs-value); letter-spacing: 0.5px; }
 .neighborRow { grid-template-columns: 2fr 1.5fr 1fr 1fr auto; }
 @media (max-width: 900px) { .neighborRow { grid-template-columns: 1fr; } }
+
+/* fix186: the size of a picked file, before and after the gentle photo shrink ("4.8 MB -> 1.2 MB (75% smaller)") */
+.upFileNote { display: block; margin-top: 2px; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 0.3px; color: rgba(var(--ink-rgb), 0.6); white-space: normal; }

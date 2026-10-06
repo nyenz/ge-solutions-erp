@@ -16,6 +16,7 @@ import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import { LoadingState } from '../../components/common/LoadingState';
 import { FiUploadCloud } from 'react-icons/fi';
 import { waitingFor } from '../../utils/projectStatus';
+import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
 import styles from './Pending.module.css';
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
@@ -68,6 +69,7 @@ export default function PendingViewPage() {
     // Employee tools
     const [note, setNote] = useState('');
     const [files, setFiles] = useState([]);
+    const [fileNotes, setFileNotes] = useState([]);   // fix186: size before -> after, one per file
     const [cats, setCats] = useState([]);
     const [cat, setCat] = useState('');
     // office tools
@@ -92,6 +94,16 @@ export default function PendingViewPage() {
         if (office) return;
         landService.getDocumentCategories().then(list => { setCats(list || []); if (list && list[0]) setCat(list[0].code); }).catch(() => {});
     }, [office]);
+
+    // fix186: photos are gently shrunk first (utils/imageShrink.js); wrong, empty and too-big files are refused here
+    const pickScans = async (list) => {
+        setError('');
+        if (anyToShrink(list)) setMsg('Preparing the photos...');
+        const { ok, bad } = await prepareUploads(list);
+        setMsg('');
+        if (bad.length) setError('Not added: ' + bad.join('; '));
+        setFiles(ok.map(x => x.file)); setFileNotes(ok.map(x => x.note));
+    };
 
     const run = async (fn, ok) => {
         setBusy(true); setError(''); setMsg('');
@@ -182,9 +194,9 @@ export default function PendingViewPage() {
                             <label className={styles.dropzone}>
                                 <FiUploadCloud className={styles.dropzoneIcon} aria-hidden="true" />
                                 {files.length ? files.length + ' file(s) chosen - click to choose again' : 'Click to choose scans (PDF, JPG, PNG, WEBP)'}
-                                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setFiles(Array.from(e.target.files || []))} aria-label="Scans" />
+                                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => { const list = Array.from(e.target.files || []); e.target.value = ''; pickScans(list); }} aria-label="Scans" />
                             </label>
-                            {files.length > 0 && <div className={styles.fileList}>{files.map(f => <span key={f.name} className={styles.fileChip}>{f.name}</span>)}</div>}
+                            {files.length > 0 && <div className={styles.fileList}>{files.map((f, i) => <span key={f.name + i} className={styles.fileChip}>{f.name}{fileNotes[i] ? ' - ' + fileNotes[i] : ''}</span>)}</div>}
                             <label className={styles.field}><span className={styles.label}>Document type</span>
                                 <HardwareModalSelect value={cat} options={catOptions} onChange={setCat} placeholder="Choose a type" ariaLabel="Document type" /></label>
                             <div className={styles.actions}>

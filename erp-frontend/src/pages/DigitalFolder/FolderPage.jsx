@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import useScrollEdges from '../../hooks/useScrollEdges';
+import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
 import { PROJECT_STATUS, waitingFor, canInsertStageBelow, stageTakesDocuments } from '../../utils/projectStatus';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
@@ -381,6 +382,7 @@ const FolderPage = () => {
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
     const [payReceipt, setPayReceipt] = useState(null);
+    const [payReceiptNote, setPayReceiptNote] = useState('');   // fix186: "4.8 MB -> 1.2 MB" shown next to the receipt
     const payReceiptRef = useRef(null);
     const [payErr, setPayErr] = useState('');
     const [problemModal, setProblemModal] = useState({ open: false, note: '' });
@@ -664,20 +666,24 @@ const FolderPage = () => {
     const removePerson = (list, idx) => setBuffer(p => ({ ...p, [list]: p[list].filter((_, i) => i !== idx) }));
     const copyClientsToOwners = () => setBuffer(p => ({ ...p, owners: (p.clients || []).map(c => ({ ...c })) }));
     // fix165: wrong type / empty / oversized files are turned away here with the reason, before any upload starts
-    const handleVaultAction = (files) => {
+    // fix186: photos are gently shrunk first (utils/imageShrink.js); the size limit is checked on the file that is sent
+    const handleVaultAction = async (files) => {
         if (!files?.length) return;
-        const ok = []; const bad = [];
-        files.forEach(f => {
-            if (!SCAN_EXT.includes(fileExt(f.name))) bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)');
-            else if (!f.size) bad.push(f.name + ' (the file is empty)');
-            else if (f.size > 50 * 1024 * 1024) bad.push(f.name + ' (over 50 MB)');
-            else ok.push(f);
-        });
-        if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
-        if (!ok.length) { setAttachTo(null); return; }
-        // fix180: files picked from a status row's ATTACH button belong to that status
-        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })), statusId: attachTo ? attachTo.id : null, statusName: attachTo ? attachTo.statusName : '' });
+        const target = attachTo;   // fix180: files picked from a stage row's ATTACH button belong to that stage
         setAttachTo(null);
+        if (anyToShrink(files)) toast('Preparing the photos...', 'info');
+        const { ok, bad } = await prepareUploads(files, { exts: SCAN_EXT });
+        if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
+        if (!ok.length) return;
+        setUploadDraft({ batch: '', error: '', files: ok.map(({ file, note }) => ({ file, category: '', note })), statusId: target ? target.id : null, statusName: target ? target.statusName : '' });
+    };
+    // fix186: the receipt photo is shrunk the same way, so a big phone photo fits the 10 MB receipt limit
+    const pickReceipt = async (f) => {
+        if (!f) return;
+        setPayErr('');
+        const { ok, bad } = await prepareUploads([f], { exts: SCAN_EXT, maxBytes: 10 * 1024 * 1024 });
+        if (!ok.length) { setPayReceipt(null); setPayReceiptNote(''); setPayErr('RECEIPT NOT ADDED: ' + (bad[0] || f.name).toUpperCase()); return; }
+        setPayReceipt(ok[0].file); setPayReceiptNote(ok[0].note);
     };
     const attachToStatus = (status) => { setAttachTo(status); fileInputRef.current?.click(); };
     const closeUploadDraft = () => { if (committing) return; setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
@@ -1389,7 +1395,7 @@ const FolderPage = () => {
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
                         <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
-                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}</span>
+                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}{f.note && <small className={styles.upFileNote}>{f.note}</small>}</span>
                         <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
                     {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
                         <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
@@ -1429,8 +1435,8 @@ const FolderPage = () => {
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Mobile money, ref 5521..." /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT (REQUIRED)</label>
-                    <input ref={payReceiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; if (f) { setPayReceipt(f); setPayErr(''); } e.target.value = ''; }} />
-                    {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt" title="Remove this file"><FiX aria-hidden="true" /></button></div>)
+                    <input ref={payReceiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; pickReceipt(f); }} />
+                    {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}{payReceiptNote && <small className={styles.upFileNote}>{payReceiptNote}</small>}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt" title="Remove this file"><FiX aria-hidden="true" /></button></div>)
                         : (<button type="button" className={styles.addDocBtn} onClick={() => payReceiptRef.current && payReceiptRef.current.click()} title="Choose the receipt scan or photo"><FiPaperclip aria-hidden="true" />&nbsp;ATTACH RECEIPT SCAN</button>)}
                     <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts. PDF, JPG, PNG or WEBP, up to 10 MB. The payment is NOT saved without it.</span></div>
                 <ModalError text={payErr} />
