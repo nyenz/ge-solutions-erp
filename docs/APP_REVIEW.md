@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Last change: fix190. Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix192. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -186,6 +186,8 @@ this matters before real client data goes in.
 | fix188 | Data entry helpers: the village fills the rest of the place, known clients are offered by name / National ID / phone, "Did you mean ...?" for likely typos, expense categories remembered. |
 | fix189 | This review document. |
 | fix190 | From this review: P01 report periods, P02 double save, P08 temporary key popup, P17 popups with typed text, P18 "+ NEW CATEGORY" for the Employee, P23 "today" in London time. |
+| fix191 | GitHub checks (Q1 = A): server tests and page checks run by themselves on every pull request. |
+| fix192 | Gentle movement on every tab and filter bar: the orange pill slides to the picked tab and the content fades in. David's answers to Q1-Q10 written into section 5. |
 
 ---
 
@@ -193,20 +195,21 @@ this matters before real client data goes in.
 
 Ranked: most important first. Size: **small** = under an hour, **medium** = a few hours, **big** = a day or more.
 
-### A. Waiting for an answer from David (see section 5)
+### A. Answered by David on 6 Oct 2026 -- now ordinary work (needs the server, checked by GitHub)
 
-| Rank | Item | Size | Needs |
+| Rank | Item | Size | Answer |
 |---|---|---|---|
-| 1 | Turn on checks for server changes (Q1). Nothing in group B can be merged safely before this. | small | Q1 |
-| 2 | S02 private file links | big | Q2 |
-| 3 | P09 / S19 / W2 Secretary rights | small | Q3 |
-| 4 | P11 / S09 how Fresh Survey and Special Projects end | medium | Q4 |
-| 5 | S18 deletes that can be undone | medium | Q5 |
-| 6 | S26 who sees money in the Ledger | medium | Q6 |
-| 7 | P04 Employee edits own entry | medium | Q7 |
-| 8 | Hosting move (Hetzner or other) | big | Q8 |
+| 1 | P09 / S19 Secretary may tick any stage and fix client phones | small | Q3 = B |
+| 2 | P11 / S09 Fresh Survey ends through the TITLED stage (Title Details needed); 365 days -> Receivables for every type | medium | Q4 |
+| 3 | Special Projects: own goals, optional title, CLOSE PROJECT (see 5.1) | big | Q4 |
+| 4 | Q9 Invoice / Contract stage can never be removed or renamed | small | Q9 = A |
+| 5 | S26 money per project for Manager and Secretary on the Client page too | medium | Q6 = A |
+| 6 | P04 Employee edits own Pending entry (do S01 first) | medium | Q7 = A |
+| 7 | S18 Archive for deleted documents, notes, expenses (90 days) | medium | Q5 = A |
+| 8 | S02 private files -- at the hosting move, BEFORE real client papers | big | Q2 = C |
+| 9 | Hosting move | big | Q8 = C: later. PENDING. |
 
-### B. Server work, blocked only by Q1 (I am sure what to do)
+### B. Server work (no longer blocked: GitHub checks are on)
 
 | Rank | Item | Size |
 |---|---|---|
@@ -253,6 +256,8 @@ I will not guess these. Each one changes what gets built. Answer with the letter
 
 ### Q1. How should server changes be checked before they go live?
 
+> **DAVID'S ANSWER (6 Oct 2026): A. Done in fix191: GitHub now runs the server tests and the page checks on every pull request. First run: both green. Server work is no longer blocked.**
+
 **Why it matters:** your rule is "never merge if a check fails". This workspace cannot run the 91 server tests
 (the download site for the Java tools is blocked). So no server change has been merged, and group B is waiting.
 
@@ -265,6 +270,8 @@ whoever makes the change (me, another helper, or you). B only helps while this w
 
 ### Q2. Uploaded files are public links today (S02). How private should they be?
 
+> **DAVID'S ANSWER (6 Oct 2026): C. Files become private when the app moves hosts. NOTE: with Q8 = C the move is "later", so the files stay public links until then. This must be done BEFORE real client papers go in.**
+
 **Why it matters:** title scans and ID copies of real clients will be in there. Anyone with a link can open it.
 
 - **A.** Leave as it is until go-live (only demo files now), fix before real data.
@@ -276,6 +283,8 @@ Doing it once, during the move, is cheaper and simpler than building it twice. B
 real client papers go in. If the move will take long, choose B.
 
 ### Q3. What may the Secretary do?
+
+> **DAVID'S ANSWER (6 Oct 2026): B. The Secretary may tick ANY stage and may fix client phone numbers. Still audited.**
 
 **Why it matters:** you said the Secretary enters the invoice and contract numbers by clicking that stage. Today
 the Secretary cannot tick any stage and cannot fix a client's phone number.
@@ -290,6 +299,10 @@ there. Every change stays audited.
 
 ### Q4. How does a Fresh Survey or Special Project end?
 
+> **DAVID'S ANSWER (6 Oct 2026):** His own rule (not A, B or C):
+>   - FRESH SURVEY: when the TITLED stage is ticked, the Title Details boxes appear and MUST be filled, or the tick is not saved. After that, when everything is paid, the project is handed over like any titled project. If it stays unpaid for 365 days it moves to Receivables.
+>   - SPECIAL PROJECTS: must stay very broad (they can be big government jobs with many variables). The user sets their own goals. David asked for my take; it is written in section 5.1 below.
+
 **Why it matters:** today these can never be closed (P11) and never go to Receivables by themselves (S09).
 
 - **A.** Add a **CLOSE PROJECT** button (Director and above) for project types with no title. Status becomes "CLOSED". It needs all stages ticked and nothing owed.
@@ -303,6 +316,8 @@ honest word. And a client who has not paid for a year should be chased the same 
 
 ### Q5. Should deleted documents, notes and expenses be recoverable?
 
+> **DAVID'S ANSWER (6 Oct 2026): A. Deleted documents, notes and expenses go to the Archive for 90 days; a Director can restore them.**
+
 **Why it matters:** today they are gone for good (S18). One wrong tap by staff loses a paper.
 
 - **A.** Yes: they go to the Archive for 90 days, a Director can restore them, then they are removed.
@@ -313,6 +328,8 @@ honest word. And a client who has not paid for a year should be chased the same 
 growing for ever.
 
 ### Q6. May a Manager and a Secretary see money in the Ledger?
+
+> **DAVID'S ANSWER (6 Oct 2026): A. Manager and Secretary see money PER PROJECT (Ledger, Folder, Client page). No company totals.**
 
 **Why it matters:** the client page hides money from them, but the Ledger shows cost, paid and owed for every
 project (S26). One of the two is wrong.
@@ -326,6 +343,8 @@ Company totals stay with the Director and Admin, as on the Dashboard today.
 
 ### Q7. May an Employee correct their own entry while it is still Pending?
 
+> **DAVID'S ANSWER (6 Oct 2026): A. The Employee may correct their own entry until the office starts it. Audited.**
+
 **Why it matters:** today a typo means the office rejects it and the Employee types everything again (P04).
 
 - **A.** Yes, until the office starts it. Every change is audited.
@@ -336,6 +355,8 @@ Company totals stay with the Director and Admin, as on the Dashboard today.
 starting the project.
 
 ### Q8. Hosting: Hetzner may not be selling its cheapest servers right now.
+
+> **DAVID'S ANSWER (6 Oct 2026): C. Stay on Render for now. The hosting move stays PENDING. Nothing is to be set up.**
 
 **Why it matters:** the cost plan (guide 18.3a) found reports that Hetzner's cheap CX / CAX servers could not be
 ordered since September 2026. I could not confirm it from here. Nothing has been set up; the move is PENDING.
@@ -349,6 +370,8 @@ needed just to look.
 
 ### Q9. The invoice / contract stage: may it ever be removed from a project?
 
+> **DAVID'S ANSWER (6 Oct 2026): A. The Invoice / Contract stage can never be removed or renamed.**
+
 **Why it matters:** you said no stage may sit above it. If a Director can still **remove** it, a project could
 have no place to hold the two numbers.
 
@@ -360,6 +383,8 @@ there. Simple rule, nothing to explain to staff.
 
 ### Q10. A failed deploy shows on GitHub for the old service `ge-solutions-api` (S31).
 
+> **DAVID'S ANSWER (6 Oct 2026): A. David will look on the Render dashboard and delete `ge-solutions-api` if it is still there.**
+
 **Why it matters:** if that old service still exists on Render it may be costing money or holding an old copy
 of the app.
 
@@ -368,6 +393,31 @@ of the app.
 
 **MY SUGGESTED OPTION: A.** Low running cost is one of your goals, and an old copy of the app is one more
 thing that can be attacked.
+
+### 5.1 MY TAKE ON SPECIAL PROJECTS (David asked for it)
+
+A Special Project is "anything that is not one of the other seven types". So it should have NO fixed shape:
+
+1. **Goals instead of a fixed stage list.** When the project is created the user types their own goals, in their own
+   words (for example "Sign contract", "Survey 40 km of road", "Hand in final report"). A goal can have a price and
+   a target date, both optional. Goals can be added, renamed and reordered later (Manager and above; audited).
+   Invoice / Contract is still the first one and cannot be removed (Q9).
+2. **Money works like every other project.** One total price, payments against it, "amount owed", Recovery calls.
+   For a big job the price can be split over the goals, so the folder shows which part is paid.
+3. **Title Details are optional.** If a goal produces a title, the user ticks "this goal makes a title" and the same
+   Title Details boxes as a Fresh Survey appear. If not, no title is ever asked for.
+4. **It ends with CLOSE PROJECT** (Director and above) when every goal is ticked and nothing is owed. Status: CLOSED.
+5. **Unpaid for 365 days -> Receivables**, same as the others.
+6. **A free "about this project" box** (client body, contract reference, notes) so odd details have a home.
+
+I will build it this way unless you say otherwise. It reuses the stage list that already exists, so it is cheap to
+build and staff learn nothing new.
+
+### 5.2 NEW REQUEST FROM DAVID (6 Oct 2026)
+
+"A gentle, subtle movement when a tab or filter changes, and such subtle details throughout the app."
+Done in fix192 for every tab bar and filter bar (the orange pill slides; the content under it fades in).
+More small touches will follow page by page; each one is listed in section 3 when it is done.
 
 ---
 

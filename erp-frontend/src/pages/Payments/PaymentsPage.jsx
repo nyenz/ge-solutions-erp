@@ -17,6 +17,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './PaymentsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { errorText } from '../../utils/errorText';
 
@@ -43,6 +44,7 @@ const PaymentsPage = () => {
     const [params, setParams] = useSearchParams();
     const q = params.get('q') || '';
     const tab = params.get('tab') || 'ALL';
+    const swapRef = useSwapMotion(tab);   // fix192: the list fades in gently when the tab changes
     const sort = params.get('sort') || 'date';
     const dir = params.get('dir') || 'desc';
     const from = params.get('from') || '';
@@ -219,7 +221,7 @@ const PaymentsPage = () => {
             ) : (
                 /* fix183: the SAME table card as the Project Ledger and the Client Ledger (edge-to-edge table, bottom corner
                    brackets and pins, PREV / RANGE / NEXT footer). It used to sit inside a padded panel with its own pager. */
-                <div className={styles.tablePanel} data-tab-accent={accentOf(TABS, tab)}>
+                <div className={styles.tablePanel} data-tab-accent={accentOf(TABS, tab)} ref={swapRef}>
                     <div className={styles.decorBl} aria-hidden="true" />
                     <div className={styles.decorBr} aria-hidden="true" />
                         <div className={styles.tableScroll} ref={tableHandoffRef}>

@@ -14,6 +14,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { projectTypeOf } from '../../constants/projectTypes';
 import { statusOf, moneyWordsOf, hasPrice, MONEY_WORD } from '../../utils/projectStatus';
@@ -71,6 +72,7 @@ const LedgerPage = () => {
     // fix181 (17.10, 17.20): a link can open a tab (/land/projects?tab=PENDING)
     const [ledgerParams] = useSearchParams();
     const [activeFilter, setActiveFilter] = useState(() => (ledgerParams.get('tab') || 'ALL').toUpperCase());
+    const swapRef = useSwapMotion(activeFilter);   // fix192: the list fades in gently when the tab changes
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
     // fix169: a new search / filter / sort always starts from the first page of results.
     // fix182: worked out while drawing (the page number belongs to one search/filter/sort) instead of an effect.
@@ -215,7 +217,7 @@ const LedgerPage = () => {
                 card; the bracket-style corner decor (with a small
                 glowing dot at the tip) renders ONLY on the two bottom
                 corners of THIS card -- no top corner brackets. */}
-            <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>
+            <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)} ref={swapRef}>
                 {/* fix148: no top pins -- bottom pins + bottom corners only */}
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />
