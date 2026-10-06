@@ -25,6 +25,9 @@ import { PROJECT_TYPES, showsTitle } from '../../constants/projectTypes';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { canInsertStageBelow, isInvoiceContractStage } from '../../utils/projectStatus';
 import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
+import SuggestInput from '../../components/common/SuggestInput';
+import useEntryMemory from '../../hooks/useEntryMemory';
+import { suggestPlace, suggestPeople, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
@@ -95,6 +98,7 @@ export default function IntakePage() {
     const [subCounty, setSubCounty] = useState('');
     const [parish, setParish] = useState('');
     const [village, setVillage] = useState('');
+    const { places, people } = useEntryMemory();   // fix188: what past projects and the client list teach the form
     const [area, setArea] = useState('');
 
     // Statuses are LOCAL-ONLY: edits never touch the master template, so the list resets to the project type's
@@ -335,6 +339,9 @@ export default function IntakePage() {
         markDirty();
     };
     const updateClient = (idx, field, val) => changeClients(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
+    // fix188: a picked suggestion fills several boxes of ONE row in one step (four single updates would overwrite each other)
+    const fillClient = (idx, patch) => changeClients(p => p.map((o, i) => i === idx ? { ...o, ...patch } : o));
+    const fillOwner = (idx, patch) => { markDirty(); setOwnersLinked(false); setOwners(p => p.map((o, i) => i === idx ? { ...o, ...patch } : o)); };
     // OWNERS: the first change unlinks them from the clients (they are then edited on their own)
     const updateOwner = (idx, field, val) => { markDirty(); setOwnersLinked(false); setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o)); };
     const copyClientsToOwners = () => { setOwners(clients.map(c => ({ ...c }))); setOwnersLinked(true); markDirty(); };
@@ -570,19 +577,57 @@ export default function IntakePage() {
     const nFinancials = isEmployee ? null : ++n;
     const nDocuments = ++n, nNotes = ++n;
     // one Client / Owner row (same fields for both panels)
-    const personRow = (o, idx, onChange, onRemove, canRemove, what) => (
+    // fix188: LOCATION HELPERS. The five boxes share one memory (utils/entryMemory.js). A box that is already filled
+    // narrows what the others offer; a pick fills the boxes it can be sure of; a likely typo gets a "did you mean".
+    const loc = { district, county, subCounty, parish, village };
+    const setLoc = { district: setDistrict, county: setCounty, subCounty: setSubCounty, parish: setParish, village: setVillage };
+    const pickPlace = (field, sug) => {
+        setLoc[field](sug.value);
+        const filled = [];
+        Object.entries(sug.fill || {}).forEach(([f, v]) => { if (!normText(loc[f])) { setLoc[f](v); filled.push(placeLabel(f)); } });
+        markDirty();
+        if (filled.length) toast('Filled from past projects: ' + filled.join(', ') + '. Check them.', 'info');
+    };
+    const placeField = (field) => {
+        const miss = nearMiss(placeValues(places, field), loc[field]);
+        return (
+            <div className={styles.field} key={field}>
+                <label className={`${styles.label} ${styles.required}`}>{placeLabel(field)}</label>
+                <SuggestInput className={styles.input} value={loc[field]} aria-label={placeLabel(field)} hint="From past projects"
+                    suggestions={suggestPlace(places, field, loc[field], loc)}
+                    onChange={v => { setLoc[field](v); markDirty(); }} onPick={sug => pickPlace(field, sug)} />
+                {miss && (<button type="button" className={styles.didYouMean} title="A past project spells this place a little differently. Click to use that spelling."
+                    onClick={() => { setLoc[field](miss); markDirty(); }}>Did you mean {miss}?</button>)}
+            </div>
+        );
+    };
+    // fix188: NIN, name and phone offer the people already in the Client list (Secretary and above only). Picking one
+    // fills that person's NIN, name, phone and email in this row. Nothing is filled without a pick.
+    const pickPerson = (idx, onFill) => (s) => {
+        const p = s.person;
+        onFill(idx, { nationalId: p.nin || '', fullName: p.name || '', phone: p.phone || '', email: p.email || '' });
+        toast('Filled from the client list: ' + (p.name || p.nin) + '. Check the details.', 'info');
+    };
+    const personRow = (o, idx, onChange, onRemove, canRemove, what, onFill) => (
         <div key={idx} className={styles.ownerRow}>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>NIN</label>
-                <input className={styles.input} value={o.nationalId} onChange={e => onChange(idx, 'nationalId', e.target.value)} />
+                <SuggestInput className={styles.input} value={o.nationalId} aria-label={'NIN of ' + what + ' ' + (idx + 1)} hint="Known clients"
+                    suggestions={suggestPeople(people, 'nationalId', o.nationalId).filter(s => normText(s.person.nin) !== normText(o.nationalId) || !o.fullName)}
+                    onChange={v => onChange(idx, 'nationalId', v)} onPick={pickPerson(idx, onFill)} />
             </div>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>Full Name</label>
-                <input className={styles.input} value={o.fullName} onChange={e => onChange(idx, 'fullName', e.target.value)} />
+                <SuggestInput className={styles.input} value={o.fullName} aria-label={'Full name of ' + what + ' ' + (idx + 1)} hint="Known clients"
+                    suggestions={suggestPeople(people, 'fullName', o.fullName).filter(s => normText(s.person.nin) !== normText(o.nationalId))}
+                    onChange={v => onChange(idx, 'fullName', v)} onPick={pickPerson(idx, onFill)} />
             </div>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>Phone</label>
-                <input className={styles.input} value={o.phone} onChange={e => onChange(idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX / 07XX XXX XXX" />
+                <SuggestInput className={styles.input} value={o.phone} aria-label={'Phone of ' + what + ' ' + (idx + 1)} hint="Known clients" inputMode="tel"
+                    suggestions={suggestPeople(people, 'phone', o.phone).filter(s => normText(s.person.nin) !== normText(o.nationalId))}
+                    onChange={v => onChange(idx, 'phone', v)} onPick={pickPerson(idx, onFill)}
+                    onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX / 07XX XXX XXX" />
                 <p className={styles.hint}>Multiple: separate with /</p>
             </div>
             <div className={styles.field}>
@@ -669,7 +714,7 @@ export default function IntakePage() {
 
                 <CollapsibleSection icon={<FiUsers />} title={`${nClients}. Clients`}>
                     <p className={styles.linkNote}>The people who brought the work and pay for it. Recovery calls the clients.</p>
-                    {clients.map((o, idx) => personRow(o, idx, updateClient, removeClient, clients.length > 1, 'client'))}
+                    {clients.map((o, idx) => personRow(o, idx, updateClient, removeClient, clients.length > 1, 'client', fillClient))}
                     <button type="button" className={styles.addBtn} onClick={() => changeClients(p => [...p, EMPTY_OWNER()])}>
                         <FiPlus /> Add Client
                     </button>
@@ -682,7 +727,7 @@ export default function IntakePage() {
                             : <><span>The owners are edited on their own.</span>
                                 <button type="button" className={styles.clearLink} onClick={copyClientsToOwners}>Copy from clients again</button></>}
                     </div>
-                    {owners.map((o, idx) => personRow(o, idx, updateOwner, removeOwner, owners.length > 1, 'owner'))}
+                    {owners.map((o, idx) => personRow(o, idx, updateOwner, removeOwner, owners.length > 1, 'owner', fillOwner))}
                     <button type="button" className={styles.addBtn} onClick={() => { setOwnersLinked(false); setOwners(p => [...p, EMPTY_OWNER()]); markDirty(); }}>
                         <FiPlus /> Add Owner
                     </button>
@@ -722,26 +767,12 @@ export default function IntakePage() {
 
                 <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
                     <div className={styles.grid3}>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>District</label>
-                            <input className={styles.input} value={district} onChange={e => { setDistrict(e.target.value); markDirty(); }} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>County</label>
-                            <input className={styles.input} value={county} onChange={e => { setCounty(e.target.value); markDirty(); }} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Sub-county</label>
-                            <input className={styles.input} value={subCounty} onChange={e => { setSubCounty(e.target.value); markDirty(); }} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Parish</label>
-                            <input className={styles.input} value={parish} onChange={e => { setParish(e.target.value); markDirty(); }} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Village</label>
-                            <input className={styles.input} value={village} onChange={e => { setVillage(e.target.value); markDirty(); }} />
-                        </div>
+                        {/* fix188: each box offers the places used by past projects; picking a village fills the rest */}
+                        {placeField('district')}
+                        {placeField('county')}
+                        {placeField('subCounty')}
+                        {placeField('parish')}
+                        {placeField('village')}
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>Area</label>
                             <input className={styles.input} value={area} onChange={e => { setArea(e.target.value); markDirty(); }} />

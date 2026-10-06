@@ -1,0 +1,36 @@
+/* PATH: erp-frontend/src/components/common/SuggestInput.module.css
+   fix188: the list under a SuggestInput. Same look as the HardwareSelect dropdown (white card, 1.5px orange border,
+   6px radius, bold navy rows with hairline separators, solid orange row when marked, 0.2s slide, hidden scrollbar).
+   The list is a WHITE card with navy text on every page theme, like the white input above it. */
+.wrap { position: relative; width: 100%; min-width: 0; }
+.wrap > input { width: 100%; box-sizing: border-box; }
+
+.list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 9990;
+    margin: 0; padding: 0; list-style: none;
+    background: #ffffff; border: 1.5px solid #EE8C3A; border-radius: 6px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.3);
+    max-height: min(260px, 45vh); overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: none; -ms-overflow-style: none;
+    animation: suggestIn 0.2s ease-out;
+}
+.list::-webkit-scrollbar { display: none; }
+@keyframes suggestIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+:root[data-motion="reduced"] .list { animation: none; }
+
+.row {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: clamp(8px, 1vw, 11px) clamp(12px, 1.4vw, 16px);
+    min-height: 36px; box-sizing: border-box; justify-content: center;
+    background: #ffffff; color: #1a2e30; border-bottom: 1px solid #f1f5f9;
+    cursor: pointer; transition: background 0.2s, color 0.2s;
+}
+.main { font-family: 'Inter', sans-serif; font-weight: 700; font-size: clamp(11px, 1.05vw, 13px); letter-spacing: 0.5px; overflow-wrap: anywhere; }
+.detail { font-family: 'Space Mono', monospace; font-weight: 700; font-size: clamp(9px, 0.9vw, 11px); color: rgba(26, 46, 48, 0.6); overflow-wrap: anywhere; }
+.rowOn { background: #EE8C3A; color: #ffffff; }
+.rowOn .detail { color: rgba(255, 255, 255, 0.9); }
+
+.hint {
+    padding: 6px clamp(12px, 1.4vw, 16px); background: #f8f5f0; color: rgba(26, 46, 48, 0.55);
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(8px, 0.8vw, 9px); letter-spacing: 1.5px; text-transform: uppercase;
+}

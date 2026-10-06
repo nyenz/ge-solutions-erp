@@ -23,6 +23,8 @@ import { GLOSSARY } from '../../components/common/glossary';
 import { useToasts, useConfirm } from '../../components/common/useFeedback';
 import { ToastStack, ConfirmDialog } from '../../components/common/Feedback';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
+import SuggestInput from '../../components/common/SuggestInput';
+import { suggestValues } from '../../utils/entryMemory';
 import styles from './ExpensesPage.module.css';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import modalStyles from '../../components/common/HardwareModal.module.css';
@@ -85,13 +87,16 @@ const ExpensesPage = () => {
     useEffect(() => { loadAll(); }, [loadAll]);
 
     // Every category ever used -- preset tiles plus anything typed under OTHER.
-    // Feeds the shared datalist behind both "type it yourself" fields.
+    // Feeds the suggestions under both "type it yourself" fields.
     const knownCategories = useMemo(() => {
         const names = new Set();
         presets.forEach(p => p.name && names.add(p.name));
         categories.forEach(c => c && names.add(c));
         return [...names].sort((a, b) => a.localeCompare(b));
     }, [presets, categories]);
+
+    // fix188: the people named before in WHO ACTUALLY SPENT THIS (from the entries on screen)
+    const knownSpenders = useMemo(() => recent.map(e => e.spentBy).filter(Boolean), [recent]);
 
     // The stat strip reads straight off the 24h window already in memory --
     // no extra call, and it agrees with the table underneath it by construction.
@@ -246,10 +251,7 @@ const ExpensesPage = () => {
                 </HeaderActions>
             </header>
 
-            {/* Shared autocomplete source for every "type it yourself" category field */}
-            <datalist id="expense-categories">
-                {knownCategories.map(c => <option key={c} value={c} />)}
-            </datalist>
+            {/* fix188: the browser's own <datalist> is gone; the category boxes use the themed SuggestInput */}
 
             {/* STAT STRIP -- same card spec as the dossier and Payment Records */}
             <div className={styles.moneyStrip}>
@@ -403,14 +405,9 @@ const ExpensesPage = () => {
                 {logModal.isOther && (
                     <div className={modalStyles.modalField}>
                         <label className={modalStyles.modalLabel}>WHAT IS THIS EXPENSE FOR?</label>
-                        <input
-                            type="text"
-                            list="expense-categories"
-                            className={modalStyles.modalInput}
-                            placeholder="e.g. Courier fee"
-                            value={logCategory}
-                            onChange={e => setLogCategory(e.target.value)}
-                        />
+                        <SuggestInput className={modalStyles.modalInput} placeholder="e.g. Courier fee" aria-label="What is this expense for"
+                            hint="Used before" value={logCategory} onChange={setLogCategory}
+                            suggestions={suggestValues(knownCategories, logCategory)} />
                     </div>
                 )}
                 <div className={modalStyles.modalField}>
@@ -438,13 +435,8 @@ const ExpensesPage = () => {
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>WHO ACTUALLY SPENT THIS (IF NOT YOU)</label>
-                    <input
-                        type="text"
-                        className={modalStyles.modalInput}
-                        placeholder="Defaults to you"
-                        value={logSpentBy}
-                        onChange={e => setLogSpentBy(e.target.value)}
-                    />
+                    <SuggestInput className={modalStyles.modalInput} placeholder="Defaults to you" aria-label="Who actually spent this"
+                        hint="Named before" value={logSpentBy} onChange={setLogSpentBy} suggestions={suggestValues(knownSpenders, logSpentBy)} />
                 </div>
                 <div className={modalStyles.modalFooter}>
                     <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeLogModal}>
@@ -484,13 +476,8 @@ const ExpensesPage = () => {
                 title="EDIT EXPENSE">
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>CATEGORY</label>
-                    <input
-                        type="text"
-                        list="expense-categories"
-                        className={modalStyles.modalInput}
-                        value={editCategory}
-                        onChange={e => setEditCategory(e.target.value)}
-                    />
+                    <SuggestInput className={modalStyles.modalInput} aria-label="Category" hint="Used before"
+                        value={editCategory} onChange={setEditCategory} suggestions={suggestValues(knownCategories, editCategory)} />
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
@@ -514,13 +501,8 @@ const ExpensesPage = () => {
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>WHO ACTUALLY SPENT THIS (IF NOT THE LOGGER)</label>
-                    <input
-                        type="text"
-                        className={modalStyles.modalInput}
-                        placeholder="Defaults to whoever logged it"
-                        value={editSpentBy}
-                        onChange={e => setEditSpentBy(e.target.value)}
-                    />
+                    <SuggestInput className={modalStyles.modalInput} placeholder="Defaults to whoever logged it" aria-label="Who actually spent this"
+                        hint="Named before" value={editSpentBy} onChange={setEditSpentBy} suggestions={suggestValues(knownSpenders, editSpentBy)} />
                 </div>
                 <div className={modalStyles.modalFooter}>
                     <button type="button" className={modalStyles.modalBtnSecondary}

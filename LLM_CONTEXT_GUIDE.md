@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -192,6 +192,24 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - *Light* (pictures inside the PDF are re-saved at 300 dpi): Ghostscript can do it. Typical saving on phone-scanned PDFs: about 30-60%, with a small quality loss. Never use it on a digitally SIGNED PDF (the signature breaks).
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
+
+### DATA ENTRY HELPERS (fix188)
+The app remembers what was typed before and offers it again, so staff type less and spell things the same way.
+- **Three promises:** (1) a suggestion is only an OFFER; nothing is filled until the person picks it. (2) suggestions come only from lists the signed-in person may already open. (3) it is fast (lists are worked out once).
+- **Files:** rules = `utils/entryMemory.js` (tests: `tests/entryMemory.test.mjs`); the box = `components/common/SuggestInput.jsx` (white list, orange border, orange marked row, like HardwareSelect; keys Down / Up / Enter / Tab / Escape; tap on a phone); the data = `hooks/useEntryMemory.js` (reads the Ledger list and the Client list through `utils/pageCache.js`).
+- **Rank rule:** `useEntryMemory` asks for the lists only for Secretary and above. An Employee gets NO suggestions (an Employee may not see clients or other projects). Pending entries do not teach the helpers.
+- **THE HELPER LIST (what helps which box):**
+  | Form | Box | Help |
+  |---|---|---|
+  | New Project, Folder (edit) | District, County, Sub-county, Parish, Village | places used by past projects; a box already filled narrows the others; picking a village fills the other boxes when every past project agrees on them (a village name used in two districts fills nothing until the district is typed) |
+  | New Project | the five location boxes | "Did you mean NAMULESA?" when the word is 1-2 letters away from a known place (words under 5 letters are left alone) |
+  | New Project | Client / Owner: NIN, Full Name, Phone | known clients (3+ letters of a name, 2+ of a NIN, 4+ digits of a phone); a pick fills NIN, name, phone and email of that row |
+  | Expenses | What is this expense for / Category | categories used before (replaces the browser's `<datalist>`) |
+  | Expenses | Who actually spent this | names typed before in the entries on screen |
+  | Folder (edit) | Block | values typed before on this device (`predictionService`) |
+- **Not helped yet (ideas):** Neighbors (name, phone), Area, plot / block / volume patterns, payment notes, recovery call notes, document names. An Employee's location boxes would need a small server list of place names only (no client data).
+- **Also in fix188:** on a phone the menu drawer starts CLOSED (it used to cover the page on every first load).
+- A new free-text box that repeats values should use `SuggestInput` + `suggestValues(...)`. Never `<datalist>` or the browser's autocomplete.
 
 ### PHONE AND LAYOUT RULES (fix183)
 Simple rules. Follow them on every new page.

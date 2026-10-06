@@ -210,3 +210,9 @@
 
 /* fix186: the size of a picked file, before and after the gentle photo shrink ("4.8 MB -> 1.2 MB (75% smaller)") */
 .upFileNote { display: block; margin-top: 2px; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 0.3px; color: rgba(var(--ink-rgb), 0.6); white-space: normal; }
+
+/* fix188: "Did you mean NAMULESA?" under a location box. A quiet text link, not a button box. */
+.didYouMean { align-self: flex-start; margin-top: 3px; padding: 0; background: none; border: none; cursor: pointer; text-align: left;
+    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 0.5px;
+    color: var(--tx-orange, #ffb46b); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.didYouMean:hover { color: var(--ink-solid); }
