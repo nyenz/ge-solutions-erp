@@ -57,6 +57,7 @@ public class PendingWorkflowTest {
     @Autowired private PendingProjectService pending;
     @Autowired private UserRepository users;
     @Autowired private LandProjectRepository projects;
+    @Autowired private com.gesolutions.erp.modules.client.repository.ClientRepository clients;
     @Autowired private PaymentRecordRepository payments;
     @Autowired private NotificationRepository notifications;
     @Autowired private AuditLogRepository audit;
@@ -85,6 +86,56 @@ public class PendingWorkflowTest {
         r.setClients(new ArrayList<>(List.of(LandEntryRequest.OwnerRequest.builder()
                 .fullName("Field Client " + nin).phone("0772000111").nationalId(nin).build())));
         return r;
+    }
+
+    /** fix194 (review S01): an Employee never reads or replaces the contacts of a client the office already has. */
+    @Test
+    public void anEmployeeCannotReadOrChangeAnExistingClientsContacts() throws Exception {
+        String nin = "CM" + UUID.randomUUID().toString().substring(0, 10).toUpperCase();
+        // the office already works with this client: a started project, with contact details on file
+        User sec = user("sec_", Role.ROLE_SECRETARY);
+        as(sec);
+        PendingProjectDTO base = pending.createPending(entry(nin), null, null);
+        LandEntryRequest price = new LandEntryRequest();
+        price.setTotalCost(new BigDecimal("1000000"));
+        price.setInitialPayment(new BigDecimal("100000"));
+        pending.graduatePending(base.getId(), price);
+        var known = clients.findByNationalId(nin).orElseThrow();
+        known.setEmail("known@t.co");
+        known.setHomeAddress("Kampala Road");
+        clients.save(known);
+        String knownPhone = known.getPhoneNumber();
+        assertNotNull(knownPhone);
+
+        User emp = user("emp_", Role.ROLE_EMPLOYEE);
+        as(emp);
+        LandEntryRequest r = new LandEntryRequest();
+        r.setProjectType("FRESH_SURVEY");
+        r.setDistrict("WAKISO");
+        r.setClients(new ArrayList<>(List.of(LandEntryRequest.OwnerRequest.builder().fullName("Field Client " + nin)
+                .phone("0701555123").email("other@t.co").address("Somewhere else").nationalId(nin).build())));
+        PendingProjectDTO dto = pending.createPending(r, null, null);
+
+        PendingProjectDTO.Person shown = dto.getClients().get(0);
+        assertEquals(nin, shown.nationalId());
+        assertNull(shown.phone(), "the stored phone is not sent to an Employee");
+        assertNull(shown.email());
+        assertNull(shown.address());
+        var after = clients.findById(known.getId()).orElseThrow();
+        assertEquals(knownPhone, after.getPhoneNumber(), "the stored phone is not replaced");
+        assertEquals("known@t.co", after.getEmail());
+        assertEquals("Kampala Road", after.getHomeAddress());
+        assertNull(pending.viewOwn(dto.getId()).getClients().get(0).phone(), "nor when the entry is opened again");
+
+        // a person the Employee creates is theirs to see until the office starts the project
+        String fresh = "CF" + UUID.randomUUID().toString().substring(0, 10).toUpperCase();
+        PendingProjectDTO own = pending.createPending(entry(fresh), null, null);
+        assertNotNull(own.getClients().get(0).phone());
+        assertNotNull(pending.viewOwn(own.getId()).getClients().get(0).phone());
+
+        // the office still sees everything
+        as(sec);
+        assertEquals(knownPhone, pending.viewOwn(dto.getId()).getClients().get(0).phone());
     }
 
     @Test

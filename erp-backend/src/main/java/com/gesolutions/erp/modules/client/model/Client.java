@@ -60,6 +60,12 @@ public class Client {
     @Column(name = "home_address", columnDefinition = "TEXT")
     private String homeAddress;
 
+    /** fix194: true only inside the request that CREATED this person (never stored, never sent to a page). */
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Builder.Default
+    private boolean freshlyCreated = false;
+
     @Column(name = "email")
     private String email;
 

@@ -28,6 +28,25 @@ public class ClientService {
     private final ClientRepository clientRepository;
     private final AuditService auditService;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
+    private final com.gesolutions.erp.modules.land.repository.LandProjectRepository landProjectRepository;
+
+    /**
+     * fix194 (review S01): MAY THE SIGNED-IN PERSON SEE AND CHANGE THIS PERSON'S PHONE, EMAIL AND ADDRESS?
+     * Everyone except an Employee: yes (their own rank rules are checked elsewhere).
+     * An Employee: only for a person they are creating right now, or a person whose EVERY project is one of this
+     * Employee's own Pending entries. A client the office already works with is locked: an Employee who types that
+     * client's National ID and name gets no contact details back and cannot replace them.
+     */
+    public boolean contactsLockedForCaller(Client c) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean employee = auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_EMPLOYEE".equals(a.getAuthority()));
+        if (!employee || c == null) return false;
+        if (c.isFreshlyCreated() || c.getId() == null) return false;
+        String me = auth.getName();
+        var ps = landProjectRepository.findAllOfPersonIncludingPending(c.getId());
+        boolean allMineAndPending = !ps.isEmpty() && ps.stream().allMatch(p -> p.isPending() && me != null && me.equals(p.getCreatedBy()));
+        return !allMineAndPending;
+    }
 
     /**
      * RECOVERY ACTION: LOG CONTACT
@@ -149,6 +168,7 @@ public class ClientService {
                 .build();
 
         Client saved = clientRepository.save(newClient);
+        saved.setFreshlyCreated(true);   // fix194: the person who creates a client may set its contact details
         auditService.logActionAfterCommit("CLIENT_ARCHIVE",
             "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
         return saved;
