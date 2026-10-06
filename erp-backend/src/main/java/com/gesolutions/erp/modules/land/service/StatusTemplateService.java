@@ -257,8 +257,10 @@ public class StatusTemplateService {
         return projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
     }
 
+    // fix193 (review Q3 = B): a Secretary may tick and untick ANY stage. The controller already said so; this rule
+    // said Manager and above, so the Secretary was refused. The two now agree. Every tick is still audited.
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ProjectStatus toggleStatusCompletion(UUID statusId, boolean completed) {
         ProjectStatus status = projectStatusRepository.findById(statusId)
                 .orElseThrow(() -> new BusinessException("PROJECT_STATUS_NOT_FOUND"));

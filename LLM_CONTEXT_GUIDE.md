@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -193,6 +193,18 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
 
+### WHAT THE SECRETARY MAY DO (fix193, David's answer Q3 = B)
+
+- TICK / UNTICK ANY STAGE. Server: `StatusTemplateService.toggleStatusCompletion` and its controller both allow
+  SECRETARY, MANAGER, DIRECTOR, ADMIN (they used to disagree). Page: `StatusChecklistPanel` has two flags --
+  `canTick` (Secretary and above; a Secretary ticks WITHOUT the EDIT button) and `canEdit` (Manager and above, in EDIT:
+  add / move stages). Removing a stage is still Director and above. Every tick is audited (PROJECT_STATUS_CHANGED).
+- CORRECT A CLIENT'S PHONE. Server: `PUT /clients/{id}` -- for a Secretary on a client that has a started project,
+  ONLY the phone number is changed (name, email, address are ignored); while every project of the client is Pending
+  the Secretary may still change everything (the fix181 rule). Page: the client page shows EDIT PHONE to a Secretary
+  and EDIT DETAILS to Manager and above.
+- Tests: `SecretaryRightsTest` (server).
+
 ### GENTLE MOVEMENT ON TABS AND FILTERS (fix192)
 
 - David's rule: nothing in the app should JUMP when a small, gentle movement can show what changed. Keep it subtle
@@ -217,6 +229,9 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
 - RULE: a pull request is merged only when BOTH jobs are green. This is how a server change is checked when the
   workspace cannot run Maven itself. Never switch a job off or delete a test to get a green tick.
 - Where David sees it: the pull request page on GitHub, near the bottom: a green tick or a red cross per job.
+- fix193: when a server test fails, the job writes WHICH test failed and WHY as red notes on the pull request
+  (step "Show which tests failed"). Read them with the check-run annotations API when the full log cannot be opened.
+  The test step uses `set -o pipefail`; without it the copy to `mvn.log` would hide a failed test. Do not remove it.
 
 ### FIRST FIXES FROM THE REVIEW (fix190)
 
