@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -192,6 +192,16 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - *Light* (pictures inside the PDF are re-saved at 300 dpi): Ghostscript can do it. Typical saving on phone-scanned PDFs: about 30-60%, with a small quality loss. Never use it on a digitally SIGNED PDF (the signature breaks).
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
+
+### THE APP REVIEW DOCUMENT (fix189)
+
+- `docs/APP_REVIEW.md` is the full review of the app, in simple English. Pictures are in `docs/review-shots/` (made-up data only).
+- It has: FINDINGS (IDs P.. = pages, S.. = server), WORKFLOW FAULTS, CORRECTIONS MADE, CORRECTIONS STILL TO DO, QUESTIONS FOR DAVID.
+- RULES: when a finding is fixed, move it to CORRECTIONS MADE with the fix number, in the same PR. Never reuse an ID.
+  Do not guess an answer to a QUESTION FOR DAVID; wait for him.
+- The server findings (S..) came from READING the code. The server tests could not be run in the review workspace
+  (Maven downloads are blocked there), so NO server change was merged. See question Q1 in the document.
+- Read that document before starting any new work: it is the to-do list.
 
 ### DATA ENTRY HELPERS (fix188)
 The app remembers what was typed before and offers it again, so staff type less and spell things the same way.
