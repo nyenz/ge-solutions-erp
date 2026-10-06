@@ -52,6 +52,12 @@ const landService = {
         return response.data;
     },
 
+    // fix196: set or correct the invoice number and the contract number of a started project (Secretary and above)
+    setProjectNumbers: async (projectId, invoiceNumber, contractNumber) => {
+        const response = await api.patch(`/land/projects/${projectId}/numbers`, { invoiceNumber, contractNumber });
+        return response.data;
+    },
+
     addDocumentCategory: async (label) => {
         const response = await api.post('/land/document-categories', { label });
         return response.data;

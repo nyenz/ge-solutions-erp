@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix195: New Project uploads pass the scan file check; fix194: an Employee cannot read or change an existing client's contacts; fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix196: invoice number + contract number on every project; Invoice / Contract stage rules on the server; fix195: New Project uploads pass the scan file check; fix194: an Employee cannot read or change an existing client's contacts; fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -178,7 +178,7 @@ In fix180 the word "Stage" became "Status" everywhere. That mixed two things up.
 - **No stage above Invoice / Contract:** on New Project and on the Folder page the "insert a stage below" button only shows from the Invoice / Contract Number row downwards (`canInsertStageBelow`). PAGE SIDE ONLY: the server does not refuse it yet.
 - **Document when a stage is ticked:** ticking any stage except the first asks "Attach its document now?" and opens the upload window for that stage. The first stage has no paperclip. The file is stored with `status_id`, so it shows under the stage and in Documents with the stage name (that part existed since fix180).
 - **A project with no price:** the Ledger says WAITING FOR PRICES and NO PRICE YET (no "FULLY PAID", no "DEBT UGX 0", no 0% bar); RECORD PAYMENT explains why it is off.
-- **STILL TO DO (needs the backend checks): David's Pending rule.** A project stays Pending until it has BOTH the invoice number AND the contract number AND a price. They are entered in ONE step when a Secretary or above starts the project (the existing START THIS PROJECT step on the Pending view is the place: it already asks for the prices; do not build a second price form). Both numbers: required, any format, each unique across all projects, stored on the project for its whole life, shown in the Ledger (column + search), Folder header, Payments rows, client pages, reports, CSV and audit lines; never lost on a type change, receivables or hand-over. Any rank EXCEPT Employee may correct them later (audited OLD -> NEW). The step also takes the invoice / contract document (document type INVOICE, attached to the Invoice / Contract stage) and ticks that stage, so the stage and the numbers can never disagree. The server must also refuse a stage inserted above Invoice / Contract. Then change the Pending text in `waitingFor()` to name the numbers too.
+- **DONE in fix196: David's Pending rule** (invoice number + contract number + price in one step). See "INVOICE NUMBER AND CONTRACT NUMBER (fix196)". Still to do, small: show the two numbers on Payments rows and on the client page's project table (both need the server to send them).
 
 ### PHOTO UPLOADS THAT KEEP QUALITY (fix186)
 David does not want quality loss on IDs, receipts and deed plans. So the shrink is gentle and the original wins when in doubt.
@@ -192,6 +192,39 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - *Light* (pictures inside the PDF are re-saved at 300 dpi): Ghostscript can do it. Typical saving on phone-scanned PDFs: about 30-60%, with a small quality loss. Never use it on a digitally SIGNED PDF (the signature breaks).
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
+
+### INVOICE NUMBER AND CONTRACT NUMBER (fix196, David's Task C + answers Q9, S29)
+
+THE RULES (all in `ProjectNumbersService`, server):
+1. A project that is NOT Pending has BOTH numbers. It leaves Pending in ONE step that needs the invoice number, the
+   contract number AND the prices together: `PendingProjectService.graduatePending` (START PROJECT on the Pending view),
+   or the office's own New Project (`LandService.doIntake`, not for an Employee). Until then it stays Pending.
+2. Any format, 1 to 80 characters, spaces tidied (`clean`).
+3. Each number is on ONE live project only (capitals do not matter; a DELETED project does not hold its numbers).
+   Errors: `NUMBERS_REQUIRED`, `INVOICE_NUMBER_TAKEN`, `CONTRACT_NUMBER_TAKEN`, `NUMBER_TOO_LONG`.
+4. Every rank except Employee may correct them: `PATCH /land/projects/{id}/numbers` -> `ProjectNumbersService.correct`.
+   Audit code `PROJECT_NUMBERS_CHANGED` (old -> new). An Employee's entry never carries numbers (they are blanked).
+5. Columns: `land_projects.invoice_number`, `contract_number` (empty on projects older than fix196; they keep working,
+   the folder shows NO INVOICE / CONTRACT NUMBER YET + ADD NUMBERS).
+6. DEMO DATA ONLY: `DataInitializer.demoNumbersOnce` gives started demo projects "INV-<index>" / "CTR-<index>". It does
+   not run when `ge.solutions.seed-demo-data=false` (go-live).
+
+THE INVOICE / CONTRACT STAGE (the stage whose name has both "invoice" and "contract"; same test on server and page):
+- ticked BY ITSELF when the numbers are saved (start, New Project, correct);
+- cannot be ticked by hand while the numbers are missing (`NUMBERS_REQUIRED`); the page opens the numbers popup instead;
+- cannot be removed from a project, nor renamed or removed in a master list (`STAGE_LOCKED`);
+- no stage can be MOVED above it (`STAGE_ORDER_BLOCKED`); stages that were already above it (Field Measurement) may stay.
+
+THE PAGES:
+- Pending view: the START card has Invoice number + Contract number above the price boxes (one form, no second price form).
+- New Project (office): the two boxes are the first boxes of FINANCIALS; both required.
+- Folder: a quiet line in the page head (INVOICE ... CONTRACT ... + CORRECT / ADD NUMBERS) and a "#" button on the
+  Invoice / Contract stage. Both open ONE popup: the two numbers, SAVE NUMBERS, and ATTACH THE INVOICE OR CONTRACT SCAN
+  (filed under that stage, shown in Documents with the stage name).
+- Ledger: the two numbers show under the project index (INV ..., CON ...) and the search finds a project by either
+  number. Reports > Projects has the two columns (so CSV and PDF too).
+- `waitingFor()` for a Pending project: "WAITING FOR THE OFFICE: INVOICE NUMBER, CONTRACT NUMBER AND PRICES".
+- Tests: `ProjectNumbersTest` (server).
 
 ### FILES SENT WITH A NEW PROJECT (fix195, review S03)
 

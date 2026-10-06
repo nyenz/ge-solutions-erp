@@ -27,7 +27,8 @@ const matchesSearch = (proj, term, statuses) => {
     if (!term) return true;
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
-        proj.projectIndex, proj.landTitle?.plotNumber, proj.landTitle?.block,
+        proj.projectIndex, proj.invoiceNumber, proj.contractNumber,   // fix196: find a project by its invoice or contract number
+        proj.landTitle?.plotNumber, proj.landTitle?.block,
         proj.landTitle?.volume, proj.landTitle?.folio, proj.landTitle?.tenure, projectTypeOf(proj).label,
         proj.district, proj.county, proj.subCounty, proj.parish, proj.village, proj.area,
         ...[...clientsOf(proj), ...(proj.proprietors || [])].flatMap(p => [
@@ -290,6 +291,8 @@ const LedgerPage = () => {
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
+                                                    {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">INV {proj.invoiceNumber}</span>}
+                                                    {proj.contractNumber && <span className={styles.stackSub} title="Contract number">CON {proj.contractNumber}</span>}
                                                     {proj.pending && <span className={styles.stackSub} title="How long this entry has been waiting for the office">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                     {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}

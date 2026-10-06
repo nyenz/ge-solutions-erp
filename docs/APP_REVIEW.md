@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Last change: fix195. Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix196. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -98,7 +98,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 | S26 | Server: who sees money | The client page hides money from Manager and Secretary, but the Ledger list sends cost, paid and owed for every project to them. | low | sure about code; maybe meant | code |
 | S27 | Server: settings for a real go-live | Local test addresses are still allowed (CORS). Demo data is ON by default. The app carries on if start-up seeding fails. The container runs as root. | low | sure | code |
 | S28 | Server: smaller audit gaps | No audit line for: neighbours replaced on edit, old and new place names, reorder of the master stage list. | low | sure | code |
-| S29 | Server: stage list | The rule "no stage above Invoice/Contract" is only in the page. The server does not refuse it. | low | sure | code |
+| S29 | Server: stage list | The rule "no stage above Invoice/Contract" is only in the page. The server does not refuse it. **FIXED in fix196.** | low | sure | code |
 | S30 | Server: words | Audit details, alerts and some error text written by the server still say "status" for a checklist step. | low | sure | audit-phone.jpg |
 | S31 | Render / GitHub | GitHub shows a **failed deploy** for the old service `ge-solutions-api` (the one that was retired). The real backend service is not visible from here. | low | sure it shows; cause unknown | code |
 | P16 | Popups | The design rule is ONE way to close plus the action buttons. These have both an X and a CANCEL-type button: Expenses (LOG EXPENSE, NEW PRESET, EDIT EXPENSE, delete), Settings (CHANGE RANK, RESET KEY, RESTORE PROJECT), SIGN OUT, FORGOT YOUR KEY. | low | sure | expenses-phone.jpg |
@@ -191,6 +191,7 @@ this matters before real client data goes in.
 | fix193 | Q3 = B: the Secretary can tick and untick any stage (no EDIT button needed) and can correct a client's phone number (EDIT PHONE on the client page). Fixes P09 and S19. First server change checked by GitHub. |
 | fix194 | S01: an Employee no longer gets back, and can no longer replace, the phone, email and address of a client the office already has. S12: a contact change made through a project edit now writes an audit line with the old and new values. |
 | fix195 | S03: files sent with a New Project (office or Employee) must be PDF, JPG, PNG or WEBP and not empty, the same check as in the folder. |
+| fix196 | INVOICE NUMBER + CONTRACT NUMBER (David's Task C). A project leaves Pending in one step that needs both numbers and the price. Each number is on one project only, any format. Every rank except Employee can correct them (logged). Shown in the folder head, found by Ledger search, in Reports. The Invoice / Contract stage ticks by itself, cannot be ticked without the numbers, cannot be removed or renamed (Q9), and no stage can be moved above it on the server (S29). |
 
 ---
 
@@ -204,7 +205,6 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 |---|---|---|---|
 | 2 | P11 / S09 Fresh Survey ends through the TITLED stage (Title Details needed); 365 days -> Receivables for every type | medium | Q4 |
 | 3 | Special Projects: own goals, optional title, CLOSE PROJECT (see 5.1) | big | Q4 |
-| 4 | Q9 Invoice / Contract stage can never be removed or renamed | small | Q9 = A |
 | 5 | S26 money per project for Manager and Secretary on the Client page too | medium | Q6 = A |
 | 6 | P04 Employee edits own Pending entry (do S01 first) | medium | Q7 = A |
 | 7 | S18 Archive for deleted documents, notes, expenses (90 days) | medium | Q5 = A |
@@ -216,9 +216,7 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 | Rank | Item | Size |
 |---|---|---|
 | 3 | S04 + S05 refuse to start with fallback secrets or without storage settings (when not in demo mode) | small |
-| 4 | Invoice number + contract number: stored, unique, needed together with the prices to leave Pending, correctable by every rank but Employee, audited (David's Task C) | big |
 | 5 | Deep rename Stage / Status in server code, tables and endpoints, with a safe migration (David's Task B) | big |
-| 6 | S29 server refuses a stage above Invoice/Contract | small |
 | 7 | P03 send documents, notes and stages with a Pending entry and show them | medium |
 | 8 | S06 make the stage chart move | medium |
 | 9 | S08 + S24 one rule for title money vs storage money on Dashboard and Payments | medium |
@@ -229,6 +227,7 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 | 14 | S11 Manager limited to 24 hours of expenses | small |
 | 15 | S20 + S21 + S22 + S23 + S25 small server tidy-ups | small each |
 | 16 | S27 go-live settings (CORS, demo flag) -- do at go-live | small |
+| 16b | Show the invoice and contract numbers on Payments rows and on the client page's project table | small |
 | 17 | P33 place-name suggestions for the Employee (needs a small new endpoint with place names only) | small |
 
 ### C. Page work I can do without the server (next small PRs)

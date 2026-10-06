@@ -50,6 +50,8 @@ const recoveryLabel = (v) => (v ? (RECOVERY_LABEL[v] || String(v).replace(/_/g, 
 /* ── PROJECTS ────────────────────────────────────────────────────── */
 export const projectFields = [
   f('index', 'Project Index', 'text', p => p.projectIndex || ''),
+  f('invoiceNumber', 'Invoice Number', 'text', p => p.invoiceNumber || ''),     // fix196
+  f('contractNumber', 'Contract Number', 'text', p => p.contractNumber || ''),  // fix196
   f('plot', 'Plot Number', 'text', p => p.landTitle?.plotNumber || ''),
   f('tenure', 'Tenure', 'text', p => p.landTitle?.tenure || ''),
   f('block', 'Block', 'text', p => p.landTitle?.block || ''),

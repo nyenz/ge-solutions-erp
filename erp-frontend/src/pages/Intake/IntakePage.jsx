@@ -122,6 +122,8 @@ export default function IntakePage() {
     const [volume, setVolume] = useState('');
     const [folio, setFolio] = useState('');
     const [titleIssueDate, setTitleIssueDate] = useState('');
+    const [invoiceNumber, setInvoiceNumber] = useState('');     // fix196: both are required for a project the office enters
+    const [contractNumber, setContractNumber] = useState('');
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
@@ -417,6 +419,8 @@ export default function IntakePage() {
             if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
         }
         if (isEmployee) return true;   // fix181: no money on a field entry; the office adds it
+        // fix196: the office's own project needs both numbers (the server checks the same, and that no other project has them)
+        if (!invoiceNumber.trim() || !contractNumber.trim()) { toast('Enter the Invoice Number and the Contract Number (Financials section).', 'error'); return false; }
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
         // fix171: the same checks the server makes, so the message shows before anything is sent
@@ -461,6 +465,7 @@ export default function IntakePage() {
                 district: district.trim().toUpperCase(), county: county.trim().toUpperCase(),
                 subCounty: subCounty.trim().toUpperCase(), parish: parish.trim().toUpperCase(),
                 village: village.trim().toUpperCase(), area: area.trim().toUpperCase(),
+                invoiceNumber: invoiceNumber.trim(), contractNumber: contractNumber.trim(),
                 totalCost: Number(totalCost) || 0, initialPayment: Number(initialPayment) || 0,
                 projectType, titleDetailsEnabled: projectType === 'TOPOGRAPHIC_SURVEY' && titleSwitch,
                 isLegacy, projectStartDate: projectStartDate || todayISO(),
@@ -509,7 +514,7 @@ export default function IntakePage() {
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);
             if (isEmployee) {
                 // fix181 (8.7e): never send a money field; the server refuses them from an Employee anyway
-                ['totalCost', 'initialPayment', 'isStartAsReceivable', 'initialStorageFee', 'initialStorageFeePaid', 'monthlyStorageFee',
+                ['invoiceNumber', 'contractNumber', 'totalCost', 'initialPayment', 'isStartAsReceivable', 'initialStorageFee', 'initialStorageFeePaid', 'monthlyStorageFee',
                     'lastPaidDate', 'receivablesSince', 'initialPaymentPayerNin', 'initialStorageFeePaidPayerNin'].forEach(k => { delete payload[k]; });
                 payload.selectedStatuses = payload.selectedStatuses.filter(s => !s.isCustom).map(s => ({ ...s, cost: undefined }));
                 await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
@@ -544,6 +549,7 @@ export default function IntakePage() {
         setProjectStartDate(todayISO()); setTransferFrom(null);
         setTenure('FREEHOLD'); setPlotNumber(''); setBlock(''); setAreaHectares(''); setVolume(''); setFolio(''); setTitleIssueDate('');
         setNeighbors([]); setSubdivisionCount('');
+        setInvoiceNumber(''); setContractNumber('');   // fix196: every project has its own numbers
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
         setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
@@ -893,6 +899,16 @@ export default function IntakePage() {
                 {!isEmployee && (
                 <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                     <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Invoice Number</label>
+                            <input type="text" className={styles.input} value={invoiceNumber} maxLength={80} autoComplete="off" placeholder="As written on the invoice"
+                                onChange={e => { setInvoiceNumber(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Contract Number</label>
+                            <input type="text" className={styles.input} value={contractNumber} maxLength={80} autoComplete="off" placeholder="As written on the contract"
+                                onChange={e => { setContractNumber(e.target.value); markDirty(); }} />
+                        </div>
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>Total Cost</label>
                             <input type="number" className={styles.input} value={totalCost} onChange={e => { setTotalCost(e.target.value); markDirty(); }} />

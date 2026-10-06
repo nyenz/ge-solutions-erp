@@ -73,6 +73,8 @@ export default function PendingViewPage() {
     const [cats, setCats] = useState([]);
     const [cat, setCat] = useState('');
     // office tools
+    const [invoiceNo, setInvoiceNo] = useState('');     // fix196: needed, with the contract number and the price, to start
+    const [contractNo, setContractNo] = useState('');
     const [cost, setCost] = useState('');
     const [deposit, setDeposit] = useState('');
     const [payerNin, setPayerNin] = useState('');
@@ -115,11 +117,14 @@ export default function PendingViewPage() {
     const start = () => {
         const total = Number(digits(cost));
         const dep = Number(digits(deposit) || 0);
+        // fix196: ONE step leaves Pending -- invoice number, contract number and the price together
+        const inv = invoiceNo.trim().replace(/\s+/g, ' '), con = contractNo.trim().replace(/\s+/g, ' ');
+        if (!inv || !con) { setError('Enter the invoice number AND the contract number. A project needs both to start.'); return; }
         if (!total) { setError('Enter the total cost before starting the project.'); return; }
         if (dep > total) { setError('The money already received is more than the total cost.'); return; }
         const clients = (p && p.clients) || [];
         if (dep > 0 && clients.length > 1 && !payerNin) { setError('Pick which client paid the money already received.'); return; }
-        const body = { totalCost: total, initialPayment: dep || null, initialPaymentPayerNin: payerNin || null,
+        const body = { invoiceNumber: inv, contractNumber: con, totalCost: total, initialPayment: dep || null, initialPaymentPayerNin: payerNin || null,
             lastPaidDate: dep > 0 && paidDate ? paidDate : null };
         run(async () => {
             await pendingService.start(id, body);
@@ -226,7 +231,12 @@ export default function PendingViewPage() {
                     </Card>
 
                     <Card title="Start this project">
+                        <span className={styles.muted}>A project starts when it has an invoice number, a contract number and a price. Until then it stays Pending.</span>
                         <div className={styles.form}>
+                            <label className={styles.field}><span className={styles.label}>Invoice number</span>
+                                <input className={`${styles.input} ${styles.mono}`} value={invoiceNo} maxLength={80} autoComplete="off" onChange={e => setInvoiceNo(e.target.value)} placeholder="As written on the invoice" /></label>
+                            <label className={styles.field}><span className={styles.label}>Contract number</span>
+                                <input className={`${styles.input} ${styles.mono}`} value={contractNo} maxLength={80} autoComplete="off" onChange={e => setContractNo(e.target.value)} placeholder="As written on the contract" /></label>
                             <label className={styles.field}><span className={styles.label}>Total cost (UGX)</span>
                                 <input className={styles.input} inputMode="numeric" value={cost ? Number(digits(cost)).toLocaleString() : ''} onChange={e => setCost(digits(e.target.value))} /></label>
                             <label className={styles.field}><span className={styles.label}>Money already received (UGX, optional)</span>

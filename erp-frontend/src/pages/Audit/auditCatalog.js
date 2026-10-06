@@ -46,6 +46,7 @@ export const ACTION_GROUPS = [
             { code: 'PENDING_CREATED',   label: 'Pending project entered (Employee)', severity: 'med' },
             { code: 'PENDING_UPDATED',   label: 'Pending project edited',  severity: 'low'  },
             { code: 'PROJECT_GRADUATED', label: 'Pending project started (prices set)', severity: 'med' },
+            { code: 'PROJECT_NUMBERS_CHANGED', label: 'Invoice / contract number set or corrected', severity: 'med' },
             { code: 'PROJECT_PENDING_REJECTED', label: 'Pending project rejected', severity: 'high' },
             { code: 'OWNERS_CHANGED',    label: 'Owners changed',         severity: 'med'  },
             { code: 'CLIENT_UPDATED',    label: 'Client details edited',  severity: 'med'  },
