@@ -31,7 +31,10 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Run the server tests
-        run: mvn -B -ntp test 2>&1 | tee mvn.log
+        # pipefail: without it the copy to mvn.log would hide a failed test (the step would look green)
+        run: |
+          set -o pipefail
+          mvn -B -ntp test 2>&1 | tee mvn.log
       # fix193: when a test fails, the reason is written onto the pull request itself (as red notes), so nobody
       # has to open the long log to see WHICH test failed and WHY.
       - name: Show which tests failed
