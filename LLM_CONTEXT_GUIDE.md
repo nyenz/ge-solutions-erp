@@ -229,6 +229,9 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
 - RULE: a pull request is merged only when BOTH jobs are green. This is how a server change is checked when the
   workspace cannot run Maven itself. Never switch a job off or delete a test to get a green tick.
 - Where David sees it: the pull request page on GitHub, near the bottom: a green tick or a red cross per job.
+- fix193: when a server test fails, the job writes WHICH test failed and WHY as red notes on the pull request
+  (step "Show which tests failed"). Read them with the check-run annotations API when the full log cannot be opened.
+  The test step uses `set -o pipefail`; without it the copy to `mvn.log` would hide a failed test. Do not remove it.
 
 ### FIRST FIXES FROM THE REVIEW (fix190)
 
