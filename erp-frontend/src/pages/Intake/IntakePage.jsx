@@ -566,7 +566,7 @@ export default function IntakePage() {
     const handleDuplicate = async () => {
         const ok = await doSave();
         if (!ok) return;
-        toast('Saved. Form duplicated for the next plot.', 'success');
+        toast((savedRef.current && savedRef.current.pending && !isEmployee ? 'Saved as PENDING. ' : 'Saved. ') + 'The form is ready for the next plot (same type, clients, owners and place).', 'success');
         // fix180: the type, clients, owners and location stay (the next plot is usually the same job); title, neighbors,
         // money, files and notes start blank. A subdivision transfer cannot be duplicated onto the same plot.
         setProjectStartDate(todayISO()); setTransferFrom(null);
@@ -1041,8 +1041,11 @@ export default function IntakePage() {
 
             <div className={styles.bottomBar}>
                 <div className={styles.bottomBarRight}>
-                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}>
-                        <FiCopy /> Duplicate
+                    {/* fix199 (David, test note 21): the button SAVES this project first, then keeps the type, clients, owners and
+                        place for the next plot -- the old word "Duplicate" did not say that it saves */}
+                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}
+                        title="Saves this project, then starts the next one with the same type, clients, owners and place. Title, neighbours, numbers, money, documents and notes start empty.">
+                        <FiCopy /> Save + Next Plot
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving || leaving} onClick={handleSubmit}>
                         <FiSave /> Save Project
