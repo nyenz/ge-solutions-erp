@@ -83,6 +83,8 @@ export function owedOf(p) {
  */
 export function moneyWordsOf(p) {
     if (!p) return [];
+    // fix199: a Pending project may already carry a saved price, but it is in no money figure, so no money word either
+    if (p.pending && hasPrice(p)) return [];
     if (!hasPrice(p)) return [MONEY_WORD.NO_PRICE];
     const out = [];
     const critical = typeof p.critical === 'boolean'
@@ -116,9 +118,15 @@ export function waitingFor(p, stages) {
     const st = statusOf(p).key;
     if (st === 'DELETED' || st === 'HANDED_OVER') return null;
     if (st === 'PENDING') {
-        // fix196: a project leaves Pending in ONE step that needs the invoice number, the contract number and the prices
-        return { key: 'OFFICE', text: 'WAITING FOR THE OFFICE: INVOICE NUMBER, CONTRACT NUMBER AND PRICES',
-            tip: 'This project is Pending. A Secretary or above must check it, enter the invoice number, the contract number and the prices, and start it.' };
+        // fix196: a project leaves Pending once it has the invoice number, the contract number and the price.
+        // fix199 (test note 9): the office may save them one at a time, so the line names only what is still missing.
+        const missing = [];
+        if (!String(p.invoiceNumber || '').trim()) missing.push('INVOICE NUMBER');
+        if (!String(p.contractNumber || '').trim()) missing.push('CONTRACT NUMBER');
+        if (!(p.priceSet || Number(p.totalCost) > 0)) missing.push('PRICES');
+        const list = missing.length <= 1 ? missing.join('') : missing.slice(0, -1).join(', ') + ' AND ' + missing[missing.length - 1];
+        return { key: 'OFFICE', text: 'WAITING FOR THE OFFICE: ' + (list || 'START PROJECT'),
+            tip: 'This project is Pending. A Secretary or above enters the invoice number, the contract number and the price (one at a time is fine). It starts when all three are in.' };
     }
     if (!hasPrice(p)) {
         return { key: 'PRICES', text: 'WAITING FOR PRICES',

@@ -62,16 +62,25 @@ public class ProjectNumbersService {
         if (inv == null || con == null) {
             throw new BusinessException("NUMBERS_REQUIRED: Enter the invoice number AND the contract number. A project needs both.");
         }
-        if (inv.length() > MAX_LENGTH || con.length() > MAX_LENGTH) {
+        return checkEach(selfId, inv, con);
+    }
+
+    /**
+     * fix199 (David, test notes 9 + 12): a PENDING project may hold one number without the other. Checks only the numbers
+     * that were typed (length, and that no other live project has them). Returns { invoice, contract }; either may be null.
+     */
+    public String[] checkEach(UUID selfId, String invoice, String contract) {
+        String inv = clean(invoice), con = clean(contract);
+        if ((inv != null && inv.length() > MAX_LENGTH) || (con != null && con.length() > MAX_LENGTH)) {
             throw new BusinessException("NUMBER_TOO_LONG: An invoice or contract number can be at most " + MAX_LENGTH + " characters.");
         }
-        for (LandProject o : projectRepository.findLiveByInvoiceNumber(inv)) {
+        if (inv != null) for (LandProject o : projectRepository.findLiveByInvoiceNumber(inv)) {
             if (!o.getId().equals(selfId)) {
                 throw new BusinessException("INVOICE_NUMBER_TAKEN: Invoice number \"" + inv + "\" is already on project #" + o.getProjectIndex()
                         + ". Every project has its own invoice number.");
             }
         }
-        for (LandProject o : projectRepository.findLiveByContractNumber(con)) {
+        if (con != null) for (LandProject o : projectRepository.findLiveByContractNumber(con)) {
             if (!o.getId().equals(selfId)) {
                 throw new BusinessException("CONTRACT_NUMBER_TAKEN: Contract number \"" + con + "\" is already on project #" + o.getProjectIndex()
                         + ". Every project has its own contract number.");

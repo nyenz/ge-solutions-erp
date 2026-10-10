@@ -1,0 +1,65 @@
+/* PATH: erp-frontend/src/components/print/ProjectFilePrint.module.css
+   fix199 (test note 10): the printed Project File. Paper only: hidden on screen, shown alone when printing.
+   Ink is near-black on white; the one colour is the company orange on the letterhead rule and section numbers. */
+.doc { display: none; }
+
+@media print {
+    @page { size: A4 portrait; margin: 16mm 14mm 18mm; }
+
+    .doc {
+        display: block;
+        color: #111;
+        background: #fff;
+        font-family: 'Inter', Arial, sans-serif;
+        font-size: 9.5pt;
+        line-height: 1.45;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .letter { display: flex; justify-content: space-between; align-items: flex-end; gap: 12mm; }
+    .company { font-family: 'Cinzel', Georgia, serif; font-weight: 900; font-size: 20pt; letter-spacing: 1.5pt; color: #1a2e30; }
+    .tagline { font-size: 8pt; letter-spacing: 1pt; text-transform: uppercase; color: #555; margin-top: 1mm; }
+    .headRight { text-align: right; }
+    .docTitle { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 15pt; letter-spacing: 1pt; color: #1a2e30; }
+    .ref { font-family: 'Space Mono', monospace; font-size: 10pt; margin-top: 1mm; }
+    .rule { height: 2.2pt; background: #EE8C3A; margin: 4mm 0 5mm; }
+
+    .refGrid { display: grid; grid-template-columns: repeat(4, 1fr); border: 0.75pt solid #999; }
+    .refGrid > div { padding: 2mm 2.5mm; border-right: 0.75pt solid #ccc; border-bottom: 0.75pt solid #ccc; display: flex; flex-direction: column; gap: 0.6mm; min-width: 0; }
+    .refGrid > div:nth-child(4n) { border-right: 0; }
+    .refGrid > div:nth-last-child(-n+4) { border-bottom: 0; }
+    .k { font-size: 6.8pt; font-weight: 700; letter-spacing: 0.8pt; text-transform: uppercase; color: #666; }
+    .v { font-weight: 600; overflow-wrap: anywhere; }
+    .flag { margin: 3mm 0 0; padding: 2mm 3mm; border: 1pt solid #111; font-weight: 800; font-size: 8.5pt; letter-spacing: 0.5pt; }
+
+    .section { margin-top: 6mm; }
+    .h2 { display: flex; align-items: baseline; gap: 2.5mm; margin: 0 0 2mm; font-family: 'Cinzel', Georgia, serif; font-size: 10.5pt; font-weight: 700; letter-spacing: 0.6pt; color: #1a2e30; border-bottom: 0.75pt solid #1a2e30; padding-bottom: 1mm; break-after: avoid; }
+    .num { font-family: 'Space Mono', monospace; font-size: 9pt; color: #EE8C3A; }
+
+    .table { width: 100%; border-collapse: collapse; }
+    .table th { text-align: left; font-size: 7pt; font-weight: 700; letter-spacing: 0.7pt; text-transform: uppercase; color: #333; background: #f1f3f3; border-bottom: 0.75pt solid #999; padding: 1.5mm 2mm; }
+    .table td { padding: 1.4mm 2mm; border-bottom: 0.5pt solid #ddd; vertical-align: top; }
+    .table tr { break-inside: avoid; }
+    .narrow { width: 7mm; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .mono { font-family: 'Space Mono', monospace; font-size: 8.5pt; }
+    .wrap { overflow-wrap: anywhere; }
+    .none { margin: 0; color: #666; font-style: italic; }
+
+    .totals { margin: 3mm 0 0 auto; width: 70mm; border: 0.75pt solid #999; }
+    .totals > div { display: flex; justify-content: space-between; padding: 1.4mm 2.5mm; border-bottom: 0.5pt solid #ddd; }
+    .totals > div:last-child { border-bottom: 0; }
+    .grand { font-weight: 800; background: #f1f3f3; border-top: 1pt solid #111; }
+
+    .notes { margin: 0; padding-left: 5mm; display: flex; flex-direction: column; gap: 1.5mm; }
+    .noteMeta { display: block; font-size: 7pt; color: #666; letter-spacing: 0.4pt; }
+
+    .sign { display: grid; grid-template-columns: 1fr 1fr 0.6fr; gap: 10mm; margin-top: 14mm; break-inside: avoid; }
+    .sign span { font-size: 7.5pt; color: #555; }
+    .line { border-bottom: 0.75pt solid #111; height: 10mm; margin-bottom: 1mm; }
+
+    .table thead { display: table-header-group; }   /* a long table repeats its heading on the next page */
+    .foot { margin-top: 8mm; padding-top: 2mm; border-top: 0.5pt solid #ccc; text-align: center; font-size: 7pt; color: #777; letter-spacing: 0.4pt; }
+}

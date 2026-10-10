@@ -165,10 +165,19 @@ export async function shrinkFiles(files) {
  *    to 2 MB passes the 10 MB receipt limit; a file that is still too big is refused as before).
  *  -> { ok: [{ file, note, shrunk, before, after }], bad: ['name (why)'] }
  */
-export async function prepareUploads(files, { maxBytes = 50 * 1024 * 1024, exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp'] } = {}) {
+// fix199 (David, test note 16): documents may also be Word, Excel, PowerPoint, OpenOffice, text and CSV files.
+// The server has the same list (LandService.DOC_EXTENSIONS). Payment receipts stay scans and photos only (RECEIPT_EXTS).
+export const DOC_EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx', 'odt', 'rtf', 'txt', 'xls', 'xlsx', 'ods', 'csv', 'ppt', 'pptx'];
+export const RECEIPT_EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+export const DOC_ACCEPT = DOC_EXTS.map(e => '.' + e).join(',');
+export const DOC_KINDS_TEXT = 'PDF, photos (JPG, PNG, WEBP), Word, Excel, PowerPoint, text or CSV';
+/** true for files the browser can show in the preview window (PDF and photos); the rest are downloaded to open. */
+export const canPreview = (name) => RECEIPT_EXTS.includes(extOf(name));
+
+export async function prepareUploads(files, { maxBytes = 50 * 1024 * 1024, exts = DOC_EXTS } = {}) {
     const ok = [], bad = [];
     for (const f of Array.from(files || [])) {
-        if (!exts.includes(extOf(f.name))) { bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)'); continue; }
+        if (!exts.includes(extOf(f.name))) { bad.push(f.name + (exts === RECEIPT_EXTS || exts.length <= 5 ? ' (use PDF, JPG, PNG or WEBP)' : ' (use ' + DOC_KINDS_TEXT + ')')); continue; }
         if (!f.size) { bad.push(f.name + ' (the file is empty)'); continue; }
         const r = await shrinkImage(f);
         if (r.file.size > maxBytes) { bad.push(f.name + ' (over ' + Math.round(maxBytes / (1024 * 1024)) + ' MB)'); continue; }

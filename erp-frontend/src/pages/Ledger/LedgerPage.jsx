@@ -122,12 +122,13 @@ const LedgerPage = () => {
 
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm, statusMap[p.id]));
-        // fix181 (2.1): ONE rule first -- Pending projects show ONLY in the PENDING tab (oldest first, 12.3)
+        // fix181 (2.1): the PENDING tab lists only Pending projects (oldest first, 12.3); fix199: ALL PROJECTS shows them too
         if (activeFilter === 'PENDING') {
             return filtered.filter(p => !!p.pending)
                 .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
         }
-        filtered = filtered.filter(p => !p.pending);
+        // fix199 (David, test note 6): ALL PROJECTS also lists the Pending entries; every other tab leaves them out
+        if (activeFilter !== 'ALL') filtered = filtered.filter(p => !p.pending);
         if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
         if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);

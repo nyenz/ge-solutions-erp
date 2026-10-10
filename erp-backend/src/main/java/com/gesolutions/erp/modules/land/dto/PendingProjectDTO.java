@@ -45,6 +45,12 @@ public class PendingProjectDTO {
     private String volume;
     private String folio;
     private LocalDate titleIssueDate;
+    // fix199 (test note 9): the parts the office saved while Pending. totalCost is filled ONLY for the office
+    // (PendingProjectService.viewOwn); an Employee sees just priceSet.
+    private String invoiceNumber;
+    private String contractNumber;
+    private boolean priceSet;
+    private BigDecimal totalCost;
     // people
     private List<Person> clients;
     private List<Person> owners;

@@ -16,7 +16,10 @@ import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import { LoadingState } from '../../components/common/LoadingState';
 import { FiUploadCloud } from 'react-icons/fi';
 import { waitingFor } from '../../utils/projectStatus';
-import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
+import { prepareUploads, anyToShrink, DOC_ACCEPT, DOC_KINDS_TEXT } from '../../utils/imageShrink';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import { useToasts } from '../../components/common/useFeedback';
+import { ToastStack } from '../../components/common/Feedback';
 import styles from './Pending.module.css';
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
@@ -28,13 +31,13 @@ function Item({ label, value }) {
     return (<div><div className={styles.label}>{label}</div><div className={styles.value}>{value}</div></div>);
 }
 
-// fix182: one card shape for the whole page (the Settings workstation card)
-function Card({ title, children, className = '' }) {
+// fix182: one card shape for the whole page. fix199 (David, test note 8): it is now the app's own collapsible panel
+// (the same as New Project), so it has the corner decorations and every panel opens and closes.
+function Card({ title, children, defaultOpen = true }) {
     return (
-        <section className={`${styles.card} ${className}`} aria-label={title}>
-            <div className={styles.cardHead}><h2 className={styles.cardTitle}>{title}</h2></div>
+        <CollapsibleSection title={title} defaultOpen={defaultOpen}>
             <div className={styles.cardBody}>{children}</div>
-        </section>
+        </CollapsibleSection>
     );
 }
 
@@ -63,8 +66,11 @@ export default function PendingViewPage() {
     const office = flags.isStaff;   // Secretary and above
 
     const [p, setP] = useState(null);
-    const [error, setError] = useState('');
-    const [msg, setMsg] = useState('');
+    const [error, setError] = useState('');      // only for a page that could not load
+    // fix199 (David, test note 7): messages pop up where the user is looking (toasts), not at the top of a long page
+    const { toasts, toast, dismissToast } = useToasts();
+    const setMsg = useCallback((m) => { if (m) toast(m, 'success'); }, [toast]);
+    const fail = useCallback((m) => { if (m) toast(m, 'error', 7000); }, [toast]);
     const [busy, setBusy] = useState(false);
     // Employee tools
     const [note, setNote] = useState('');
@@ -78,20 +84,29 @@ export default function PendingViewPage() {
     const [cost, setCost] = useState('');
     const [deposit, setDeposit] = useState('');
     const [payerNin, setPayerNin] = useState('');
-    const [paidDate, setPaidDate] = useState('');
+    const [paidDate, setPaidDate] = useState(() => localISO());   // fix199 (test note 13): today, until changed
     const [rejectWhy, setRejectWhy] = useState('');
     const [ninEdit, setNinEdit] = useState({});
 
     const load = useCallback(async () => {
         setError('');
         try { setP(await pendingService.view(id)); }
-        catch (e) { setError(errorText(e)); }
-    }, [id]);
+        catch (e) { setError(errorText(e)); fail(errorText(e)); }
+    }, [id, fail]);
     useEffect(() => {
         let alive = true;
         pendingService.view(id).then(d => { if (alive) setP(d); }).catch(e => { if (alive) setError(errorText(e)); });
         return () => { alive = false; };
     }, [id]);
+    // fix199 (test notes 9 + 14): the boxes start with what the office saved before, and the first client is the payer
+    const loadedId = p ? p.id : null;
+    useEffect(() => {
+        if (!p) return;
+        setInvoiceNo(v => v || p.invoiceNumber || '');
+        setContractNo(v => v || p.contractNumber || '');
+        setCost(v => v || (p.totalCost ? String(Math.round(Number(p.totalCost))) : ''));
+        setPayerNin(v => v || ((p.clients && p.clients[0] && p.clients[0].nationalId) || ''));
+    }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (office) return;
         landService.getDocumentCategories().then(list => { setCats(list || []); if (list && list[0]) setCat(list[0].code); }).catch(() => {});
@@ -99,41 +114,44 @@ export default function PendingViewPage() {
 
     // fix186: photos are gently shrunk first (utils/imageShrink.js); wrong, empty and too-big files are refused here
     const pickScans = async (list) => {
-        setError('');
-        if (anyToShrink(list)) setMsg('Preparing the photos...');
+        if (anyToShrink(list)) toast('Preparing the photos...', 'info');
         const { ok, bad } = await prepareUploads(list);
-        setMsg('');
-        if (bad.length) setError('Not added: ' + bad.join('; '));
+        if (bad.length) fail('Not added: ' + bad.join('; '));
         setFiles(ok.map(x => x.file)); setFileNotes(ok.map(x => x.note));
     };
 
     const run = async (fn, ok) => {
-        setBusy(true); setError(''); setMsg('');
-        try { await fn(); setMsg(ok); await load(); }
-        catch (e) { setError(errorText(e)); }
+        setBusy(true);
+        try { const r = await fn(); setMsg(typeof r === 'string' ? r : ok); await load(); }
+        catch (e) { fail(errorText(e)); }
         finally { setBusy(false); }
     };
 
-    const start = () => {
-        const total = Number(digits(cost));
+    // fix199 (David, test note 9): SAVE keeps whatever is typed (invoice number, contract number, price -- one at a time
+    // is fine). The project stays Pending until all three are in; then the same SAVE starts it.
+    const inv = invoiceNo.trim().replace(/\s+/g, ' ').toUpperCase(), con = contractNo.trim().replace(/\s+/g, ' ').toUpperCase();   // fix199 (note 19)
+    const total = Number(digits(cost));
+    const complete = !!(inv && con && total > 0);
+    const save = () => {
         const dep = Number(digits(deposit) || 0);
-        // fix196: ONE step leaves Pending -- invoice number, contract number and the price together
-        const inv = invoiceNo.trim().replace(/\s+/g, ' '), con = contractNo.trim().replace(/\s+/g, ' ');
-        if (!inv || !con) { setError('Enter the invoice number AND the contract number. A project needs both to start.'); return; }
-        if (!total) { setError('Enter the total cost before starting the project.'); return; }
-        if (dep > total) { setError('The money already received is more than the total cost.'); return; }
+        if (!inv && !con && !total) { fail('Type the invoice number, the contract number or the price first.'); return; }
+        if (dep > 0 && !complete) { fail('Money already received is recorded when the project starts. Fill in the invoice number, the contract number and the price, or clear the money box.'); return; }
+        if (dep > total && complete) { fail('The money already received is more than the total cost.'); return; }
         const clients = (p && p.clients) || [];
-        if (dep > 0 && clients.length > 1 && !payerNin) { setError('Pick which client paid the money already received.'); return; }
-        const body = { invoiceNumber: inv, contractNumber: con, totalCost: total, initialPayment: dep || null, initialPaymentPayerNin: payerNin || null,
+        if (dep > 0 && clients.length > 1 && !payerNin) { fail('Pick which client paid the money already received.'); return; }
+        const body = { invoiceNumber: inv || null, contractNumber: con || null, totalCost: total || null,
+            initialPayment: dep || null, initialPaymentPayerNin: dep > 0 ? (payerNin || null) : null,
             lastPaidDate: dep > 0 && paidDate ? paidDate : null };
         run(async () => {
-            await pendingService.start(id, body);
-            navigate('/folder/' + id);
-        }, 'Project started.');
+            const r = await pendingService.saveParts(id, body);
+            if (r && r.started) { navigate('/folder/' + id); return 'Project started.'; }
+            const left = (r && r.missing) || [];
+            return 'Saved. Still Pending' + (left.length ? ': waiting for the ' + left.join(', ') + '.' : '.');
+        }, 'Saved.');
     };
 
     const reject = () => {
-        if (rejectWhy.trim().length < 5) { setError('Write why this entry is rejected (at least 5 characters).'); return; }
+        if (rejectWhy.trim().length < 5) { fail('Write why this entry is rejected (at least 5 characters).'); return; }
         run(async () => { await pendingService.reject(id, rejectWhy.trim()); navigate('/land/projects'); }, 'Entry rejected.');
     };
 
@@ -141,7 +159,8 @@ export default function PendingViewPage() {
         <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>RETRY</button></div></div>);
     if (!p) return <div className={styles.page}><LoadingState label="LOADING ENTRY..." size="page" /></div>;
 
-    const waiting = waitingFor({ pending: !!p.pending && !p.rejected, deleted: !!p.rejected });
+    const waiting = waitingFor({ pending: !!p.pending && !p.rejected, deleted: !!p.rejected,
+        invoiceNumber: p.invoiceNumber, contractNumber: p.contractNumber, priceSet: p.priceSet });
     const payerOptions = [{ value: '', label: 'Choose the client' }].concat((p.clients || []).map(c => ({ value: c.nationalId, label: c.fullName })));
     const catOptions = cats.map(c => ({ value: c.code, label: c.label }));
 
@@ -156,15 +175,14 @@ export default function PendingViewPage() {
                 </div>
             </header>
 
-            {office && <div className={styles.banner}>Waiting for prices. Check every name and National ID, fill in the prices and start this project.</div>}
-            {error && <div className={styles.error} role="alert">{error}</div>}
-            {msg && <div className={styles.ok}>{msg}</div>}
+            <ToastStack toasts={toasts} onDismiss={dismissToast} />
+            {office && <div className={styles.banner}>Check every name and National ID. Then save the invoice number, the contract number and the price (one at a time is fine). The project starts when all three are in.</div>}
 
             <Card title="Plot details">
                 <div className={styles.grid}>
                     <Item label="District" value={p.district} /><Item label="County" value={p.county} />
                     <Item label="Sub-county" value={p.subCounty} /><Item label="Parish" value={p.parish} />
-                    <Item label="Village" value={p.village} /><Item label="Area" value={p.area} />
+                    <Item label="Village" value={p.village} /><Item label="Area (ha)" value={p.area} />
                     <Item label="Start date" value={day(p.projectStartDate)} />
                     <Item label="Plot" value={p.plotNumber} /><Item label="Block" value={p.block} />
                     <Item label="Tenure" value={p.tenure} /><Item label="Area (ha)" value={p.areaHectares} />
@@ -198,8 +216,8 @@ export default function PendingViewPage() {
                         <div className={styles.form}>
                             <label className={styles.dropzone}>
                                 <FiUploadCloud className={styles.dropzoneIcon} aria-hidden="true" />
-                                {files.length ? files.length + ' file(s) chosen - click to choose again' : 'Click to choose scans (PDF, JPG, PNG, WEBP)'}
-                                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => { const list = Array.from(e.target.files || []); e.target.value = ''; pickScans(list); }} aria-label="Scans" />
+                                {files.length ? files.length + ' file(s) chosen - click to choose again' : 'Click to choose documents (' + DOC_KINDS_TEXT + ')'}
+                                <input type="file" multiple accept={DOC_ACCEPT} onChange={e => { const list = Array.from(e.target.files || []); e.target.value = ''; pickScans(list); }} aria-label="Scans" />
                             </label>
                             {files.length > 0 && <div className={styles.fileList}>{files.map((f, i) => <span key={f.name + i} className={styles.fileChip}>{f.name}{fileNotes[i] ? ' - ' + fileNotes[i] : ''}</span>)}</div>}
                             <label className={styles.field}><span className={styles.label}>Document type</span>
@@ -230,8 +248,8 @@ export default function PendingViewPage() {
                         </ul>
                     </Card>
 
-                    <Card title="Start this project">
-                        <span className={styles.muted}>A project starts when it has an invoice number, a contract number and a price. Until then it stays Pending.</span>
+                    <Card title="Numbers and price">
+                        <span className={styles.muted}>Save what you have. The project stays Pending until it has an invoice number, a contract number and a price; then SAVE starts it.</span>
                         <div className={styles.form}>
                             <label className={styles.field}><span className={styles.label}>Invoice number</span>
                                 <input className={`${styles.input} ${styles.mono}`} value={invoiceNo} maxLength={80} autoComplete="off" onChange={e => setInvoiceNo(e.target.value)} placeholder="As written on the invoice" /></label>
@@ -250,7 +268,9 @@ export default function PendingViewPage() {
                                     <HardwareDatePicker block value={paidDate} max={localISO()} onChange={setPaidDate} ariaLabel="Date it was paid" /></label>
                             )}
                             <div className={styles.actions}>
-                                <button type="button" className={styles.btn} disabled={busy} onClick={start}>START PROJECT</button>
+                                <button type="button" className={styles.btn} disabled={busy} onClick={save}
+                                    title={complete ? 'Saves and starts the project.' : 'Saves what is typed. The project stays Pending until all three are in.'}>
+                                    {complete ? 'SAVE AND START PROJECT' : 'SAVE (STAYS PENDING)'}</button>
                             </div>
                         </div>
                     </Card>

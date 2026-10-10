@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix198: FRESH START tick box in the Danger Zone -- the wipe can also clear the audit trail, remove demo staff and switch the demo data off for good; fix197: a Fresh Survey ends through the Titled stage (Title Details needed to tick it); every type goes to Receivables after 365 days; fix196: invoice number + contract number on every project; Invoice / Contract stage rules on the server; fix195: New Project uploads pass the scan file check; fix194: an Employee cannot read or change an existing client's contacts; fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix199: fixes from David's manual test round 1 -- Pending saved in parts, office entries may go Pending, Manager may hand over and reverse, explainers everywhere, Project File print, Area in hectares, Word/Excel documents, capitals, money boxes refuse decimals, stage document types, defaults; fix198: FRESH START tick box in the Danger Zone -- the wipe can also clear the audit trail, remove demo staff and switch the demo data off for good; fix197: a Fresh Survey ends through the Titled stage (Title Details needed to tick it); every type goes to Receivables after 365 days; fix196: invoice number + contract number on every project; Invoice / Contract stage rules on the server; fix195: New Project uploads pass the scan file check; fix194: an Employee cannot read or change an existing client's contacts; fix193: the Secretary may tick any stage and correct a client phone number; fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -217,6 +217,7 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
 - STILL TO DO: Special Projects (own goals + CLOSE PROJECT) -- the plan is in `docs/APP_REVIEW.md` section 5.1.
 
 ### INVOICE NUMBER AND CONTRACT NUMBER (fix196, David's Task C + answers Q9, S29)
+*Rule 1 and "ONE step" below are SUPERSEDED by "FIXES FROM THE MANUAL TEST, ROUND 1 (fix199)": the parts may be saved one at a time while Pending.*
 
 THE RULES (all in `ProjectNumbersService`, server):
 1. A project that is NOT Pending has BOTH numbers. It leaves Pending in ONE step that needs the invoice number, the
@@ -248,6 +249,54 @@ THE PAGES:
   number. Reports > Projects has the two columns (so CSV and PDF too).
 - `waitingFor()` for a Pending project: "WAITING FOR THE OFFICE: INVOICE NUMBER, CONTRACT NUMBER AND PRICES".
 - Tests: `ProjectNumbersTest` (server).
+
+### FIXES FROM THE MANUAL TEST, ROUND 1 (fix199, David's test notes 1-25)
+
+David tested Fresh Survey by hand (test pack steps A1-G6) and wrote notes. The data he entered was KEPT (no wipe).
+- **Pending, saved in parts (notes 9, 12):** the Pending page's SAVE keeps the invoice number, contract number and price
+  one at a time (`POST /land/pending/{id}/save` -> `PendingProjectService.saveParts`); the project stays Pending until all
+  three are in, then the same SAVE starts it (`graduatePending`, which now also uses the parts saved before). An OFFICE
+  New Project that misses one of the three is saved as PENDING too (`LandService.doIntake`, `officeEntryIncomplete`),
+  never refused. Money received cannot be recorded on a Pending project (`MONEY_NEEDS_START`).
+  `ProjectNumbersService.checkEach` checks only the numbers typed. The waiting line names only what is missing.
+  `PendingProjectDTO` now carries `invoiceNumber`, `contractNumber`, `priceSet` and (office only) `totalCost`.
+- **Ledger (note 6):** ALL PROJECTS lists the Pending entries too; every other tab still leaves them out.
+- **Pending page (notes 7, 8):** messages are pop-ups (toasts), the panels are the app's collapsible panels with the
+  corner decorations, the first client is the payer and Date paid is today by default.
+- **Staff tab (notes 1, 3):** the rank / suspend / new-key buttons show only on people the signed-in rank may manage
+  (a Director no longer sees them on the Admin) and each explains itself. Changing a rank was already there (shield).
+- **Manager may hand over a title and reverse a payment (notes 24, 25):** `LandController` release + reverse allow
+  ROLE_MANAGER; the Folder page uses `canHandOver` / `canReverse` (= Manager and above). UNDO HAND-OVER and REMOVE
+  TITLE DETAILS stay Director and above. The Director's bell alert (TITLE_COMPLETED / PAYMENT_REVERSED) names who did it,
+  and the audit trail has the line.
+- **Hover explainers everywhere (note 4):** `components/common/globalTips.js` (installed once in App.jsx) turns every
+  `title="..."` on every page into the styled explainer bubble (mouse, keyboard focus, press-and-hold on a phone,
+  disabled buttons too). Appearance > explainers OFF leaves the browser's own titles. New code may keep using `title=`.
+- **Print = a proper document (note 10):** `components/print/ProjectFilePrint.jsx` is an A4 "Project File" (letterhead,
+  reference block, location, title, clients, owners, neighbours, stages, statement of account with totals, documents,
+  notes, sign-off lines). The Folder page's print rules show only that. The old print sections are no longer printed.
+- **Area in hectares (note 11):** the Location box is "Area (hectares)", digits only (page, Folder edit, and the server
+  for new projects: `AREA_NOT_A_NUMBER`). On New Project it also fills the Title Details area while that is empty.
+  An older project with words there must be corrected the next time it is edited.
+- **Defaults (notes 13, 14, 15):** Date Last Paid starts on today (sent only when money was paid); the first client is
+  the payer until changed. Every default stays changeable.
+- **More document kinds (note 16):** PDF, photos, Word, Excel, PowerPoint, OpenOffice, text and CSV
+  (`LandService.DOC_EXTENSIONS`, page `DOC_EXTS` in `utils/imageShrink.js`). Payment receipts stay PDF / photos
+  (`RECEIPT_EXTS`). A file the browser cannot show is downloaded to open.
+- **Saving speed (note 17):** a project's files are now sent to the file store side by side (up to 4 at a time,
+  `LandService.storeAllFiles`). The free Render server is still slow by nature; the hosting move (Section 18) is the
+  real fix.
+- **Capitals (note 19):** one-line boxes show CAPITALS (`index.css`), except keys, usernames, emails, numbers, dates
+  and notes; names, places, NINs and invoice / contract numbers are saved in capitals.
+- **Suggestions (note 20):** `suggestForRow` (utils/entryMemory.js): a filled NIN offers its person first in the name
+  and phone boxes (and a known name offers its NIN), so one pick fills the row.
+- **Stage document types (note 22):** every default stage has its own document type (`DocumentCategoryService.DEFAULTS`)
+  and a file attached from a stage starts with it (`utils/stageCategory.js`); staff may change it.
+- **Money boxes (note 23):** "1500.50" used to be saved as 150050. Now a box keeps what was typed and refuses a dot,
+  cents or letters out loud (`utils/money.js`, `readShillings`). Commas and spaces are fine.
+- **Not done, waiting for David:** note 5 (Dashboard look -- what to change?), note 18 ("D1 - I want all entries" --
+  meaning not clear), note 2 (Secretary + Pending on the Dashboard: the tile already opens the Pending list; ask again
+  if something else was meant).
 
 ### FILES SENT WITH A NEW PROJECT (fix195, review S03)
 

@@ -83,6 +83,13 @@ public class PendingController {
         return ResponseEntity.ok(Map.of("ok", true, "id", p.getId(), "projectIndex", p.getProjectIndex()));
     }
 
+    // fix199 (test note 9): save the invoice number, contract number and price one at a time; starts when all three are in
+    @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/{id}/save")
+    public ResponseEntity<Map<String, Object>> saveParts(@PathVariable UUID id, @RequestBody LandEntryRequest request) {
+        return ResponseEntity.ok(pendingService.saveParts(id, request));
+    }
+
     @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/{id}/reject")
     public ResponseEntity<Map<String, Object>> reject(@PathVariable UUID id, @RequestBody Map<String, String> body) {

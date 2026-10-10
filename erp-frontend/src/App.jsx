@@ -10,6 +10,7 @@ import Shell from './components/layout/Shell';
 import RouteErrorScreen from './components/common/RouteErrorScreen';
 import { LoadingState } from './components/common/LoadingState';
 import { readPrefsFor } from './context/prefsStore';
+import { useGlobalTips } from './components/common/globalTips';
 
 import LoginPage      from './pages/login/LoginPage';
 
@@ -120,6 +121,7 @@ const FallbackRoute = () => {
 const AppLayout = () => {
     const { user, token } = useAuth();
     usePrefetchPages(!!(user && token));
+    useGlobalTips();   // fix199 (test note 4): every title="..." on every page becomes the styled explainer
     return (
         <>
             <CircuitBackground />

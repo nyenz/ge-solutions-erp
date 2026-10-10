@@ -394,19 +394,26 @@ const SettingsPage = () => {
                           <strong>{op.username}{op.root ? ' (ADMIN)' : ''}{op.demo ? ' · DEMO' : ''}</strong>
                           <span className={rankClass(op.role)}>{rankLabel(op.role).toUpperCase()}</span>
                         </div>
+                        {/* fix199 (David, test notes 1 + 3): the buttons show only on people this rank may manage
+                            (so a Director no longer sees them on the Admin), and each one says what it does */}
+                        {canManageOp(op) && (
                         <div className={styles.opActions}>
-                          <button type="button" className={styles.rankBtn} disabled={!canManageOp(op)} onClick={() => setRankFor({ op, role: op.role })} aria-label={`Change the rank of ${op.username}`}><FiShield aria-hidden="true" /></button>
-                          <button type="button" className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`} disabled={!canManageOp(op)}
+                          <button type="button" className={styles.rankBtn} onClick={() => setRankFor({ op, role: op.role })}
+                            title={`Change the rank of ${op.username} (move up or down)`} aria-label={`Change the rank of ${op.username}`}><FiShield aria-hidden="true" /></button>
+                          <button type="button" className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`}
                             onClick={() => toggleOp(op)}
+                            title={op.active ? `Suspend ${op.username} (signs them out at once)` : `Activate ${op.username} again`}
                             aria-label={op.active ? `Suspend ${op.username}` : `Activate ${op.username}`}>
                             <FiPower aria-hidden="true" />
                           </button>
-                          <button type="button" className={styles.resetTrigger} disabled={!canManageOp(op)}
+                          <button type="button" className={styles.resetTrigger}
                             onClick={() => setResetFor(op)}
+                            title={`Give ${op.username} a new temporary key`}
                             aria-label={`Reset the key of ${op.username}`}>
                             <FiRotateCcw aria-hidden="true" />
                           </button>
                         </div>
+                        )}
                       </div>
                       <div className={styles.opDetails}>
                         <p><FiInfo aria-hidden="true" /> {op.email || 'no email on file'}</p>
