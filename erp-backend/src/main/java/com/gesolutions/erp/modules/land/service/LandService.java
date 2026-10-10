@@ -1510,6 +1510,7 @@ public class LandService {
     /** fix199: stores every file, up to 4 at a time. If one fails, the error is passed on exactly as before. */
     private String[] storeAllFiles(MultipartFile[] scans, String folder) throws Exception {
         String[] out = new String[scans.length];
+        if (scans.length == 0) return out;
         if (scans.length == 1) { out[0] = fileStorageService.storeFile(scans[0], folder); return out; }
         java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(Math.min(4, scans.length));
         try {

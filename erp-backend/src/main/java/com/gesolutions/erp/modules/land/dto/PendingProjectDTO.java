@@ -50,7 +50,8 @@ public class PendingProjectDTO {
     private String invoiceNumber;
     private String contractNumber;
     private boolean priceSet;
-    private BigDecimal totalCost;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private BigDecimal totalCost;   // left out of the JSON entirely for an Employee (PendingWorkflowTest checks the words)
     // people
     private List<Person> clients;
     private List<Person> owners;
