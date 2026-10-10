@@ -1,7 +1,7 @@
 // fix186: the photo shrink rules (the decisions; the drawing itself needs a browser). Run with `npm test`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SHRINK, isShrinkablePhoto, planShrink, targetSize, isClearlySmaller, shrunkName, fmtSize, sizeNote, shrinkImage, shrinkFiles, prepareUploads, anyToShrink } from '../src/utils/imageShrink.js';
+import { SHRINK, isShrinkablePhoto, planShrink, targetSize, isClearlySmaller, shrunkName, fmtSize, sizeNote, shrinkImage, shrinkFiles, prepareUploads, anyToShrink, RECEIPT_EXTS } from '../src/utils/imageShrink.js';
 
 const MB = 1024 * 1024;
 const f = (name, type, size) => ({ name, type, size });
@@ -75,11 +75,15 @@ test('without a browser nothing is changed and nothing breaks (the original is k
 });
 
 test('prepareUploads: wrong kind, empty and too-big files are refused; the rest pass with a size note', async () => {
-    const files = [f('a.docx', '', 5000), f('b.pdf', 'application/pdf', 0), f('c.pdf', 'application/pdf', 60 * MB),
-        f('d.pdf', 'application/pdf', 2 * MB), f('e.jpg', 'image/jpeg', 300000)];
+    // fix199 (test note 16): Word and Excel files are documents too; a program file is still refused
+    const files = [f('a.exe', '', 5000), f('b.pdf', 'application/pdf', 0), f('c.pdf', 'application/pdf', 60 * MB),
+        f('d.pdf', 'application/pdf', 2 * MB), f('e.jpg', 'image/jpeg', 300000), f('g.docx', '', 4000)];
     const r = await prepareUploads(files);
-    assert.deepEqual(r.bad, ['a.docx (use PDF, JPG, PNG or WEBP)', 'b.pdf (the file is empty)', 'c.pdf (over 50 MB)']);
-    assert.deepEqual(r.ok.map(x => x.file.name), ['d.pdf', 'e.jpg']);
+    assert.deepEqual(r.bad, ['a.exe (use PDF, photos (JPG, PNG, WEBP), Word, Excel, PowerPoint, text or CSV)', 'b.pdf (the file is empty)', 'c.pdf (over 50 MB)']);
+    assert.deepEqual(r.ok.map(x => x.file.name), ['d.pdf', 'e.jpg', 'g.docx']);
+    // a payment receipt stays a scan or a photo
+    const rec = await prepareUploads([f('r.docx', '', 4000)], { exts: RECEIPT_EXTS });
+    assert.deepEqual(rec.bad, ['r.docx (use PDF, JPG, PNG or WEBP)']);
     assert.equal(r.ok[0].note, '2.0 MB');
     assert.equal(r.ok[0].shrunk, false);
     // the receipt limit is 10 MB

@@ -553,6 +553,17 @@ input[type="checkbox"]:hover { border-color: #EE8C3A; box-shadow: 0 0 0 2px rgba
 input[type="checkbox"]:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
 input[type="checkbox"]:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ===== CAPITAL LETTERS IN THE BOXES (fix199, David's test note 19) =====
+   What staff type shows in CAPITALS in every one-line box (the pages also save names, places, NINs and numbers in
+   capitals). Left as typed: keys (passwords), usernames, email addresses, numbers and dates, long notes (textarea),
+   and any box marked data-keep-case. The placeholder text keeps its normal letters. */
+:where(input):not([type="password"], [type="email"], [type="number"], [type="date"], [type="file"], [type="checkbox"], [type="radio"],
+    [autocomplete="username"], [autocomplete="current-password"], [autocomplete="new-password"], [autocomplete="email"],
+    [id*="email" i], [name*="email" i], [aria-label*="email" i], [id*="username" i], [name*="username" i], [data-keep-case]) {
+    text-transform: uppercase;
+}
+:where(input)::placeholder { text-transform: none; }
+
 /* ===== LINKS (fix182) =============================================
    No browser-blue underlined links: a plain link inherits its text
    colour and gets the orange on hover.

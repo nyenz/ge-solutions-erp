@@ -165,6 +165,10 @@ public class PendingProjectService {
 
     @Transactional(readOnly = true)
     public PendingProjectDTO viewOwn(UUID id) {
+        return viewOwnAs(id);
+    }
+
+    private PendingProjectDTO viewOwnAs(UUID id) {
         User me = me();
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND: No such project."));
         if (me.getRole() == Role.ROLE_EMPLOYEE && (p.getCreatedById() == null || !p.getCreatedById().equals(me.getId()))) {
@@ -173,7 +177,10 @@ public class PendingProjectService {
         if (me.getRole() == Role.ROLE_EMPLOYEE && !p.isPending()) {
             throw new BusinessException("ALREADY_STARTED: This project was started by the office; it is no longer in your entries.");
         }
-        return toDto(p, true);
+        // fix199: the office also gets the saved price back (to fill the box); an Employee never sees a price
+        PendingProjectDTO dto = toDto(p, true);
+        if (me.getRole() != Role.ROLE_EMPLOYEE && p.getTotalCost() != null && p.getTotalCost().signum() > 0) dto.setTotalCost(p.getTotalCost());
+        return dto;
     }
 
     /** MY ENTRIES: my Pending projects, plus the ones started or rejected in the last 30 days (with the reason). */
@@ -201,6 +208,12 @@ public class PendingProjectService {
     @Transactional(rollbackFor = Exception.class)
     public LandProject graduatePending(UUID id, LandEntryRequest request) {
         LandProject p = pendingForOffice(id);
+        // fix199 (David, test note 9): parts saved earlier (SAVE on the Pending page) are used when they are not typed again
+        if (ProjectNumbersService.clean(request.getInvoiceNumber()) == null) request.setInvoiceNumber(p.getInvoiceNumber());
+        if (ProjectNumbersService.clean(request.getContractNumber()) == null) request.setContractNumber(p.getContractNumber());
+        if ((request.getTotalCost() == null || request.getTotalCost().signum() <= 0) && p.getTotalCost() != null && p.getTotalCost().signum() > 0) {
+            request.setTotalCost(p.getTotalCost());
+        }
         if (request.getProjectType() != null && !request.getProjectType().isBlank()
                 && p.getProjectType() != null && !request.getProjectType().equals(p.getProjectType())) {
             throw new BusinessException("PENDING_EDIT_DENIED: The project type cannot be changed while starting a project.");
@@ -233,6 +246,51 @@ public class PendingProjectService {
         notificationService.emitToAudience("PROJECT_GRADUATED", "Project " + saved.getProjectIndex() + " has been priced and started.",
                 "PROJECT", saved.getId());
         return saved;
+    }
+
+    /**
+     * fix199 (David, test note 9): SAVE on the Pending page. The office may save the invoice number, the contract number
+     * and the price one at a time; the project stays Pending until all three are there, and then it starts at once
+     * (graduatePending, with the same checks as before). Money received can only be recorded when it starts.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> saveParts(UUID id, LandEntryRequest request) {
+        LandProject p = pendingForOffice(id);
+        String inv = ProjectNumbersService.clean(request.getInvoiceNumber());
+        String con = ProjectNumbersService.clean(request.getContractNumber());
+        if (inv == null) inv = ProjectNumbersService.clean(p.getInvoiceNumber());
+        if (con == null) con = ProjectNumbersService.clean(p.getContractNumber());
+        BigDecimal cost = request.getTotalCost() != null && request.getTotalCost().signum() > 0 ? request.getTotalCost() : p.getTotalCost();
+        boolean priced = cost != null && cost.signum() > 0;
+        if (inv != null && con != null && priced) {
+            request.setInvoiceNumber(inv); request.setContractNumber(con); request.setTotalCost(cost);
+            LandProject started = graduatePending(id, request);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("started", true); out.put("id", started.getId()); out.put("projectIndex", started.getProjectIndex());
+            return out;
+        }
+        List<String> moneySent = new ArrayList<>(pricingFieldsSent(request));
+        moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs"));
+        if (!moneySent.isEmpty()) {
+            throw new BusinessException("MONEY_NEEDS_START: Money received is recorded when the project starts (it needs the invoice number, "
+                    + "the contract number and the price). Fill in all three, or clear: " + String.join(", ", moneySent) + ".");
+        }
+        if (cost != null && cost.signum() < 0) throw new BusinessException("AMOUNT_INVALID: The price cannot be negative.");
+        String[] n = projectNumbers.checkEach(p.getId(), inv, con);
+        p.setInvoiceNumber(n[0]);
+        p.setContractNumber(n[1]);
+        if (priced) p.setTotalCost(cost);
+        projectRepository.save(p);
+        List<String> missing = new ArrayList<>();
+        if (n[0] == null) missing.add("invoice number");
+        if (n[1] == null) missing.add("contract number");
+        if (!priced) missing.add("price");
+        auditService.logActionAfterCommit("PENDING_UPDATED", "Operator [" + AuditService.currentOperator() + "] saved parts of Pending project #"
+                + p.getProjectIndex() + ". Invoice: " + (n[0] == null ? "(none)" : n[0]) + ", contract: " + (n[1] == null ? "(none)" : n[1])
+                + ", price: " + (priced ? "UGX " + cost.toPlainString() : "(none)") + ". Still missing: " + String.join(", ", missing) + ".");
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("started", false); out.put("id", p.getId()); out.put("missing", missing);
+        return out;
     }
 
     /** fix181 (12.3): reject a mistaken Pending entry (soft delete with a reason; the Employee sees the reason). */
@@ -281,7 +339,10 @@ public class PendingProjectService {
                 .ageDays(p.getCreatedAt() == null ? null : ChronoUnit.DAYS.between(p.getCreatedAt(), LocalDateTime.now()))
                 .district(p.getDistrict()).county(p.getCounty()).subCounty(p.getSubCounty()).parish(p.getParish())
                 .village(p.getVillage()).area(p.getArea()).projectStartDate(p.getProjectStartDate())
-                .titleDetailsEnabled(p.isTitleDetailsEnabled()).subdivisionCount(p.getSubdivisionCount());
+                .titleDetailsEnabled(p.isTitleDetailsEnabled()).subdivisionCount(p.getSubdivisionCount())
+                // fix199: what the office has saved so far (numbers are not money; the price is only a yes / no here)
+                .invoiceNumber(p.getInvoiceNumber()).contractNumber(p.getContractNumber())
+                .priceSet(p.getTotalCost() != null && p.getTotalCost().signum() > 0);
         if (t != null) {
             b.plotNumber(t.getPlotNumber()).block(t.getBlock()).tenure(t.getTenure()).areaHectares(t.getAreaHectares())
              .volume(t.getVolume()).folio(t.getFolio()).titleIssueDate(t.getTitleIssueDate());

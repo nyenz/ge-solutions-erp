@@ -173,13 +173,33 @@ export function suggestPeople(people, field, typed, limit = 6) {
         for (const p of (people || [])) { const r = matchRank(p.name, raw); if (r >= 0) out.push({ rank: r, p }); }
     }
     out.sort((a, b) => a.rank - b.rank || a.p.name.localeCompare(b.p.name));
-    return out.slice(0, limit).map(({ p }) => ({
-        key: 'person:' + (p.nin || p.name),
-        value: field === 'phone' ? p.phone : field === 'nationalId' ? p.nin : p.name,
-        label: p.name || p.nin,
-        detail: [p.nin, p.phone].filter(Boolean).join('  -  '),
-        person: p,
-    }));
+    return out.slice(0, limit).map(({ p }) => personSuggestion(p, field));
+}
+
+const personSuggestion = (p, field) => ({
+    key: 'person:' + (p.nin || p.name),
+    value: field === 'phone' ? p.phone : field === 'nationalId' ? p.nin : p.name,
+    label: p.name || p.nin,
+    detail: [p.nin, p.phone].filter(Boolean).join('  -  '),
+    person: p,
+});
+
+/**
+ * fix199 (David, test note 20): suggestions for one box of a client / owner ROW, using the boxes already filled.
+ * Before, a filled NIN made the name box hide that very person. Now the person the row already points at (by its NIN,
+ * or by its exact name when there is no NIN yet) is offered FIRST in the other boxes -- even before 3 letters are
+ * typed -- so one pick fills the rest. It is not offered once the row already has that person's NIN, name and phone.
+ */
+export function suggestForRow(people, field, row, limit = 6) {
+    const r = row || {};
+    const ninNow = norm(r.nationalId), nameNow = norm(r.fullName);
+    const list = suggestPeople(people, field, r[field], limit);
+    const anchor = (ninNow && (people || []).find(p => p.nin === ninNow))
+        || (!ninNow && nameNow && (people || []).find(p => p.name === nameNow)) || null;
+    if (!anchor) return list;
+    const rest = list.filter(s => s.person !== anchor);
+    const complete = anchor.nin === ninNow && anchor.name === nameNow && digits(anchor.phone) === digits(r.phone);
+    return complete ? rest : [personSuggestion(anchor, field), ...rest].slice(0, limit);
 }
 
 /**

@@ -7,6 +7,7 @@
 // Pages pass their own copy-in props only; the look lives here so the two pages can never drift apart again.
 import React from 'react';
 import { FiFileText, FiEye, FiTrash2, FiUploadCloud } from 'react-icons/fi';
+import { DOC_KINDS_TEXT } from '../../utils/imageShrink';
 import s from './DocParts.module.css';
 
 export function DocList({ capped = false, className = '', children }) {
@@ -53,7 +54,7 @@ export function DocDropzone({ compact = false, required = false, onClick, classN
             ) : (
                 <>
                     <span className={s.zoneTitle}>Click to upload{required && <span className={s.req}>*</span>}</span>
-                    <span className={s.zoneSub}>{required ? 'Required - ' : ''}PDF, JPG, PNG or WEBP, up to 50 MB each</span>
+                    <span className={s.zoneSub}>{required ? 'Required - ' : ''}{DOC_KINDS_TEXT}, up to 50 MB each</span>
                 </>
             )}
         </div>

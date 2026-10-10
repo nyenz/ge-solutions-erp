@@ -55,6 +55,7 @@ public class ProjectNumbersTest {
     @Autowired private LandProjectRepository projects;
     @Autowired private ProjectStatusRepository statuses;
     @Autowired private UserRepository users;
+    @Autowired private LandService land;
 
     @AfterEach
     void clear() { SecurityContextHolder.clearContext(); }
@@ -122,6 +123,64 @@ public class ProjectNumbersTest {
         assertEquals(inv, p.getInvoiceNumber(), "saved trimmed, in the format that was typed");
         assertEquals(con, p.getContractNumber());
         assertTrue(statuses.findById(ic.getId()).orElseThrow().isCompleted(), "the Invoice / Contract stage is ticked by itself");
+    }
+
+    /** fix199 (David, test notes 9 + 12): the parts are saved one at a time; the project starts when all three are in. */
+    @Test
+    public void partsAreSavedOneAtATimeAndTheProjectStartsWhenAllThreeAreIn() throws Exception {
+        as(Role.ROLE_EMPLOYEE);
+        PendingProjectDTO dto = pending.createPending(entry(), null, null);
+        ProjectStatus ic = stage(dto.getId(), IC, 1);
+        as(Role.ROLE_SECRETARY);
+        String inv = "P-INV-" + tag(), con = "P-CON-" + tag();
+
+        LandEntryRequest priceOnly = new LandEntryRequest();
+        priceOnly.setTotalCost(new BigDecimal("2500000"));
+        assertEquals(false, pending.saveParts(dto.getId(), priceOnly).get("started"));
+        LandProject p = projects.findById(dto.getId()).orElseThrow();
+        assertTrue(p.isPending(), "a price alone keeps it Pending");
+        assertEquals(0, new BigDecimal("2500000").compareTo(p.getTotalCost()));
+
+        LandEntryRequest withMoney = new LandEntryRequest();
+        withMoney.setInvoiceNumber(inv);
+        withMoney.setInitialPayment(new BigDecimal("100000"));
+        BusinessException e = assertThrows(BusinessException.class, () -> pending.saveParts(dto.getId(), withMoney));
+        assertTrue(e.getMessage().startsWith("MONEY_NEEDS_START"), e.getMessage());
+
+        LandEntryRequest invoiceOnly = new LandEntryRequest();
+        invoiceOnly.setInvoiceNumber(inv);
+        assertEquals(false, pending.saveParts(dto.getId(), invoiceOnly).get("started"));
+        assertEquals(inv, projects.findById(dto.getId()).orElseThrow().getInvoiceNumber());
+        assertTrue(projects.findById(dto.getId()).orElseThrow().isPending());
+
+        LandEntryRequest contractOnly = new LandEntryRequest();
+        contractOnly.setContractNumber(con);
+        assertEquals(true, pending.saveParts(dto.getId(), contractOnly).get("started"), "the third part starts it");
+        p = projects.findById(dto.getId()).orElseThrow();
+        assertFalse(p.isPending());
+        assertEquals(inv, p.getInvoiceNumber());
+        assertEquals(con, p.getContractNumber());
+        assertEquals(0, new BigDecimal("2500000").compareTo(p.getTotalCost()));
+        assertTrue(statuses.findById(ic.getId()).orElseThrow().isCompleted());
+    }
+
+    /** fix199 (David, test note 12): an office New Project with a missing part is saved as Pending, not refused. */
+    @Test
+    public void anOfficeEntryWithAMissingPartIsSavedAsPending() throws Exception {
+        as(Role.ROLE_SECRETARY);
+        LandEntryRequest r = entry();
+        r.setInvoiceNumber("O-INV-" + tag());
+        r.setTotalCost(new BigDecimal("900000"));
+        LandProject saved = land.atomicIntake(r, null);
+        assertTrue(saved.isPending(), "no contract number yet, so it waits as Pending");
+        assertNotNull(saved.getInvoiceNumber());
+        assertNull(saved.getContractNumber());
+
+        LandEntryRequest paid = entry();
+        paid.setTotalCost(new BigDecimal("900000"));
+        paid.setInitialPayment(new BigDecimal("100000"));
+        BusinessException e = assertThrows(BusinessException.class, () -> land.atomicIntake(paid, null));
+        assertTrue(e.getMessage().startsWith("MONEY_NEEDS_START"), e.getMessage());
     }
 
     @Test

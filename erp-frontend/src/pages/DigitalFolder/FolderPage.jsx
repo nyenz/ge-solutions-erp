@@ -10,7 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import useScrollEdges from '../../hooks/useScrollEdges';
 import { useTabThumb, useSwapMotion } from '../../hooks/useTabMotion';
-import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
+import { prepareUploads, anyToShrink, DOC_EXTS, DOC_ACCEPT, RECEIPT_EXTS } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestValues } from '../../utils/entryMemory';
@@ -43,12 +43,15 @@ import ErrorMessage from '../../components/common/ErrorMessage';
 import CornerDecor from '../../components/ui/CornerDecor';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { parseNote } from './noteTags';
+import { readShillings, MONEY_BAD } from '../../utils/money';   // fix199 (test note 23)
+import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test note 22)
+import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 // fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
 const NOTE_MAX = 2000;
-const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+const SCAN_EXT = RECEIPT_EXTS;   // fix199: payment receipts stay scans and photos; other documents use DOC_EXTS
 // fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here.
 const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
 // fix165: ONE place that turns any failed request into a sentence a person can read (server words + HTTP number).
@@ -154,16 +157,20 @@ const SmartSelect = ({ label, options, value, onChange, id }) => {
     </div>);
 };
 // fix167: the hint is shown now (it was passed in but never drawn)
+// fix199 (test note 23): what was typed is kept; a dot, cents or letters are refused out loud (never silently dropped).
+// The parent then receives the raw text, so its own save check (readShillings) refuses it too.
 const CurrencyInput = ({ label, value, onChange, error, id, disabled, hint, placeholder = '0' }) => {
     const [focused, setFocused] = useState(false);
     const inputId = id || 'cur-' + (label || '').replace(/\W/g, '-').toLowerCase();
-    const display = focused ? String(value ?? '') : (value !== '' && value !== null && value !== undefined ? Number(value).toLocaleString() : '');
+    const bad = !readShillings(value).ok;
+    error = error || (bad ? MONEY_BAD : undefined);
+    const display = focused || bad ? String(value ?? '') : (value !== '' && value !== null && value !== undefined ? Number(value).toLocaleString() : '');
     return (<div className={`${styles.hwInputWrap} ${error ? styles.inputError : ''}`}>
         <div className={styles.inputLabelRow}><label htmlFor={inputId}>{label}</label><span className={styles.currencyTag}>UGX</span>
             {disabled && <span className={styles.autoCalcBadge}>LOCKED</span>}</div>
         <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''} ${disabled ? styles.calcInput : ''}`}
             inputMode="numeric" value={display} onFocus={() => { if (!disabled) setFocused(true); }} onBlur={() => setFocused(false)}
-            onChange={e => { if (!disabled) onChange(e.target.value.replace(/\D/g, '')); }} placeholder={placeholder} disabled={disabled} />
+            onChange={e => { if (disabled) return; const r = readShillings(e.target.value); onChange(r.ok ? r.value : e.target.value); }} placeholder={placeholder} disabled={disabled} />
         {error && <span className={styles.fieldError} role="alert"><FiAlertCircle aria-hidden="true" /> {error}</span>}
         {!error && hint && <span className={styles.inputHint}>{hint}</span>}
     </div>);
@@ -363,7 +370,11 @@ const FolderPage = () => {
     const isDirector = flags.isOwnerLevel;
     const isManager = flags.isManager;
     const canEditRole = isManager;    // edit record, statuses, docs, payments, problem flag
-    const canMoney = isDirector;      // receivable money actions, hand-over, reversals
+    const canMoney = isDirector;      // receivable money actions, UNDO hand-over, remove title details
+    // fix199 (David, test notes 24 + 25): the Manager may also hand over a title and reverse a payment.
+    // The Director is told by a bell alert (TITLE_COMPLETED / PAYMENT_REVERSED, naming who did it) and the audit trail.
+    const canHandOver = isManager;
+    const canReverse = isManager;
     const canUploadDocs = flags.canUploadDocs; // add scans without edit mode
 
     const [binder, setBinder] = useState(null);
@@ -563,6 +574,8 @@ const FolderPage = () => {
                 if (o.phone?.trim()) { const ph = normalizePhones(o.phone); if (!ph.ok) { errors.push(what + ' ' + (i + 1) + ': ' + ph.error.toUpperCase()); fe[key + '_' + i + '_phone'] = 'Check number'; } }
             });
         });
+        // fix199 (test note 11): Area is the land size in hectares (digits). An older project with words there must be corrected.
+        if (String(buf.area || '').trim() && !(Number(buf.area) > 0)) { errors.push('AREA (HECTARES) MUST BE A NUMBER, FOR EXAMPLE 0.405'); fe.area = 'Digits only'; }
         (buf.neighbors || []).forEach((nb, i) => {
             if (!nb.fullName?.trim()) { errors.push('NEIGHBOR ' + (i + 1) + ': NAME IS REQUIRED (OR REMOVE THE ROW)'); fe['neighbors_' + i + '_name'] = 'Required'; }
             if (nb.phone?.trim() && !normalizePhones(nb.phone).ok) { errors.push('NEIGHBOR ' + (i + 1) + ': CHECK THE PHONE NUMBER'); fe['neighbors_' + i + '_phone'] = 'Check number'; }
@@ -577,6 +590,7 @@ const FolderPage = () => {
         if (errors.length) {
             setFieldErrors(fe); toast('NOT SAVED: ' + errors[0], 'error', 6000); return;
         }
+        if (!readShillings(buffer.totalCost).ok) { toast('TOTAL COST: ' + MONEY_BAD, 'error'); return; }   // fix199
         if ((Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
             setFieldErrors({ costChangeReason: 'Write why (5+ characters)' }); setActiveTab('FINANCIALS'); toast('WRITE WHY THE TOTAL COST CHANGED (AT LEAST 5 CHARACTERS)', 'error', 6000); return;
         }
@@ -623,8 +637,10 @@ const FolderPage = () => {
         if (reasonBusy) return;
         const m = reasonModal; const typed = (m.reason || '').trim();
         if (typed.length < 5) { setReasonErr('WRITE THE REASON (AT LEAST 5 CHARACTERS).'); return; }
+        if (m.kind === 'RATE' && !readShillings(rateFee).ok) { setReasonErr('MONTHLY RATE: ' + MONEY_BAD.toUpperCase()); return; }   // fix199
         if (m.kind === 'REDUCE') {
-            const n = Number(m.amount);
+            if (!readShillings(m.amount).ok) { setReasonErr(MONEY_BAD.toUpperCase()); return; }   // fix199
+            const n = Number(readShillings(m.amount).value);
             if (m.amount === '' || !Number.isInteger(n) || n < 0 || n >= storageFees) { setReasonErr('ENTER A NEW TOTAL (WHOLE SHILLINGS) THAT IS LOWER THAN THE CURRENT UGX ' + fmt(storageFees) + '.'); return; }
             if (n < storagePaid) { setReasonErr('UGX ' + fmt(storagePaid) + ' OF FEES IS ALREADY PAID, SO THE NEW TOTAL CANNOT BE LOWER THAN THAT.'); return; }
         }
@@ -634,7 +650,7 @@ const FolderPage = () => {
         setReasonBusy(true); setReasonErr('');
         try {
             if (m.kind === 'REVERSE') { await landService.reversePayment(id, m.paymentId, why); toast('Payment reversed.', 'warn'); }
-            else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
+            else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, readShillings(m.amount).value, why); toast('Storage fees reduced.', 'success'); }
             else if (m.kind === 'RATE') { await folderPortalService.settings(id, { rate: rateFee, reason: why }); toast('Monthly storage rate saved.', 'success'); }
             else if (m.kind === 'PAUSE') { await folderPortalService.settings(id, { deadline: pauseUntil, reason: why }); setFreezeOpen(false); toast('Storage fees paused.', 'info'); }
             else if (m.kind === 'RESUME') { await folderPortalService.settings(id, { deadline: '', reason: why }); toast('Storage fees resumed. The paused days are not charged.', 'info'); }
@@ -700,10 +716,12 @@ const FolderPage = () => {
         const target = attachTo;   // fix180: files picked from a stage row's ATTACH button belong to that stage
         setAttachTo(null);
         if (anyToShrink(files)) toast('Preparing the photos...', 'info');
-        const { ok, bad } = await prepareUploads(files, { exts: SCAN_EXT });
+        const { ok, bad } = await prepareUploads(files, { exts: DOC_EXTS });   // fix199 (note 16)
         if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
         if (!ok.length) return;
-        setUploadDraft({ batch: '', error: '', files: ok.map(({ file, note }) => ({ file, category: '', note })), statusId: target ? target.id : null, statusName: target ? target.statusName : '' });
+        // fix199 (test note 22): a file attached from a stage starts with that stage's document type (it can be changed)
+        const stageCat = target ? categoryForStage(target.statusName, docCats) : '';
+        setUploadDraft({ batch: stageCat, error: '', files: ok.map(({ file, note }) => ({ file, category: stageCat, note })), statusId: target ? target.id : null, statusName: target ? target.statusName : '' });
     };
     // fix186: the receipt photo is shrunk the same way, so a big phone photo fits the 10 MB receipt limit
     const pickReceipt = async (f) => {
@@ -739,7 +757,7 @@ const FolderPage = () => {
     };
     const saveNumbers = async () => {
         if (!numModal || numSaving) return;
-        const inv = numModal.invoice.trim().replace(/\s+/g, ' '), con = numModal.contract.trim().replace(/\s+/g, ' ');
+        const inv = numModal.invoice.trim().replace(/\s+/g, ' ').toUpperCase(), con = numModal.contract.trim().replace(/\s+/g, ' ').toUpperCase();   // fix199 (note 19)
         if (!inv || !con) { setNumErr('ENTER BOTH: THE INVOICE NUMBER AND THE CONTRACT NUMBER.'); return; }
         setNumSaving(true); setNumErr('');
         try {
@@ -811,9 +829,11 @@ const FolderPage = () => {
     const closePayModal = () => { if (paying) return; setPayModal({ open: false }); setPayErr(''); setPayReceipt(null); };
     const handleRecordPayment = async () => {
         if (paying) return;
-        const amt = Number(payAmount);
+        const typed = readShillings(payAmount);   // fix199 (test note 23): "1500.50" is refused, never turned into 150050
+        if (!typed.ok) { setPayErr(MONEY_BAD.toUpperCase()); return; }
+        const amt = Number(typed.value);
         const limit = payType === 'STORAGE' ? feesUnpaid : workOwed;
-        if (!payAmount || !Number.isFinite(amt) || amt <= 0) { setPayErr('ENTER A VALID AMOUNT.'); return; }
+        if (!typed.value || !Number.isFinite(amt) || amt <= 0) { setPayErr('ENTER A VALID AMOUNT.'); return; }
         if (!Number.isInteger(amt)) { setPayErr('ENTER WHOLE SHILLINGS ONLY (NO DECIMALS).'); return; }
         if (amt > limit) { setPayErr('TOO MUCH: ONLY UGX ' + fmt(limit) + (payType === 'STORAGE' ? ' OF STORAGE FEES IS UNPAID.' : ' IS OWED ON THE TITLE WORK.') + ' YOU TYPED UGX ' + fmt(amt) + '.'); return; }
         if (payers.length > 1 && !payerId) { setPayErr('PICK WHICH CLIENT PAID.'); return; }
@@ -866,7 +886,8 @@ const FolderPage = () => {
             const blob = mime ? new Blob([raw], { type: mime }) : raw;
             const isPdf = ext === 'pdf' || blob.type === 'application/pdf';
             const isImg = !isPdf && String(blob.type || '').startsWith('image/');
-            if (!isPdf && !isImg) { const o = URL.createObjectURL(blob); window.open(o, '_blank'); setTimeout(() => URL.revokeObjectURL(o), 60000); return; }
+            // fix199 (note 16): a Word / Excel / other file cannot be shown here, so it is downloaded with its own name to open
+            if (!isPdf && !isImg) { const o = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = o; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(o), 60000); return; }
             const href = URL.createObjectURL(blob);
             let ratio = 0.707; // A4 portrait fallback
             try {
@@ -976,6 +997,10 @@ const FolderPage = () => {
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing && !uploadDraft} />
+            {/* fix199 (test note 10): what PRINT puts on paper -- a proper Project File, not the screen */}
+            <ProjectFilePrint className={styles.printDocWrap} project={project} stages={liveStages || binder.statuses} payments={payments}
+                documents={binder.documents || []} notes={notes} neighbors={neighbors} typeLabel={pType.label} catLabel={catLabel}
+                statusNameOf={statusNameOf} printedBy={user?.username} />
             <div className={styles.printDossierHeader} aria-hidden="true">
                 {/* fix181 (3.3f): company and plot name on top, index, printed date and the state badges (from the project, not the open tab) */}
                 <div className={styles.printDossierTitle}>GE SOLUTIONS - PROJECT DOSSIER</div>
@@ -1033,12 +1058,12 @@ const FolderPage = () => {
                     {!isEditing && (<div className={styles.ctrlGroup}>
                         <button type="button" className={styles.printBtn} onClick={() => window.print()} aria-label="Print record" title="Print this record (payment statement included)"><FiPrinter aria-hidden="true" /></button>
                         {canEdit && <button type="button" className={styles.ctrlBtnPay} disabled={amountOwed <= 0} title={totalValue <= 0 ? 'No price has been set on this project yet, so no payment can be recorded.' : amountOwed <= 0 ? 'Nothing is owed on this project.' : 'Record a payment with its receipt.'} onClick={openPayModal}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
-                        {canMoney && !isDeleted && project.landTitle && (isReleased
+                        {canHandOver && !isDeleted && project.landTitle && (isReleased
                             ? (<>
                                 <button type="button" className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
-                                <button type="button" className={styles.ghostBtn} title="Mark the title as NOT handed over again (reason required)."
+                                {canMoney && <button type="button" className={styles.ghostBtn} title="Mark the title as NOT handed over again (reason required)."
                                     onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
-                                        info: 'This marks the title as NOT handed over again and unlocks the record (status goes back to ' + (isReceivable ? 'RECEIVABLES' : 'ACTIVE') + '). Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
+                                        info: 'This marks the title as NOT handed over again and unlocks the record (status goes back to ' + (isReceivable ? 'RECEIVABLES' : 'ACTIVE') + '). Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>}
                               </>)
                             : <button type="button" className={styles.releaseBtn} disabled={project.releaseBlocker !== undefined ? !!project.releaseBlocker : (amountOwed > 0 || !!project.problem || keptFees > 0)}
                                 onClick={() => openReasonModal({ kind: 'RELEASE', title: 'HAND OVER TITLE', confirmLabel: 'HAND OVER',
@@ -1104,7 +1129,7 @@ const FolderPage = () => {
                                 <SmartInput label="SUB-COUNTY" value={buffer.subCounty} showCaps {...placeHelp('subCounty')} onChange={e => touchedSetBuffer({ ...buffer, subCounty: e.target.value.toUpperCase() })} />
                                 <SmartInput label="PARISH" value={buffer.parish} showCaps {...placeHelp('parish')} onChange={e => touchedSetBuffer({ ...buffer, parish: e.target.value.toUpperCase() })} />
                                 <SmartInput label="VILLAGE" value={buffer.village} showCaps {...placeHelp('village')} onChange={e => touchedSetBuffer({ ...buffer, village: e.target.value.toUpperCase() })} />
-                                <SmartInput label="AREA" value={buffer.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value })} />
+                                <SmartInput label="AREA (HECTARES)" value={buffer.area} inputMode="decimal" error={fieldErrors.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value.replace(',', '.') })} />
                             </div>
                             {showTitleFields && (<div className={styles.inputGrid3}>
                                 <SmartInput ref={firstInputRef} label="PLOT NUMBER" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({ ...buffer, plotNumber: e.target.value.toUpperCase() })} />
@@ -1120,7 +1145,7 @@ const FolderPage = () => {
                             <div className={styles.specGroup}>
                                 <div className={styles.sectionSubHeader}>LOCATION</div>
                                 <div className={styles.readOnlyGrid}>
-                                    {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v]) => (
+                                    {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA (HA)', project.area]].map(([l, v]) => (
                                         <div key={l} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
                                 </div>
                             </div>
@@ -1298,7 +1323,7 @@ const FolderPage = () => {
                                         </div>
                                         <div className={styles.payRowRight}><div className={styles.payDate} title={fmtDateTime(pay.timestamp)}>{fmtDate(pay.timestamp)}</div>
                                             {receipt && <button type="button" className={styles.receiptLink} onClick={() => handleOpenDoc(receipt.filePath, receipt.fileName)} title={'Open the receipt: ' + receipt.fileName}><FiExternalLink aria-hidden="true" /> RECEIPT</button>}
-                                            {canMoney && !isDeleted && !isRev && Number(pay.amountPaid) > 0 && !reversedIds.has(pay.id) && !isReleased && (
+                                            {canReverse && !isDeleted && !isRev && Number(pay.amountPaid) > 0 && !reversedIds.has(pay.id) && !isReleased && (
                                                 <button type="button" className={styles.reverseBtn} title="Cancel this payment. The original line stays; a negative REVERSAL line is added (reason required)."
                                                     onClick={() => openReasonModal({ kind: 'REVERSE', paymentId: pay.id, title: 'REVERSE PAYMENT', confirmLabel: 'REVERSE PAYMENT',
                                                         info: 'This cancels UGX ' + fmt(pay.amountPaid) + ' paid on ' + fmtDate(pay.timestamp) + (pay.payerName ? ' by ' + pay.payerName : '') + '. The original line stays in the history, a negative REVERSAL line is added, and the amount paid goes down by the same amount. The receipt stays as proof.' })}>REVERSE</button>)}
@@ -1459,7 +1484,7 @@ const FolderPage = () => {
                     </section>
                 </div>
             </main>
-            <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}
+            <input ref={fileInputRef} type="file" multiple accept={DOC_ACCEPT} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value = ''; }} />
             <UnsavedChangesModal isOpen={guardModalOpen} onStay={handleStay} onLeave={handleLeave} context="Plot Record Edit" />
             <NinMismatchModal isOpen={!!ninMismatch} existingName={ninMismatch?.existingName} enteredName={ninMismatch?.enteredName} onConfirm={handleNinMismatchConfirm} onReject={handleNinMismatchReject} />
@@ -1567,7 +1592,7 @@ const FolderPage = () => {
                 {payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHICH CLIENT PAID? (REQUIRED)</label>
                     <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the client" ariaLabel="Client who paid" /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
-                    <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount ? Number(payAmount).toLocaleString() : ''} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} /></div>
+                    <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount} onChange={e => { const v = e.target.value; setPayAmount(v); setPayErr(readShillings(v).ok ? '' : MONEY_BAD.toUpperCase()); }} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="pay-date">DATE PAID</label>
                     <HardwareDatePicker id="pay-date" block className={modalStyles.modalInput} value={payDate} max={localISO()} ariaLabel="Date paid"
                         min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={v => { setPayDate(v); if (payErr) setPayErr(''); }} />
@@ -1587,8 +1612,8 @@ const FolderPage = () => {
             <HardwareModal isOpen={reasonModal.open} lockBackdrop onClose={closeReasonModal} title={reasonModal.title}>
                 <div className={`${modalStyles.modalInfoBox} ${reasonCfg.danger ? modalStyles.modalInfoBoxDanger : ''}`}>{reasonModal.info}</div>
                 {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.amountLabel}</label>
-                    <input type="text" inputMode="numeric" className={modalStyles.modalInput} value={reasonModal.amount === '' ? '' : Number(reasonModal.amount).toLocaleString()} autoFocus aria-label="New total storage fees"
-                        onChange={e => { setReasonModal(m => ({ ...m, amount: e.target.value.replace(/[^0-9]/g, '') })); if (reasonErr) setReasonErr(''); }} /></div>)}
+                    <input type="text" inputMode="numeric" className={modalStyles.modalInput} value={reasonModal.amount} autoFocus aria-label="New total storage fees"
+                        onChange={e => { const v = e.target.value; setReasonModal(m => ({ ...m, amount: v })); setReasonErr(readShillings(v).ok ? '' : MONEY_BAD.toUpperCase()); }} /></div>)}
                 {reasonCfg.agree && payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AGREED WITH (OPTIONAL - FEES ARE FOR THE WHOLE PROJECT)</label>
                     <HardwareModalSelect value={reasonModal.agreedWith} options={[{ value: '', label: 'All clients / not one person' }, ...ownerOptions]} onChange={v => setReasonModal(m => ({ ...m, agreedWith: v }))} placeholder="Choose the client" ariaLabel="Client who agreed" /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.kind === 'RELEASE' ? 'WHO COLLECTED IT? (REQUIRED - SAVED IN THE AUDIT LOG)' : 'REASON (REQUIRED - SAVED IN THE AUDIT LOG)'}</label>

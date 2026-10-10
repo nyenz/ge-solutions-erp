@@ -33,6 +33,20 @@ public class DocumentCategoryService {
         {"COPY_OF_TITLE",      "Copy of Title"},
         {"PAYMENT_RECEIPT",    "Payment Receipts"},
         {"INVOICE",            "Invoices"},   // fix174
+        // fix199 (David, test note 22): every stage of the project types has its own document type, so the upload
+        // window can pick it by itself when a file is attached from a stage. The label is the stage's own name.
+        {"FIELD_MEASUREMENT",         "Field Measurement"},
+        {"AREA_LAND_COMMITTEE",       "Area Land Committee"},
+        {"PHYSICAL_PLANNING_CONSENT", "Physical Planning Consent"},
+        {"BOARD_MINUTE",              "Board Minute"},
+        {"INSTRUCTION_TO_SURVEY",     "Instruction to Survey"},
+        {"JOB_RECORD_JACKET",         "Job Record Jacket (JRJ)"},
+        {"CONSENT_FOR_SUBDIVISION",   "Consent for Subdivision"},
+        {"TRANSFER_FORM",             "Transfer Form"},
+        {"STAMP_DUTY",                "Stamp Duty"},
+        {"SURVEY_REPORT",             "Survey Report"},
+        {"CONTRACT",                  "Contracts"},
+        {"PROGRESS_REPORT",           "Progress Reports"},
     };
 
     private final DocumentCategoryRepository repository;

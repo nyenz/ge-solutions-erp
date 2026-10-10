@@ -349,6 +349,10 @@ public class LandService {
     }
 
     // fix165: only real scans (PDF / JPG / PNG / WEBP), never an empty file, can be filed into a folder.
+    /** fix199 (David, test note 16): the kinds of document files staff may attach (the page has the same list, DOC_EXTS). */
+    public static final Set<String> DOC_EXTENSIONS = Set.of("pdf", "jpg", "jpeg", "png", "webp", "doc", "docx", "odt", "rtf", "txt",
+            "xls", "xlsx", "ods", "csv", "ppt", "pptx");
+
     public void requireScanFiles(MultipartFile[] scans) {
         if (scans == null || scans.length == 0) {
             throw new BusinessException("FILE_REQUIRED: Choose at least one file.");
@@ -360,8 +364,8 @@ public class LandService {
             String name = f.getOriginalFilename() == null ? "" : f.getOriginalFilename().toLowerCase();
             int dot = name.lastIndexOf('.');
             String ext = dot >= 0 ? name.substring(dot + 1) : "";
-            if (!Set.of("pdf", "jpg", "jpeg", "png", "webp").contains(ext)) {
-                throw new BusinessException("FILE_TYPE_BLOCKED: \"" + f.getOriginalFilename() + "\" is not allowed. Use PDF, JPG, PNG or WEBP.");
+            if (!DOC_EXTENSIONS.contains(ext)) {
+                throw new BusinessException("FILE_TYPE_BLOCKED: \"" + f.getOriginalFilename() + "\" is not allowed. Use PDF, a photo (JPG, PNG, WEBP), Word, Excel, PowerPoint, text or CSV.");
             }
         }
     }
@@ -441,7 +445,25 @@ public class LandService {
         }
         // fix196: a project the office starts itself needs the invoice number and the contract number (checked before
         // an index number is used). An Employee's entry never has them: it is Pending until the office adds them.
-        String[] numbers = pendingEntry ? null : projectNumbers.check(null, request.getInvoiceNumber(), request.getContractNumber());
+        // fix199 (David, test notes 9 + 12): an OFFICE entry that is missing the invoice number, the contract number or the
+        // price is no longer refused. It is saved as PENDING with the parts it has, and it starts once all three are in.
+        // Money received cannot be recorded on it yet (that needs a started project).
+        // fix199 (David, test note 11): the location Area is the land size in hectares, so it must be a number
+        requireAreaNumber(request.getArea());
+        boolean officeDraft = !pendingEntry && officeEntryIncomplete(request);
+        if (officeDraft) {
+            List<String> moneySent = new java.util.ArrayList<>(PendingProjectService.pricingFieldsSent(request));
+            moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs"));
+            if (!moneySent.isEmpty()) {
+                throw new BusinessException("MONEY_NEEDS_START: Money received is recorded once the project has its invoice number, "
+                        + "contract number and price. Fill in all three, or clear: " + String.join(", ", moneySent) + ".");
+            }
+            request.setLastPaidDate(null);
+        }
+        boolean savePending = pendingEntry || officeDraft;
+        String[] numbers = pendingEntry ? null : officeDraft
+                ? projectNumbers.checkEach(null, request.getInvoiceNumber(), request.getContractNumber())
+                : projectNumbers.check(null, request.getInvoiceNumber(), request.getContractNumber());
         String projectIndex = projectIndexService.generateNextIndex();
 
         // fix181 (12.2): the intake money is checked by ONE method, shared with graduatePending
@@ -513,7 +535,7 @@ public class LandService {
 
         LandProject project = builder.build();
         applyIntakeMoney(project, money);
-        project.setPending(pendingEntry);
+        project.setPending(savePending);   // fix199: an incomplete office entry is Pending too
         if (numbers != null) { project.setInvoiceNumber(numbers[0]); project.setContractNumber(numbers[1]); }   // fix196
         // fix181 (8.9): who entered it (account id + username as it was then)
         project.setCreatedBy(getCurrentOperator());
@@ -545,7 +567,7 @@ public class LandService {
         // fix180: every project type has its own status list, so every project gets its statuses
         if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
             statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
-            if (!pendingEntry) projectNumbers.tickStage(saved.getId());   // fix196: the numbers are in, so that stage is done
+            if (!savePending) projectNumbers.tickStage(saved.getId());   // fix196: the numbers are in, so that stage is done
         }
         saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
 
@@ -567,14 +589,15 @@ public class LandService {
         String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
         String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
                 + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
-        if (pendingEntry) {
+        if (savePending) {
             notificationService.emitToAudience("PENDING_CREATED", "New Pending project " + projectIndex + " entered by "
-                    + getCurrentOperator() + ". It waits for prices.", "PROJECT", saved.getId());
+                    + getCurrentOperator() + (officeDraft ? ". It waits for its invoice number, contract number or price." : ". It waits for prices."), "PROJECT", saved.getId());
         } else {
             notificationService.emitToAudience("NEW_INTAKE", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId());
         }
-        auditService.logActionAfterCommit(pendingEntry ? "PENDING_CREATED" : "INTAKE",
-            "Operator [" + getCurrentOperator() + "] " + (pendingEntry ? "entered a PENDING project (no prices yet): " : "ingested binder: ")
+        auditService.logActionAfterCommit(savePending ? "PENDING_CREATED" : "INTAKE",
+            "Operator [" + getCurrentOperator() + "] " + (pendingEntry ? "entered a PENDING project (no prices yet): "
+                : officeDraft ? "saved a PENDING project (invoice number, contract number or price still missing): " : "ingested binder: ")
             + plotOrIndex + receivableNote + fix172Note);
 
         if (startAsReceivable) {
@@ -587,6 +610,22 @@ public class LandService {
         }
 
         return saved;
+    }
+
+    /** fix199 (test note 11): a new project's Area (hectares) is a number above 0 (an empty one is left to the page). */
+    static void requireAreaNumber(String area) {
+        if (area == null || area.isBlank()) return;
+        try {
+            if (new BigDecimal(area.trim().replace(',', '.')).signum() > 0) return;
+        } catch (NumberFormatException ignored) { /* refused below */ }
+        throw new BusinessException("AREA_NOT_A_NUMBER: Area is the size of the land in hectares. Type digits only, for example 0.405.");
+    }
+
+    /** fix199: an office New Project that cannot start yet (no invoice number, no contract number, or no price). */
+    static boolean officeEntryIncomplete(LandEntryRequest r) {
+        return ProjectNumbersService.clean(r.getInvoiceNumber()) == null
+                || ProjectNumbersService.clean(r.getContractNumber()) == null
+                || r.getTotalCost() == null || r.getTotalCost().signum() <= 0;
     }
 
     // ─── INTAKE MONEY (fix181, 12.2) ─────────────────────────────────────────
@@ -1432,9 +1471,12 @@ public class LandService {
                     ? documentCategoryService.requireCode(fileCategories.get(i)) : null;
             cats[i] = own != null ? own : batchCode;
         }
+        // fix199 (David, test note 17: saving was slow): the files are sent to the file store side by side (up to 4 at
+        // a time) instead of one after the other; the document rows are then written in order as before.
+        String[] paths = storeAllFiles(scans, projectId.toString());
         for (int i = 0; i < scans.length; i++) {
             MultipartFile file = scans[i];
-            String path = fileStorageService.storeFile(file, projectId.toString());
+            String path = paths[i];
             ProjectDocument doc = ProjectDocument.builder()
                     .projectId(projectId)
                     .fileName(file.getOriginalFilename())
@@ -1463,6 +1505,29 @@ public class LandService {
             + " by " + getCurrentOperator() + ".",
             "PROJECT", projectId);
         return saved;
+    }
+
+    /** fix199: stores every file, up to 4 at a time. If one fails, the error is passed on exactly as before. */
+    private String[] storeAllFiles(MultipartFile[] scans, String folder) throws Exception {
+        String[] out = new String[scans.length];
+        if (scans.length == 0) return out;
+        if (scans.length == 1) { out[0] = fileStorageService.storeFile(scans[0], folder); return out; }
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(Math.min(4, scans.length));
+        try {
+            List<java.util.concurrent.Future<String>> jobs = new ArrayList<>();
+            for (MultipartFile f : scans) jobs.add(pool.submit(() -> fileStorageService.storeFile(f, folder)));
+            for (int i = 0; i < jobs.size(); i++) {
+                try { out[i] = jobs.get(i).get(); }
+                catch (java.util.concurrent.ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof Exception ex) throw ex;
+                    throw e;
+                }
+            }
+            return out;
+        } finally {
+            pool.shutdown();
+        }
     }
 
     @Transactional
@@ -1546,7 +1611,7 @@ public class LandService {
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
             + t.getPlotNumber() + ". Note: " + why);
         notificationService.emitToAudience("TITLE_COMPLETED",
-            "Title for " + plotLabel(project) + " released to the client.",
+            "Title for " + plotLabel(project) + " handed over to the client by " + getCurrentOperator() + ". Collected: " + why,
             "PROJECT", project.getId());
     }
 

@@ -24,10 +24,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { PROJECT_TYPES, showsTitle } from '../../constants/projectTypes';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { canInsertStageBelow, isInvoiceContractStage } from '../../utils/projectStatus';
-import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
+import { prepareUploads, anyToShrink, DOC_EXTS, DOC_ACCEPT, canPreview } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
-import { suggestPlace, suggestPeople, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
+import { suggestPlace, suggestForRow, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
@@ -49,7 +49,7 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const todayDMY = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 // fix175: same file rules as the Folder page
-const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+
 const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
 // fix172: today as yyyy-mm-dd in the user's own time zone (the device's own calendar)
 const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -128,10 +128,10 @@ export default function IntakePage() {
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
     const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171
-    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172/181: optional, empty = date not known (the client stays callable)
+    const [lastPaidDate, setLastPaidDate] = useState(() => localISO());   // fix199 (test note 13): today until changed; empty = date not known
     const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
-    const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which client (row number) paid the initial payment
-    const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which client paid the storage fees
+    const [titlePayerIdx, setTitlePayerIdx] = useState(0);          // fix172: which client (row number) paid; fix199 (note 14): the first client until changed
+    const [feesPayerIdx, setFeesPayerIdx] = useState(0);            // fix172: which client paid the storage fees (first client by default)
     // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('');
     const [systemFee, setSystemFee] = useState(0);
@@ -149,6 +149,8 @@ export default function IntakePage() {
     const [previewFile, setPreviewFile] = useState(null);
     // fix176: preview window is sized to the document (portrait / landscape) and always fits the screen
     const openPreview = async (f) => {
+        // fix199 (note 16): Word, Excel and other files have no preview here; they are saved with the project as they are
+        if (!canPreview(f.name)) { toast(f.name + ': no preview for this kind of file. It is saved with the project as it is.', 'info'); return; }
         const isPdf = fileExt(f.name) === 'pdf';
         let ratio = 0.707; // A4 portrait fallback
         try {
@@ -185,6 +187,7 @@ export default function IntakePage() {
     const [notes, setNotes] = useState('');
     const [dirty, setDirty] = useState(false);
     const dirtyRef = useRef(false);
+    const savedRef = useRef(null);   // fix199: the project the server saved (to see if it went Pending)
     const markDirty = useCallback(() => { dirtyRef.current = true; setDirty(true); }, []);
     const [toasts, setToasts] = useState([]);
     const toast = useCallback((msg, type = 'info') => {
@@ -275,6 +278,9 @@ export default function IntakePage() {
 
     const firstStatusName = statusList[0]?.name;
     const isLegacy = projectType === 'LEGACY_TITLES';
+    // fix199 (David, test note 12): the office may leave out the invoice number, the contract number or the price;
+    // the project is then saved as PENDING and starts once all three are in.
+    const officeDraft = !isEmployee && (!String(invoiceNumber).trim() || !String(contractNumber).trim() || !(Number(totalCost) > 0));
     // fix180: Title Details are shown by project type (Topographic Survey: only when switched on)
     const isTitleSectionVisible = showsTitle(projectType, titleSwitch);
     const isSubdivision = projectType === 'SUBDIVISION';
@@ -357,7 +363,7 @@ export default function IntakePage() {
         e.target.value = '';
         if (!picked.length) return;
         if (anyToShrink(picked)) toast('Preparing the photos...', 'info');
-        const { ok, bad } = await prepareUploads(picked, { exts: SCAN_EXT });
+        const { ok, bad } = await prepareUploads(picked, { exts: DOC_EXTS });   // fix199 (note 16)
         if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
         if (!ok.length) return;
         setUploadDraft({ batch: '', error: '', files: ok.map(({ file, note }) => ({ file, category: '', note })) });
@@ -393,7 +399,9 @@ export default function IntakePage() {
         if (!subCounty.trim()) { toast('Sub-county is required.', 'error'); return false; }
         if (!parish.trim()) { toast('Parish is required.', 'error'); return false; }
         if (!village.trim()) { toast('Village is required.', 'error'); return false; }
-        if (!area.trim()) { toast('Area is required.', 'error'); return false; }
+        // fix199 (David, test note 11): Area is the size of the land in hectares, so digits only (e.g. 0.405)
+        if (!area.trim()) { toast('Area (hectares) is required.', 'error'); return false; }
+        if (!(Number(area) > 0)) { toast('Area (hectares) must be a number more than 0, for example 0.405.', 'error'); return false; }
         const checkPeople = (rows, what) => {
             for (let i = 0; i < rows.length; i++) {
                 const o = rows[i];
@@ -418,17 +426,23 @@ export default function IntakePage() {
             if (!(Number(areaHectares) > 0)) { toast('Area (hectares) is required and must be more than 0.', 'error'); return false; }
             if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
         }
-        if (isEmployee) return true;   // fix181: no money on a field entry; the office adds it
-        // fix196: the office's own project needs both numbers (the server checks the same, and that no other project has them)
-        if (!invoiceNumber.trim() || !contractNumber.trim()) { toast('Enter the Invoice Number and the Contract Number (Financials section).', 'error'); return false; }
-        if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
+        if (isEmployee) return fileCheck();   // fix181: no money on a field entry; the office adds it
+        // fix199 (David, test notes 9 + 12): an office entry with no invoice number, no contract number or no price is
+        // saved as PENDING instead of being refused. It cannot carry money received yet.
+        if (officeDraft) {
+            if ((Number(initialPayment) || 0) > 0 || (isLegacy && ((Number(initialStorageFee) || 0) > 0 || (Number(initialStorageFeePaid) || 0) > 0))) {
+                toast('Money received is recorded once the project has its Invoice Number, Contract Number and Total Cost. Fill in all three, or set the payment boxes to 0.', 'error'); return false;
+            }
+            if (!Number.isInteger(Number(totalCost) || 0)) { toast('Total Cost: whole shillings only (no decimals).', 'error'); return false; }
+            return fileCheck();
+        }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
+        if (!Number.isInteger(Number(totalCost)) || !Number.isInteger(Number(initialPayment))) { toast('Total Cost and Initial Payment: whole shillings only (no decimals).', 'error'); return false; }
         // fix171: the same checks the server makes, so the message shows before anything is sent
         if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }
         // fix172: the optional dates, and which owner paid the intake money
-        const paidAny = (Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0);
         if (lastPaidDate && lastPaidDate > localISO()) { toast('Date Last Paid cannot be in the future.', 'error'); return false; }
-        if (lastPaidDate && !paidAny) { toast('Date Last Paid needs a payment amount. Enter the payment, or clear the date.', 'error'); return false; }
+        // fix199 (note 13): Date Last Paid starts on today; it is simply not sent when nothing was paid
         if (isLegacy && receivablesSince && receivablesSince > localISO()) { toast('In Receivables Since cannot be in the future.', 'error'); return false; }
         if (clients.length > 1) {
             if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') { toast('Pick which client paid the Initial Payment.', 'error'); return false; }
@@ -446,10 +460,13 @@ export default function IntakePage() {
                 toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;
             }
         }
-        if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
+        return fileCheck();
+    };
+    function fileCheck() {
+        if (!isEmployee && fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
         if (fileQueue.some(q => !q.category)) { toast('Pick a document type for every file.', 'error'); return false; }   // fix174
         return true;
-    };
+    }
 
     const personOut = (o) => ({
         fullName: o.fullName.trim().toUpperCase(), phone: normalizePhones(o.phone).value || o.phone.trim(),
@@ -465,7 +482,7 @@ export default function IntakePage() {
                 district: district.trim().toUpperCase(), county: county.trim().toUpperCase(),
                 subCounty: subCounty.trim().toUpperCase(), parish: parish.trim().toUpperCase(),
                 village: village.trim().toUpperCase(), area: area.trim().toUpperCase(),
-                invoiceNumber: invoiceNumber.trim(), contractNumber: contractNumber.trim(),
+                invoiceNumber: invoiceNumber.trim().toUpperCase(), contractNumber: contractNumber.trim().toUpperCase(),   // fix199 (note 19): capitals
                 totalCost: Number(totalCost) || 0, initialPayment: Number(initialPayment) || 0,
                 projectType, titleDetailsEnabled: projectType === 'TOPOGRAPHIC_SURVEY' && titleSwitch,
                 isLegacy, projectStartDate: projectStartDate || todayISO(),
@@ -507,7 +524,8 @@ export default function IntakePage() {
                 if (typedFee > 0 && typedFee !== systemFee) payload.monthlyStorageFee = typedFee;
             }
             // fix172: the optional dates, and which client paid the intake money (sent as that client's NIN)
-            if (lastPaidDate) payload.lastPaidDate = lastPaidDate;
+            const paidSomething = (Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0);
+            if (lastPaidDate && paidSomething && !officeDraft) payload.lastPaidDate = lastPaidDate;   // fix199 (note 13)
             if (isLegacy && receivablesSince) payload.receivablesSince = receivablesSince;
             const ninOf = (idx) => (idx !== '' && clients[idx]) ? clients[idx].nationalId.trim().toUpperCase() : '';
             if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);
@@ -519,7 +537,8 @@ export default function IntakePage() {
                 payload.selectedStatuses = payload.selectedStatuses.filter(s => !s.isCustom).map(s => ({ ...s, cost: undefined }));
                 await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
             } else {
-                await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+                const saved = await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+                savedRef.current = saved || null;   // fix199: an incomplete office entry comes back Pending
             }
             dirtyRef.current = false; setDirty(false);
             return true;
@@ -534,16 +553,20 @@ export default function IntakePage() {
         const ok = await doSave();
         if (ok) {
             setLeaving(true);
-            toast(isEmployee ? 'Saved as PENDING. The office will add the prices.' : 'Project registered successfully!', 'success');
+            const saved = savedRef.current;
+            const wentPending = !isEmployee && saved && saved.pending;   // fix199 (note 12)
+            toast(isEmployee ? 'Saved as PENDING. The office will add the prices.'
+                : wentPending ? 'Saved as PENDING. It starts once it has the Invoice Number, the Contract Number and the Total Cost.'
+                : 'Project registered successfully!', 'success');
             // fix180: a transfer goes back to the subdivision it came from; fix181: the Employee goes to MY ENTRIES
-            setTimeout(() => navigate(isEmployee ? '/my-entries' : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects')), 1200);
+            setTimeout(() => navigate(isEmployee ? '/my-entries' : wentPending ? '/pending/' + saved.id : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects')), 1200);
         }
     };
 
     const handleDuplicate = async () => {
         const ok = await doSave();
         if (!ok) return;
-        toast('Saved. Form duplicated for the next plot.', 'success');
+        toast((savedRef.current && savedRef.current.pending && !isEmployee ? 'Saved as PENDING. ' : 'Saved. ') + 'The form is ready for the next plot (same type, clients, owners and place).', 'success');
         // fix180: the type, clients, owners and location stay (the next plot is usually the same job); title, neighbors,
         // money, files and notes start blank. A subdivision transfer cannot be duplicated onto the same plot.
         setProjectStartDate(todayISO()); setTransferFrom(null);
@@ -551,7 +574,7 @@ export default function IntakePage() {
         setNeighbors([]); setSubdivisionCount('');
         setInvoiceNumber(''); setContractNumber('');   // fix196: every project has its own numbers
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
-        setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172
+        setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0);   // fix172; fix199: same defaults as a new form
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         loadTypeStatuses(projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
@@ -623,26 +646,26 @@ export default function IntakePage() {
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>NIN</label>
                 <SuggestInput className={styles.input} value={o.nationalId} aria-label={'NIN of ' + what + ' ' + (idx + 1)} hint="Known clients"
-                    suggestions={suggestPeople(people, 'nationalId', o.nationalId).filter(s => normText(s.person.nin) !== normText(o.nationalId) || !o.fullName)}
+                    suggestions={suggestForRow(people, 'nationalId', o)}
                     onChange={v => onChange(idx, 'nationalId', v)} onPick={pickPerson(idx, onFill)} />
             </div>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>Full Name</label>
                 <SuggestInput className={styles.input} value={o.fullName} aria-label={'Full name of ' + what + ' ' + (idx + 1)} hint="Known clients"
-                    suggestions={suggestPeople(people, 'fullName', o.fullName).filter(s => normText(s.person.nin) !== normText(o.nationalId))}
+                    suggestions={suggestForRow(people, 'fullName', o)}
                     onChange={v => onChange(idx, 'fullName', v)} onPick={pickPerson(idx, onFill)} />
             </div>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>Phone</label>
                 <SuggestInput className={styles.input} value={o.phone} aria-label={'Phone of ' + what + ' ' + (idx + 1)} hint="Known clients" inputMode="tel"
-                    suggestions={suggestPeople(people, 'phone', o.phone).filter(s => normText(s.person.nin) !== normText(o.nationalId))}
+                    suggestions={suggestForRow(people, 'phone', o)}
                     onChange={v => onChange(idx, 'phone', v)} onPick={pickPerson(idx, onFill)}
                     onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX / 07XX XXX XXX" />
                 <p className={styles.hint}>Multiple: separate with /</p>
             </div>
             <div className={styles.field}>
                 <label className={styles.label}>Email</label>
-                <input className={styles.input} value={o.email} onChange={e => onChange(idx, 'email', e.target.value)} />
+                <input className={styles.input} value={o.email} type="email" aria-label={'Email of ' + what + ' ' + (idx + 1)} onChange={e => onChange(idx, 'email', e.target.value)} />
             </div>
             <button type="button" className={`${styles.btn} ${styles.deleteBtn}`}
                 onClick={() => onRemove(idx)} disabled={!canRemove} aria-label={'Remove ' + what}>
@@ -784,8 +807,10 @@ export default function IntakePage() {
                         {placeField('parish')}
                         {placeField('village')}
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Area</label>
-                            <input className={styles.input} value={area} onChange={e => { setArea(e.target.value); markDirty(); }} />
+                            <label className={`${styles.label} ${styles.required}`}>Area (hectares)</label>
+                            <input className={styles.input} value={area} inputMode="decimal" placeholder="e.g. 0.405"
+                                onChange={e => { const v = e.target.value.replace(',', '.'); if (!areaHectares || areaHectares === area) setAreaHectares(v); setArea(v); markDirty(); }} />
+                            <p className={styles.hint}>The size of the land, in hectares (digits only).</p>
                         </div>
                     </div>
                 </CollapsibleSection>
@@ -900,19 +925,22 @@ export default function IntakePage() {
                 <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                     <div className={styles.grid2}>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Invoice Number</label>
+                            <label className={styles.label}>Invoice Number</label>
                             <input type="text" className={styles.input} value={invoiceNumber} maxLength={80} autoComplete="off" placeholder="As written on the invoice"
                                 onChange={e => { setInvoiceNumber(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Contract Number</label>
+                            <label className={styles.label}>Contract Number</label>
                             <input type="text" className={styles.input} value={contractNumber} maxLength={80} autoComplete="off" placeholder="As written on the contract"
                                 onChange={e => { setContractNumber(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Total Cost</label>
+                            <label className={styles.label}>Total Cost</label>
                             <input type="number" className={styles.input} value={totalCost} onChange={e => { setTotalCost(e.target.value); markDirty(); }} />
                         </div>
+                        {officeDraft && (
+                            <p className={styles.hint} role="status" style={{ gridColumn: '1 / -1' }}>Saved as PENDING while the Invoice Number, the Contract Number or the Total Cost is missing. It starts by itself once all three are in.</p>
+                        )}
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</label>
                             <input type="number" min="0" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />
@@ -999,7 +1027,7 @@ export default function IntakePage() {
                             </DocList>
                         )}
                         <DocDropzone compact={fileQueue.length > 0} required onClick={triggerFileInput} />
-                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileUpload} style={{ display: 'none' }} />
+                        <input ref={fileInputRef} type="file" multiple accept={DOC_ACCEPT} onChange={handleFileUpload} style={{ display: 'none' }} />
                     </CollapsibleSection>
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
                         <div className={styles.notesWrap}>
@@ -1013,8 +1041,11 @@ export default function IntakePage() {
 
             <div className={styles.bottomBar}>
                 <div className={styles.bottomBarRight}>
-                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}>
-                        <FiCopy /> Duplicate
+                    {/* fix199 (David, test note 21): the button SAVES this project first, then keeps the type, clients, owners and
+                        place for the next plot -- the old word "Duplicate" did not say that it saves */}
+                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}
+                        title="Saves this project, then starts the next one with the same type, clients, owners and place. Title, neighbours, numbers, money, documents and notes start empty.">
+                        <FiCopy /> Save + Next Plot
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving || leaving} onClick={handleSubmit}>
                         <FiSave /> Save Project

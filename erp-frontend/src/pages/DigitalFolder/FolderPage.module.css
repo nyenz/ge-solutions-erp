@@ -1917,3 +1917,9 @@
 }
 .numbersBtn:hover, .numbersBtn:focus-visible { background: var(--tx-accent, #EE8C3A); color: #1a2e30; outline: none; }
 @media print { .numbersBtn { display: none; } }
+
+/* fix199 (David, test note 10): PRINT shows only the Project File document (components/print/ProjectFilePrint). */
+@media print {
+    .container > :not(.printDocWrap) { display: none !important; }
+    .container { padding: 0 !important; margin: 0 !important; max-width: none !important; background: #fff !important; }
+}

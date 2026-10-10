@@ -213,8 +213,9 @@ public class LandController {
     }
 
     // fix167: a hand-over needs a note (who collected the title, how they were identified): 5+ characters.
+    // fix199 (David, test note 25): the Manager may hand over too; the Director gets the TITLE_COMPLETED alert naming who did it
     @PatchMapping("/projects/{id}/release")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER')")
     public ResponseEntity<Void> authorizeRelease(
             @PathVariable UUID id,
             @RequestParam(required = false) String managerNote) {
@@ -237,8 +238,9 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
+    // fix199 (David, test note 24): the Manager may reverse too; the Director gets the PAYMENT_REVERSED alert naming who did it
     @PostMapping("/projects/{id}/payments/{paymentId}/reverse")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER')")
     public ResponseEntity<Void> reversePayment(@PathVariable UUID id, @PathVariable UUID paymentId,
                                                @RequestParam String reason) {
         landService.reversePayment(id, paymentId, reason);

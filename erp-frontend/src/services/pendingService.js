@@ -23,6 +23,8 @@ const pendingService = {
         return (await api.post(`/land/pending/${id}/documents`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
     },
     start: async (id, data) => (await api.post(`/land/pending/${id}/start`, data)).data,
+    // fix199 (test note 9): save the numbers / price one at a time; the answer says { started, missing }
+    saveParts: async (id, data) => (await api.post(`/land/pending/${id}/save`, data)).data,
     reject: async (id, reason) => (await api.post(`/land/pending/${id}/reject`, { reason })).data,
     count: async () => (await api.get('/land/pending/count')).data,
 };

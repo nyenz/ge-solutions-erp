@@ -1,7 +1,7 @@
 // fix188: the data entry helper rules. Run with `npm test`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPlaces, suggestPlace, matchRank, editDistance, nearMiss, placeValues, buildPeople, suggestPeople, suggestValues, norm } from '../src/utils/entryMemory.js';
+import { buildPlaces, suggestPlace, matchRank, editDistance, nearMiss, placeValues, buildPeople, suggestPeople, suggestForRow, suggestValues, norm } from '../src/utils/entryMemory.js';
 
 const P = (district, county, subCounty, parish, village) => ({ district, county, subCounty, parish, village });
 const projects = [
@@ -103,4 +103,16 @@ test('free text: most used first, the value already typed is not repeated', () =
     assert.deepEqual(suggestValues(cats, 'fuel'), []);
     assert.deepEqual(suggestValues(cats, '').map(s => s.value)[0], 'Fuel');
     assert.deepEqual(suggestValues(null, 'x'), []);
+});
+
+// fix199 (test note 20): a filled NIN offers its person first in the name and phone boxes
+test('a row whose NIN is known offers that person in the other boxes', () => {
+    const people = buildPeople([{ nationalId: 'CM86021104KJTA', fullName: 'Kato Samuel Wanyama', phoneNumber: '+256772418306' },
+        { nationalId: 'CF91030577LMPE', fullName: 'Namukose Sarah', phoneNumber: '+256701593268' }]);
+    const row = { nationalId: 'cm86021104kjta', fullName: '', phone: '' };
+    assert.equal(suggestForRow(people, 'fullName', row)[0].value, 'KATO SAMUEL WANYAMA');
+    assert.equal(suggestForRow(people, 'phone', row)[0].value, '+256772418306');
+    const done = { nationalId: 'CM86021104KJTA', fullName: 'Kato Samuel Wanyama', phone: '+256772418306' };
+    assert.equal(suggestForRow(people, 'fullName', done).length, 0, 'nothing to offer once the row is complete');
+    assert.equal(suggestForRow(people, 'nationalId', { nationalId: '', fullName: 'KATO SAMUEL WANYAMA', phone: '' })[0].value, 'CM86021104KJTA');
 });

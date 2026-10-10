@@ -52,6 +52,10 @@ test('"waiting for" follows the rule, first match wins', () => {
     assert.equal(waitingFor({ totalCost: 5, landTitle: { isReleased: true } }, stages), null);
     assert.equal(waitingFor({ pending: true }, stages).key, 'OFFICE');
     assert.match(waitingFor({ pending: true }, stages).text, /^WAITING FOR THE OFFICE/);
+    // fix199: only what is still missing is named
+    assert.equal(waitingFor({ pending: true }, stages).text, 'WAITING FOR THE OFFICE: INVOICE NUMBER, CONTRACT NUMBER AND PRICES');
+    assert.equal(waitingFor({ pending: true, invoiceNumber: 'I-1', priceSet: true }, stages).text, 'WAITING FOR THE OFFICE: CONTRACT NUMBER');
+    assert.equal(waitingFor({ pending: true, invoiceNumber: 'I-1', contractNumber: 'C-1' }, stages).text, 'WAITING FOR THE OFFICE: PRICES');
     assert.equal(waitingFor({ totalCost: 0 }, stages).text, 'WAITING FOR PRICES');
     assert.equal(waitingFor({ totalCost: 5, problem: true }, stages).key, 'PROBLEM');
     // the first stage NOT ticked, by list order (not by array order)

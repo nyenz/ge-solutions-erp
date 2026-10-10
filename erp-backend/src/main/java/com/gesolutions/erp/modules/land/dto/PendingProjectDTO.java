@@ -45,6 +45,13 @@ public class PendingProjectDTO {
     private String volume;
     private String folio;
     private LocalDate titleIssueDate;
+    // fix199 (test note 9): the parts the office saved while Pending. totalCost is filled ONLY for the office
+    // (PendingProjectService.viewOwn); an Employee sees just priceSet.
+    private String invoiceNumber;
+    private String contractNumber;
+    private boolean priceSet;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private BigDecimal totalCost;   // left out of the JSON entirely for an Employee (PendingWorkflowTest checks the words)
     // people
     private List<Person> clients;
     private List<Person> owners;
