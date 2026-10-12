@@ -82,6 +82,16 @@ public class ReversalTest {
         assertEquals(0, net.signum());
     }
 
+    /** fix200 (David, test step G5): a Manager may reverse a payment too (it was refused with 403 after fix199). */
+    @Test
+    @WithMockUser(username = "test.manager", roles = "MANAGER")
+    public void aManagerCanReverseAPayment() {
+        LandProject p = project(false);
+        PaymentRecord paid = landService.recordPayment(p.getId(), new BigDecimal("300000"), "cash", null, "TITLE");
+        landService.reversePayment(p.getId(), paid.getId(), "Entered by mistake (wrong amount)");
+        assertEquals(0, projects.findById(p.getId()).orElseThrow().getAmountPaid().signum());
+    }
+
     @Test
     public void reversingAKeptFeesPaymentPutsTheFeesBack() {
         LandProject p = project(false);

@@ -1584,7 +1584,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER')")   // fix200: fix199 opened only the web address, not this check
     public void authorizeRelease(UUID id, String managerNote) {
         // fix167: a hand-over must say who collected the title and how (5+ characters). Saved on the title, as a note and in the audit log.
         String why = managerNote == null ? "" : managerNote.trim();
@@ -1618,7 +1618,7 @@ public class LandService {
     // fix162: REVERSE A PAYMENT. The original line stays in the history; a negative REVERSAL line is added,
     // so every total, report and the audit trail stay honest.
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER')")   // fix200: fix199 opened only the web address, not this check
     public void reversePayment(UUID projectId, UUID paymentId, String reason) {
         String why = reason == null ? "" : reason.trim();
         if (why.length() < 5) {

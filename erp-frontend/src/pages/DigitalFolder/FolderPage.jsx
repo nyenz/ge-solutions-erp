@@ -336,21 +336,37 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumb
 };
 
 // fix167: every reason popup, set up in ONE place. danger = red button + red info box; the rest are neutral.
+// fix200 (David, test note: "give simple select suggestions like 3"): every reason window offers three common reasons
+// as one-tap buttons (picks). A pick fills the box; staff can still change it or write their own.
 const REASON_KINDS = {
-    REVERSE:       { danger: true,  ph: 'e.g. The client paid into the wrong account; the bank reversed it.' },
-    REDUCE:        { danger: false, ph: 'e.g. Director agreed a lower figure with the client on the phone.', agree: true },
-    RATE:          { danger: false, ph: 'e.g. Agreed rate after negotiation with the client.', agree: true },
-    PAUSE:         { danger: false, ph: 'e.g. Client is negotiating; bereavement in the family.', agree: true },
-    RESUME:        { danger: false, ph: 'e.g. Negotiation ended without an agreement.' },
-    WAIVE:         { danger: true,  ph: 'e.g. Fees forgiven as part of the final settlement.', agree: true },
-    UNDO_RELEASE:  { danger: true,  ph: 'e.g. Hand-over was recorded on the wrong plot.' },
-    ENTER:         { danger: false, ph: 'e.g. No payment for 9 months; client not answering.' },
-    SET_ASIDE:     { danger: false, ph: 'e.g. Court case pending; stop billing until it is decided.' },
-    CAPITALIZE:    { danger: false, ph: 'e.g. Client agreed to pay the fees with the title balance.', agree: true },
-    CLEAR_PROBLEM: { danger: false, ph: 'e.g. The corrected deed plan now matches the National ID.' },
-    DELETE:        { danger: true,  ph: 'e.g. Entered twice by mistake; the real record is #014A.' },
-    REVERT_TITLE:  { danger: true,  ph: 'e.g. Title details were typed on the wrong project.' },
-    RELEASE:       { danger: false, ph: 'e.g. Collected by JOHN DOE in person, NIN checked against the ID card.' },
+    REVERSE:       { danger: true,  ph: 'e.g. The client paid into the wrong account; the bank reversed it.',
+        picks: ['Entered by mistake (wrong amount)', 'Recorded on the wrong project', 'Payment bounced or was reversed by the bank'] },
+    REDUCE:        { danger: false, ph: 'e.g. Director agreed a lower figure with the client on the phone.', agree: true,
+        picks: ['Director agreed a lower figure with the client', 'Part of a settlement with the client', 'Fees were charged by mistake'] },
+    RATE:          { danger: false, ph: 'e.g. Agreed rate after negotiation with the client.', agree: true,
+        picks: ['Agreed rate after talking with the client', 'Director approved a special rate', 'Back to the normal rate'] },
+    PAUSE:         { danger: false, ph: 'e.g. Client is negotiating; bereavement in the family.', agree: true,
+        picks: ['Client is negotiating a settlement', 'Bereavement in the family', 'Waiting for a court or land office decision'] },
+    RESUME:        { danger: false, ph: 'e.g. Negotiation ended without an agreement.',
+        picks: ['Negotiation ended without an agreement', 'The agreed pause is over', 'Client stopped answering'] },
+    WAIVE:         { danger: true,  ph: 'e.g. Fees forgiven as part of the final settlement.', agree: true,
+        picks: ['Fees forgiven in the final settlement', 'Director approved the waiver', 'Fees were charged by mistake'] },
+    UNDO_RELEASE:  { danger: true,  ph: 'e.g. Hand-over was recorded on the wrong plot.',
+        picks: ['Hand-over recorded on the wrong plot', 'Title was not actually collected', 'Recorded by mistake'] },
+    ENTER:         { danger: false, ph: 'e.g. No payment for 9 months; client not answering.',
+        picks: ['No payment for many months', 'Client not answering calls', 'Client refused to pay the balance'] },
+    SET_ASIDE:     { danger: false, ph: 'e.g. Court case pending; stop billing until it is decided.',
+        picks: ['Court case pending', 'Director asked to stop billing for now', 'Client is disputing the fees'] },
+    CAPITALIZE:    { danger: false, ph: 'e.g. Client agreed to pay the fees with the title balance.', agree: true,
+        picks: ['Client agreed to pay the fees with the title balance', 'Part of a payment plan', 'Director approved adding the fees to the cost'] },
+    CLEAR_PROBLEM: { danger: false, ph: 'e.g. The corrected deed plan now matches the National ID.',
+        picks: ['The problem was fixed and checked', 'Corrected documents received', 'Flagged by mistake'] },
+    DELETE:        { danger: true,  ph: 'e.g. Entered twice by mistake; the real record is #014A.',
+        picks: ['Entered twice by mistake', 'Test entry, not a real project', 'Client cancelled the job before any work'] },
+    REVERT_TITLE:  { danger: true,  ph: 'e.g. Title details were typed on the wrong project.',
+        picks: ['Title details typed on the wrong project', 'Title details were wrong', 'Title was cancelled by the land office'] },
+    RELEASE:       { danger: false, ph: 'e.g. Collected by JOHN DOE in person, NIN checked against the ID card.',
+        picks: ['Collected by the client in person, National ID checked', 'Collected by the client\'s agent with a signed letter', 'Collected by the client\'s lawyer, ID checked'] },
 };
 const TYPE_LABELS = { STANDARD: 'PAYMENT', INITIAL_DEPOSIT: 'DEPOSIT AT INTAKE', RECEIVABLE_PARTIAL: 'PAYMENT (IN RECEIVABLES)', REVERSAL: 'REVERSAL' };
 const TAB_SHORT = { OVERVIEW: 'OV', FINANCIALS: 'FIN', PEOPLE: 'PPL', DOCUMENTS: 'DOC', NOTES: 'NTS' };
@@ -1619,7 +1635,15 @@ const FolderPage = () => {
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.kind === 'RELEASE' ? 'WHO COLLECTED IT? (REQUIRED - SAVED IN THE AUDIT LOG)' : 'REASON (REQUIRED - SAVED IN THE AUDIT LOG)'}</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder={reasonCfg.ph || 'Write the reason...'} aria-label="Reason"
                         onChange={e => { setReasonModal(m => ({ ...m, reason: e.target.value })); if (reasonErr) setReasonErr(''); }} />
-                    <span className={styles.probCount}>{reasonModal.reason.length}/300</span></div>
+                    <span className={styles.probCount}>{reasonModal.reason.length}/300</span>
+                    {(reasonCfg.picks || []).length > 0 && (
+                        <div className={styles.reasonPicks} role="group" aria-label="Common reasons">
+                            {reasonCfg.picks.map(t => (
+                                <button key={t} type="button" className={`${styles.reasonPick} ${reasonModal.reason === t ? styles.reasonPickOn : ''}`}
+                                    onClick={() => { setReasonModal(m => ({ ...m, reason: t })); setReasonErr(''); }}>{t}</button>
+                            ))}
+                        </div>
+                    )}</div>
                 <ModalError text={reasonErr} />
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" variant={reasonCfg.danger ? 'danger' : 'primary'} onClick={submitReasonModal} loading={reasonBusy} icon={reasonCfg.danger ? FiAlertTriangle : FiCheckCircle}>{reasonModal.confirmLabel}</HardwareButton>
