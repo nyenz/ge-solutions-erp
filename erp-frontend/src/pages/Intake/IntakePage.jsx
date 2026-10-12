@@ -400,8 +400,9 @@ export default function IntakePage() {
         if (!parish.trim()) { toast('Parish is required.', 'error'); return false; }
         if (!village.trim()) { toast('Village is required.', 'error'); return false; }
         // fix199 (David, test note 11): Area is the size of the land in hectares, so digits only (e.g. 0.405)
-        if (!area.trim()) { toast('Area (hectares) is required.', 'error'); return false; }
-        if (!(Number(area) > 0)) { toast('Area (hectares) must be a number more than 0, for example 0.405.', 'error'); return false; }
+        // fix203 (David): Area is typed ONCE. With Title Details it is the title's Area (required there); without a title
+        // it is the Location box, which may be left empty but must be a number when typed.
+        if (!isTitleSectionVisible && area.trim() && !(Number(area) > 0)) { toast('Area (hectares) must be a number more than 0, for example 0.405.', 'error'); return false; }
         const checkPeople = (rows, what) => {
             for (let i = 0; i < rows.length; i++) {
                 const o = rows[i];
@@ -481,7 +482,7 @@ export default function IntakePage() {
             const payload = {
                 district: district.trim().toUpperCase(), county: county.trim().toUpperCase(),
                 subCounty: subCounty.trim().toUpperCase(), parish: parish.trim().toUpperCase(),
-                village: village.trim().toUpperCase(), area: area.trim().toUpperCase(),
+                village: village.trim().toUpperCase(), area: isTitleSectionVisible ? String(areaHectares || '').trim() : area.trim(),   // fix203: one Area
                 invoiceNumber: invoiceNumber.trim().toUpperCase(), contractNumber: contractNumber.trim().toUpperCase(),   // fix199 (note 19): capitals
                 totalCost: Number(totalCost) || 0, initialPayment: Number(initialPayment) || 0,
                 projectType, titleDetailsEnabled: projectType === 'TOPOGRAPHIC_SURVEY' && titleSwitch,
@@ -806,12 +807,15 @@ export default function IntakePage() {
                         {placeField('subCounty')}
                         {placeField('parish')}
                         {placeField('village')}
+                        {/* fix203 (David): Area appears ONCE. A project with Title Details has it there (required); the others here (optional). */}
+                        {!isTitleSectionVisible && (
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Area (hectares)</label>
-                            <input className={styles.input} value={area} inputMode="decimal" placeholder="e.g. 0.405"
-                                onChange={e => { const v = e.target.value.replace(',', '.'); if (!areaHectares || areaHectares === area) setAreaHectares(v); setArea(v); markDirty(); }} />
-                            <p className={styles.hint}>The size of the land, in hectares (digits only).</p>
+                            <label className={styles.label}>Area (hectares)</label>
+                            <input className={styles.input} value={area} inputMode="decimal" placeholder="e.g. 0.405 (optional)"
+                                onChange={e => { setArea(e.target.value.replace(',', '.')); markDirty(); }} />
+                            <p className={styles.hint}>The size of the land, in hectares (digits only). Optional until the project has a title.</p>
                         </div>
+                        )}
                     </div>
                 </CollapsibleSection>
 

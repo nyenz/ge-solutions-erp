@@ -598,7 +598,8 @@ const FolderPage = () => {
             });
         });
         // fix199 (test note 11): Area is the land size in hectares (digits). An older project with words there must be corrected.
-        if (String(buf.area || '').trim() && !(Number(buf.area) > 0)) { errors.push('AREA (HECTARES) MUST BE A NUMBER, FOR EXAMPLE 0.405'); fe.area = 'Digits only'; }
+        // fix203: only when the project has no Title Details (with a title, the title's Area is the one and only Area)
+        if (!hasTitle && String(buf.area || '').trim() && !(Number(buf.area) > 0)) { errors.push('AREA (HECTARES) MUST BE A NUMBER, FOR EXAMPLE 0.405'); fe.area = 'Digits only'; }
         (buf.neighbors || []).forEach((nb, i) => {
             if (!nb.fullName?.trim()) { errors.push('NEIGHBOR ' + (i + 1) + ': NAME IS REQUIRED (OR REMOVE THE ROW)'); fe['neighbors_' + i + '_name'] = 'Required'; }
             if (nb.phone?.trim() && !normalizePhones(nb.phone).ok) { errors.push('NEIGHBOR ' + (i + 1) + ': CHECK THE PHONE NUMBER'); fe['neighbors_' + i + '_phone'] = 'Check number'; }
@@ -623,6 +624,7 @@ const FolderPage = () => {
             await landService.updateMasterFolder(id, {
                 ...buffer,
                 areaHectares: hasTitle ? Number(buffer.areaHectares) : null,
+                area: hasTitle ? String(buffer.areaHectares || '').trim() : String(buffer.area || '').trim(),   // fix203: one Area
                 subdivisionCount: buffer.subdivisionCount === '' ? null : Number(buffer.subdivisionCount),
                 titleIssueDate: buffer.titleIssueDate || null,
                 clients: (buffer.clients || []).map(cleanPerson),
@@ -1174,7 +1176,7 @@ const FolderPage = () => {
                                 <SmartInput label="SUB-COUNTY" value={buffer.subCounty} showCaps {...placeHelp('subCounty')} onChange={e => touchedSetBuffer({ ...buffer, subCounty: e.target.value.toUpperCase() })} />
                                 <SmartInput label="PARISH" value={buffer.parish} showCaps {...placeHelp('parish')} onChange={e => touchedSetBuffer({ ...buffer, parish: e.target.value.toUpperCase() })} />
                                 <SmartInput label="VILLAGE" value={buffer.village} showCaps {...placeHelp('village')} onChange={e => touchedSetBuffer({ ...buffer, village: e.target.value.toUpperCase() })} />
-                                <SmartInput label="AREA (HECTARES)" value={buffer.area} inputMode="decimal" error={fieldErrors.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value.replace(',', '.') })} />
+                                {!showTitleFields && <SmartInput label="AREA (HECTARES)" value={buffer.area} inputMode="decimal" error={fieldErrors.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value.replace(',', '.') })} />}
                             </div>
                             {showTitleFields && (<div className={styles.inputGrid3}>
                                 <SmartInput ref={firstInputRef} label="PLOT NUMBER" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({ ...buffer, plotNumber: e.target.value.toUpperCase() })} />
@@ -1190,7 +1192,7 @@ const FolderPage = () => {
                             <div className={styles.specGroup}>
                                 <div className={styles.sectionSubHeader}>LOCATION</div>
                                 <div className={styles.readOnlyGrid}>
-                                    {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA (HA)', project.area]].map(([l, v]) => (
+                                    {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ...(project.landTitle ? [] : [['AREA (HA)', project.area]])].map(([l, v]) => (
                                         <div key={l} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
                                 </div>
                             </div>

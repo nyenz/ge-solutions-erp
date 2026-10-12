@@ -86,8 +86,8 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
 
             <Section n={++n} title="Location">
                 <table className={s.table}>
-                    <thead><tr><th>District</th><th>County</th><th>Sub-county</th><th>Parish</th><th>Village</th><th>Area (ha)</th></tr></thead>
-                    <tbody><tr><td>{dash(p.district)}</td><td>{dash(p.county)}</td><td>{dash(p.subCounty)}</td><td>{dash(p.parish)}</td><td>{dash(p.village)}</td><td>{dash(p.area)}</td></tr></tbody>
+                    <thead><tr><th>District</th><th>County</th><th>Sub-county</th><th>Parish</th><th>Village</th>{!t && <th>Area (ha)</th>}</tr></thead>
+                    <tbody><tr><td>{dash(p.district)}</td><td>{dash(p.county)}</td><td>{dash(p.subCounty)}</td><td>{dash(p.parish)}</td><td>{dash(p.village)}</td>{!t && <td>{dash(p.area)}</td>}</tr></tbody>
                 </table>
             </Section>
 
