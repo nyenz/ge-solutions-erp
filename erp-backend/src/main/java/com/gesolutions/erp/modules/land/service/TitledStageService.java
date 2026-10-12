@@ -102,6 +102,7 @@ public class TitledStageService {
                     .build();
             p.setLandTitle(title);
             p.setTitleDetailsEnabled(true);
+            p.setArea(r.getAreaHectares().toPlainString());   // fix203: one Area -- the title's is now the project's
             auditService.logActionAfterCommit("TITLE_FIELDS_CHANGED", "Operator [" + AuditService.currentOperator()
                     + "] entered the title details of project #" + p.getProjectIndex() + " on the Titled stage. Old: (none) -> New: plot " + plot
                     + ", block " + block + ", " + title.getTenure() + ", " + r.getAreaHectares().toPlainString() + " ha, title date " + r.getTitleIssueDate());

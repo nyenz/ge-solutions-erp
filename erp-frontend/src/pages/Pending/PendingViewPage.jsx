@@ -182,7 +182,7 @@ export default function PendingViewPage() {
                 <div className={styles.grid}>
                     <Item label="District" value={p.district} /><Item label="County" value={p.county} />
                     <Item label="Sub-county" value={p.subCounty} /><Item label="Parish" value={p.parish} />
-                    <Item label="Village" value={p.village} /><Item label="Area (ha)" value={p.area} />
+                    <Item label="Village" value={p.village} />{p.areaHectares == null && <Item label="Area (ha)" value={p.area} />}
                     <Item label="Start date" value={day(p.projectStartDate)} />
                     <Item label="Plot" value={p.plotNumber} /><Item label="Block" value={p.block} />
                     <Item label="Tenure" value={p.tenure} /><Item label="Area (ha)" value={p.areaHectares} />
