@@ -37,14 +37,22 @@ public class PaymentController {
     }
 
     /** fix181 (16.7): one page of the list with the filters, sorted and paged on the server. */
+    // fix206 (David): the Manager may read the payment LINES of the last 90 days (no totals, no deleted projects, no
+    // older history). The Director and Admin see everything as before.
     @GetMapping("/list")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER')")
     public Map<String, Object> list(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
                                     @RequestParam(defaultValue = "ALL") String tab, @RequestParam(required = false) String projectType,
                                     @RequestParam(required = false) String q, @RequestParam(defaultValue = "false") boolean includeDeleted,
                                     @RequestParam(defaultValue = "false") boolean missingReceipt,
                                     @RequestParam(defaultValue = "date") String sort, @RequestParam(defaultValue = "desc") String dir,
                                     @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+        if (!ownerLevel()) {
+            java.time.LocalDate floor = java.time.LocalDate.now().minusDays(MANAGER_DAYS);
+            java.time.LocalDate f = from == null || from.isBlank() ? null : java.time.LocalDate.parse(from);
+            if (f == null || f.isBefore(floor)) from = floor.toString();
+            includeDeleted = false;
+        }
         return queryService.page(filter(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir), page, size);
     }
 
@@ -55,6 +63,14 @@ public class PaymentController {
                                       @RequestParam(defaultValue = "ALL") String tab, @RequestParam(required = false) String projectType,
                                       @RequestParam(required = false) String q, @RequestParam(defaultValue = "false") boolean missingReceipt) {
         return queryService.totals(filter(from, to, tab, projectType, q, false, missingReceipt, "date", "desc"));
+    }
+
+    /** fix206: how far back the Manager's payment list goes. */
+    public static final int MANAGER_DAYS = 90;
+
+    private static boolean ownerLevel() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_DIRECTOR".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     private static PaymentQueryService.Filter filter(String from, String to, String tab, String projectType, String q,
