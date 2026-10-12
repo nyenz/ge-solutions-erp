@@ -34,13 +34,35 @@ public class TitledStageService {
     private final LandTitleRepository titleRepository;
     private final ProjectStatusRepository statusRepository;
     private final AuditService auditService;
+    private final LandService landService;                                                                         // fix202
+    private final com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository documentRepository;       // fix202
+
+    /** fix202 (David, test note 26): the document type every title scan is filed under. */
+    public static final String TITLE_SCAN_CATEGORY = "COPY_OF_TITLE";
+
+    /** fix202: true when the project has at least one scan filed as Copy of Title. */
+    public static boolean hasTitleScan(com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository docs, UUID projectId) {
+        return docs.findByProjectId(projectId).stream().anyMatch(d -> TITLE_SCAN_CATEGORY.equals(d.getCategory()));
+    }
 
     private static String text(String v) { return v == null || v.isBlank() ? null : v.trim(); }
 
     /** Ticks the Titled stage. When the project has no Title Details yet, the request must carry them and they are saved first. */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public LandProject completeTitled(UUID projectId, UUID statusId, LandEntryRequest r) {
+    public LandProject completeTitled(UUID projectId, UUID statusId, LandEntryRequest r) throws Exception {
+        return completeTitled(projectId, statusId, r, null);
+    }
+
+    /**
+     * fix202 (David, test note 26): the Titled stage also needs the SCAN of the title. The scans sent here are filed as
+     * Copy of Title under the Titled stage; without at least one Copy of Title scan on the project, Titled is not ticked.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public LandProject completeTitled(UUID projectId, UUID statusId, LandEntryRequest r, org.springframework.web.multipart.MultipartFile[] scans) throws Exception {
+        boolean scansSent = scans != null && scans.length > 0;
+        if (scansSent) landService.requireScanFiles(scans);   // checked first, before anything is saved or sent away
         LandProject p = projectRepository.findByIdForUpdate(projectId)
                 .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND: No such project."));
         if (p.isDeleted()) throw new BusinessException("STATUS_LOCKED: This project is deleted. Restore it first.");
@@ -85,6 +107,10 @@ public class TitledStageService {
                     + ", block " + block + ", " + title.getTenure() + ", " + r.getAreaHectares().toPlainString() + " ha, title date " + r.getTitleIssueDate());
         }
         LandProject saved = projectRepository.save(p);
+        if (scansSent) landService.addScansToProject(projectId, scans, TITLE_SCAN_CATEGORY, null, statusId);
+        if (!stage.isCompleted() && !hasTitleScan(documentRepository, projectId)) {
+            throw new BusinessException("TITLE_SCAN_REQUIRED: Attach the scan of the title (PDF or photo) to tick \"Titled\".");
+        }
         if (!stage.isCompleted()) {
             stage.setCompleted(true);
             stage.setCompletedAt(LocalDateTime.now());

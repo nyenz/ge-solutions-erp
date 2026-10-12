@@ -155,8 +155,19 @@ public class LandController {
     @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/statuses/{statusId}/complete-titled")
     public ResponseEntity<java.util.Map<String, Object>> completeTitled(@PathVariable UUID id, @PathVariable UUID statusId,
-                                                                        @RequestBody(required = false) LandEntryRequest body) {
+                                                                        @RequestBody(required = false) LandEntryRequest body) throws Exception {
         var p = titledStageService.completeTitled(id, statusId, body);
+        return ResponseEntity.ok(java.util.Map.of("ok", true, "id", p.getId()));
+    }
+
+    /** fix202 (David, test note 26): the same, with the title scan(s) in one step (filed as Copy of Title under the stage). */
+    @PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/projects/{id}/statuses/{statusId}/complete-titled-scans", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<java.util.Map<String, Object>> completeTitledWithScans(@PathVariable UUID id, @PathVariable UUID statusId,
+            @RequestPart(value = "data", required = false) String json,
+            @RequestPart(value = "scans", required = false) org.springframework.web.multipart.MultipartFile[] scans) throws Exception {
+        LandEntryRequest body = json == null || json.isBlank() ? new LandEntryRequest() : objectMapper.readValue(json, LandEntryRequest.class);
+        var p = titledStageService.completeTitled(id, statusId, body, scans);
         return ResponseEntity.ok(java.util.Map.of("ok", true, "id", p.getId()));
     }
 

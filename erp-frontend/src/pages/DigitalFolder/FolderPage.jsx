@@ -526,6 +526,13 @@ const FolderPage = () => {
             // fix181 (8.5): a Pending project has no money yet; it is handled on its own page (START / REJECT)
             if (data.project && data.project.pending && !data.project.deleted) { navigate('/pending/' + id, { replace: true }); return; }
             setBinder(data); setPayments(data.payments || []); setLoadError(false);
+            if (isEditing) {
+                // fix202 (note 27): Title Details saved meanwhile (the Titled pop-up) fill the open EDIT panel's empty boxes
+                const t = data.project?.landTitle;
+                if (t) setBuffer(b => (b && !String(b.plotNumber || '').trim() ? { ...b, plotNumber: t.plotNumber || '', block: t.block || '',
+                    areaHectares: t.areaHectares != null ? String(t.areaHectares) : '', tenure: t.tenure || 'FREEHOLD', volume: t.volume || '',
+                    folio: t.folio || '', titleIssueDate: t.titleIssueDate || '' } : b));
+            }
             if (!isEditing) {
                 const t = data.project?.landTitle;
                 setBuffer({
@@ -749,19 +756,41 @@ const FolderPage = () => {
     };
     const attachToStatus = (status) => { setAttachTo(status); fileInputRef.current?.click(); };
     // fix197: ticking "Titled" on a project with no title opens this; the details and the tick are saved together
-    const openTitled = (stage) => { setTitleErr(''); setTitleModal({ stage, plotNumber: '', block: '', areaHectares: '', tenure: 'FREEHOLD', volume: '', folio: '', titleIssueDate: '' }); };
+    // fix202 (David, test notes 26 + 27): the pop-up also takes the title SCAN (required), starts with the Area from the
+    // Location box, and on a project that already has Title Details it only asks for the scan.
+    const openTitled = (stage) => {
+        setTitleErr('');
+        const pr = binder && binder.project;
+        const t = pr && pr.landTitle;
+        const locArea = pr && Number(pr.area) > 0 ? String(pr.area) : '';
+        setTitleModal(t
+            ? { stage, scanOnly: true, plotNumber: t.plotNumber || '', block: t.block || '', areaHectares: t.areaHectares != null ? String(t.areaHectares) : '', tenure: t.tenure || 'FREEHOLD', volume: t.volume || '', folio: t.folio || '', titleIssueDate: t.titleIssueDate || '', files: [] }
+            : { stage, scanOnly: false, plotNumber: '', block: '', areaHectares: locArea, tenure: 'FREEHOLD', volume: '', folio: '', titleIssueDate: '', files: [] });
+    };
+    const pickTitleScans = async (list) => {
+        const { ok, bad } = await prepareUploads(list, { exts: RECEIPT_EXTS });
+        if (bad.length) setTitleErr('NOT ADDED: ' + bad.join('; '));
+        if (ok.length) setTitleModal(m => ({ ...m, files: [...(m.files || []), ...ok.map(x => x.file)] }));
+    };
     const saveTitled = async () => {
         if (!titleModal || titleSaving) return;
         const m = titleModal;
-        if (!m.plotNumber.trim()) { setTitleErr('PLOT NUMBER IS REQUIRED.'); return; }
-        if (!m.block.trim()) { setTitleErr('BLOCK IS REQUIRED.'); return; }
-        if (!(Number(m.areaHectares) > 0)) { setTitleErr('AREA (HECTARES) MUST BE MORE THAN 0.'); return; }
-        if (!m.titleIssueDate) { setTitleErr('TITLE DATE IS REQUIRED.'); return; }
+        if (!m.scanOnly) {
+            if (!m.plotNumber.trim()) { setTitleErr('PLOT NUMBER IS REQUIRED.'); return; }
+            if (!m.block.trim()) { setTitleErr('BLOCK IS REQUIRED.'); return; }
+            if (!(Number(m.areaHectares) > 0)) { setTitleErr('AREA (HECTARES) MUST BE MORE THAN 0.'); return; }
+            if (!m.titleIssueDate) { setTitleErr('TITLE DATE IS REQUIRED.'); return; }
+        }
+        if (!(m.files || []).length) { setTitleErr('ATTACH THE SCAN OF THE TITLE (PDF OR PHOTO). "TITLED" IS NOT TICKED WITHOUT IT.'); return; }
         setTitleSaving(true); setTitleErr('');
         try {
-            await statusTemplateService.completeTitledStage(id, m.stage.id, { plotNumber: m.plotNumber.trim(), block: m.block.trim(),
-                areaHectares: Number(m.areaHectares), tenure: m.tenure, volume: m.volume.trim() || null, folio: m.folio.trim() || null, titleIssueDate: m.titleIssueDate });
-            setTitleModal(null); toast('Title Details saved. "Titled" is ticked.', 'success');
+            const details = m.scanOnly ? {} : { plotNumber: m.plotNumber.trim().toUpperCase(), block: m.block.trim().toUpperCase(),
+                areaHectares: Number(m.areaHectares), tenure: m.tenure, volume: m.volume.trim().toUpperCase() || null, folio: m.folio.trim().toUpperCase() || null, titleIssueDate: m.titleIssueDate };
+            await statusTemplateService.completeTitledWithScans(id, m.stage.id, details, m.files);
+            // fix202 (note 27): what was typed here goes straight into the EDIT panel too, so nothing is typed twice
+            if (!m.scanOnly) setBuffer(b => (b ? { ...b, plotNumber: details.plotNumber, block: details.block, areaHectares: String(details.areaHectares),
+                tenure: details.tenure, volume: details.volume || '', folio: details.folio || '', titleIssueDate: details.titleIssueDate } : b));
+            setTitleModal(null); toast(m.scanOnly ? 'Title scan saved. "Titled" is ticked.' : 'Title Details and scan saved. "Titled" is ticked.', 'success');
             await loadFolderData(); setStagesReload(n => n + 1);
         } catch (err) { setTitleErr(errText(err)); }
         finally { setTitleSaving(false); }
@@ -1183,7 +1212,7 @@ const FolderPage = () => {
                             canEdit={canEdit && isEditing && !isReleased}
                             canTick={!isReleased && !isDeleted && (flags.isSecretary || (canEdit && isEditing))}
                             needsNumbers={!hasNumbers(project)} onNumbers={openNumbers} reloadKey={stagesReload}
-                            needsTitle={!project.landTitle} onTitled={openTitled}
+                            needsTitle={!project.landTitle || !(binder.documents || []).some(d => d.category === 'COPY_OF_TITLE')} onTitled={openTitled}
                             canRemove={isDirector && !isDeleted && isEditing && !isReleased}
                             toast={toast} confirm={confirm}
                             docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
@@ -1551,7 +1580,10 @@ const FolderPage = () => {
             {/* fix197: Title Details asked for when "Titled" is ticked on a project that has none (a Fresh Survey) */}
             <HardwareModal isOpen={!!titleModal} lockBackdrop onClose={() => { if (!titleSaving) setTitleModal(null); }} title="TITLE DETAILS">
                 {titleModal && (<>
-                    <div className={modalStyles.modalInfoBox}>The title now exists, so type its details. "Titled" is ticked only when they are saved. After that, when everything is paid, the title can be handed over.</div>
+                    <div className={modalStyles.modalInfoBox}>{titleModal.scanOnly
+                        ? 'Attach the scan of the title (plot ' + (titleModal.plotNumber || '---') + ', block ' + (titleModal.block || '---') + '). "Titled" is ticked when it is saved.'
+                        : 'The title now exists, so type its details and attach its scan. "Titled" is ticked only when both are saved. After that, when everything is paid, the title can be handed over.'}</div>
+                    {!titleModal.scanOnly && (<>
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-plot">PLOT NUMBER</label>
                         <input id="tt-plot" type="text" className={modalStyles.modalInput} value={titleModal.plotNumber} maxLength={100} autoComplete="off" autoFocus
                             onChange={e => { setTitleModal(m => ({ ...m, plotNumber: e.target.value })); if (titleErr) setTitleErr(''); }} /></div>
@@ -1571,9 +1603,22 @@ const FolderPage = () => {
                             onChange={e => setTitleModal(m => ({ ...m, folio: e.target.value }))} /></div>
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>TITLE DATE</label>
                         <HardwareDatePicker block value={titleModal.titleIssueDate} max={localISO()} onChange={v => { setTitleModal(m => ({ ...m, titleIssueDate: v })); if (titleErr) setTitleErr(''); }} ariaLabel="Title date" /></div>
+                    </>)}
+                    {/* fix202 (David, test note 26): the title scan is required; it is filed as Copy of Title under this stage */}
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-scan">SCAN OF THE TITLE (REQUIRED)</label>
+                        <input id="tt-scan" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }}
+                            onChange={e => { const list = Array.from(e.target.files || []); e.target.value = ''; pickTitleScans(list); }} />
+                        {(titleModal.files || []).map((f, i) => (
+                            <div key={f.name + i} className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName}>{f.name}</span>
+                                <button type="button" className={styles.iconBtn} title="Remove this file" aria-label={'Remove ' + f.name}
+                                    onClick={() => setTitleModal(m => ({ ...m, files: m.files.filter((_, j) => j !== i) }))}><FiX aria-hidden="true" /></button></div>
+                        ))}
+                        <button type="button" className={styles.addDocBtn} onClick={() => document.getElementById('tt-scan')?.click()} title="Choose the title scan (PDF or photo). Several pages are fine.">
+                            <FiPaperclip aria-hidden="true" />&nbsp;{(titleModal.files || []).length ? 'ADD ANOTHER PAGE' : 'ATTACH THE TITLE SCAN'}</button>
+                        <span className={styles.recHint}>Saved in Documents as Copy of Title, under the Titled stage. PDF, JPG, PNG or WEBP.</span></div>
                     <ModalError text={titleErr} />
                     <div className={modalStyles.modalFooter}>
-                        <HardwareButton type="button" onClick={saveTitled} loading={titleSaving} icon={FiCheckCircle}>SAVE AND TICK TITLED</HardwareButton>
+                        <HardwareButton type="button" onClick={saveTitled} loading={titleSaving} icon={FiCheckCircle}>{titleModal.scanOnly ? 'SAVE SCAN AND TICK TITLED' : 'SAVE AND TICK TITLED'}</HardwareButton>
                     </div>
                 </>)}
             </HardwareModal>

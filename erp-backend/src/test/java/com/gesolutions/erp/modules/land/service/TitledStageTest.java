@@ -49,6 +49,13 @@ public class TitledStageTest {
     @Autowired private ReceivableSchedulerService jobs;
     @Autowired private LandProjectRepository projects;
     @Autowired private ProjectStatusRepository statuses;
+    @Autowired private com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository documents;
+
+    /** fix202: a scan filed as Copy of Title (the row only; the file store is not used in tests). */
+    private void titleScan(UUID projectId) {
+        documents.save(com.gesolutions.erp.modules.land.model.ProjectDocument.builder().projectId(projectId)
+                .fileName("title.pdf").fileType("application/pdf").category("COPY_OF_TITLE").filePath("test/title.pdf").uploadedBy("test").build());
+    }
 
     @AfterEach
     void clear() { SecurityContextHolder.clearContext(); }
@@ -97,7 +104,7 @@ public class TitledStageTest {
     }
 
     @Test
-    public void aFreshSurveyGetsItsTitleOnTheTitledStageAndCanThenBeHandedOver() {
+    public void aFreshSurveyGetsItsTitleOnTheTitledStageAndCanThenBeHandedOver() throws Exception {
         LandProject p = freshSurvey();
         ProjectStatus first = stage(p.getId(), "Field Measurement", 0);
         ProjectStatus last = stage(p.getId(), "Titled", 5);
@@ -108,6 +115,13 @@ public class TitledStageTest {
         as("ROLE_SECRETARY");
         assertThrows(BusinessException.class, () -> titled.completeTitled(p.getId(), first.getId(), details(plot)), "only on the Titled stage");
 
+        // fix202 (David, test note 26): no title scan, no tick -- and the refused try saves nothing
+        BusinessException noScan = assertThrows(BusinessException.class, () -> titled.completeTitled(p.getId(), last.getId(), details(plot)));
+        assertTrue(noScan.getMessage().startsWith("TITLE_SCAN_REQUIRED"), noScan.getMessage());
+        assertNull(projects.findById(p.getId()).orElseThrow().getLandTitle(), "the title details were not kept either");
+        assertFalse(statuses.findById(last.getId()).orElseThrow().isCompleted());
+
+        titleScan(p.getId());
         titled.completeTitled(p.getId(), last.getId(), details(plot));
         LandProject saved = projects.findById(p.getId()).orElseThrow();
         assertNotNull(saved.getLandTitle());
@@ -126,6 +140,7 @@ public class TitledStageTest {
         // the same plot number cannot go onto a second project
         LandProject other = freshSurvey();
         ProjectStatus otherLast = stage(other.getId(), "Titled", 5);
+        titleScan(other.getId());
         BusinessException e = assertThrows(BusinessException.class, () -> titled.completeTitled(other.getId(), otherLast.getId(), details(plot)));
         assertTrue(e.getMessage().startsWith("PLOT_TAKEN"), e.getMessage());
     }
