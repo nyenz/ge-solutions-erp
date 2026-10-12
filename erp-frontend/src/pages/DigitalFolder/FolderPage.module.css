@@ -102,10 +102,10 @@
 
 /* Hardcoded solid fills — renders outside .container, CSS vars don't cascade.
    Solid backgrounds match original FolderPage style and are clearly visible. */
-.toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: var(--ink-solid); }
-.toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: var(--ink-solid); }
-.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: var(--ink-solid); }
-.toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: var(--ink-solid); }
+.toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: #fff; }
+.toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: #fff; }
+.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: #1a2e30; }
+.toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: #fff; }
 
 .toastIcon {
     font-size: clamp(14px, 1.6vw, 18px);
@@ -638,7 +638,7 @@
 .selectOption { display: flex; align-items: center; padding: clamp(10px, 1.2vw, 14px) clamp(14px, 1.8vw, 20px); font-family: 'DM Sans', sans-serif; font-size: var(--fs-input); font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; color: var(--navy); cursor: pointer; transition: background 0.12s, color 0.12s; }
 .selectOption:hover { background: rgba(238,140,58,0.14); color: var(--orange); }
 .selectOptionActive { background: var(--orange); color: #fff; font-weight: 900; }
-.selectOptionActive:hover { background: #d97a2e; color: var(--ink-solid); }
+.selectOptionActive:hover { background: #d97a2e; color: #fff; }
 
 /* ═══════════════════════════════════════════════════════════════════
    EMAIL + PHONE INPUT ASSISTANTS
@@ -1446,10 +1446,10 @@
 
 /* Folder redesign tokens */
 
-.badgeBacklog{background:#7c2d12;color:var(--ink-solid);border-radius:4px;padding:2px 8px;font-size:11px;margin-right:6px}
+.badgeBacklog{background:#7c2d12;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;margin-right:6px}
 .badgeRecv{background:#b91c1c;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px}
 
-.btnPrimary{background:#f97316;color:var(--ink-solid);border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
+.btnPrimary{background:#f97316;color:#1a2e30;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
 
 .btnDanger{background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
 

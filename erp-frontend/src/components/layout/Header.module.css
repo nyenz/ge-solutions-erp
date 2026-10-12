@@ -512,7 +512,7 @@
     position: sticky; top: 0; z-index: 1;
     padding: 3px 12px;
     background: #3f5654;
-    color: var(--ink-solid);
+    color: #f3efe7;
     font-family: 'Space Mono', monospace;
     font-size: clamp(8px, 0.85vw, 9px);
     font-weight: 700;

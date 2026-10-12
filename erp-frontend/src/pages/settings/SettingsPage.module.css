@@ -75,10 +75,10 @@
 .toastContainer { position: fixed; bottom: clamp(20px,3vh,36px); right: clamp(14px,2vw,26px); z-index: 99999; display: flex; flex-direction: column-reverse; gap: clamp(6px,0.8vw,10px); max-width: clamp(280px,90vw,400px); pointer-events: none; }
 .toast { display: flex; align-items: flex-start; gap: clamp(8px,1vw,12px); padding: clamp(10px,1.2vw,14px) clamp(12px,1.5vw,16px); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.5); pointer-events: all; animation: toastIn 0.3s cubic-bezier(0.18,0.89,0.32,1.28) both; }
 @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-.toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: var(--ink-solid); }
-.toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: var(--ink-solid); }
-.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: var(--ink-solid); }
-.toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: var(--ink-solid); }
+.toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: #fff; }
+.toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: #fff; }
+.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: #1a2e30; }
+.toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: #fff; }
 .toastIcon  { font-size: clamp(13px,1.5vw,16px); flex-shrink: 0; margin-top: 1px; }
 .toastMsg   { font-family: 'Space Mono', monospace; font-size: clamp(9px,1vw,11px); font-weight: 700; line-height: 1.4; flex: 1; min-width: 0; word-break: break-word; }
 .toastClose { background: transparent; border: none; color: inherit; opacity: 0.6; cursor: pointer; padding: 2px; font-size: clamp(12px,1.3vw,15px); flex-shrink: 0; }
@@ -455,7 +455,8 @@
 /* HardwareSelect label on dark modal background */
 .selectWrap label { font-family: 'DM Sans', sans-serif !important; font-size: var(--fs-label) !important; font-weight: 900 !important; color: rgba(var(--ink-rgb), 0.5) !important; text-transform: uppercase !important; letter-spacing: 1px !important; display: block !important; margin-bottom: clamp(3px,0.4vw,5px) !important; }
 .modalBody   { padding-top: clamp(7px,0.9vw,11px); display: flex; flex-direction: column; gap: var(--gap-md); width: 100%; }
-.modalCenter { display: flex; justify-content: flex-end; margin-top: var(--gap-md); }
+.modalCenter { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: clamp(8px, 1.2vw, 12px); margin-top: var(--gap-md); }  /* fix208: the buttons were touching */
+@media (max-width: 480px) { .modalCenter { flex-direction: column-reverse; align-items: stretch; } .modalCenter > button { justify-content: center; } }
 
 
 /* ── KEY REVEAL BOX ─────────────────────────────────────────────── */
