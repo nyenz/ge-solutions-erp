@@ -336,7 +336,6 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumb
 };
 
 // fix167: every reason popup, set up in ONE place. danger = red button + red info box; the rest are neutral.
-const REASON_KINDS = {
 // fix200 (David, test note: "give simple select suggestions like 3"): every reason window offers three common reasons
 // as one-tap buttons (picks). A pick fills the box; staff can still change it or write their own.
 const REASON_KINDS = {
