@@ -20,6 +20,8 @@ import TabDock, { accentOf } from '../../components/common/TabDock';
 import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { errorText } from '../../utils/errorText';
+import { useAuth } from '../../hooks/useAuth';
+import { roleFlags } from '../../utils/roles';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -54,6 +56,10 @@ const PaymentsPage = () => {
     const page = Math.max(0, Number(params.get('page') || 0));
     const highlight = params.get('row') || '';
 
+    // fix206 (David): the Manager sees the payment LINES of the last 90 days (to check and fix entries), never the totals
+    // or the whole history -- "not the full picture". The server enforces the same (PaymentController.list).
+    const { user } = useAuth();
+    const fullView = roleFlags(user).canSeeCompanyMoney;
     const [searchText, setSearchText] = useState(q);
     const [data, setData] = useState(null);       // { rows, total }
     const [totals, setTotals] = useState(null);
@@ -74,20 +80,20 @@ const PaymentsPage = () => {
         const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, page, size: PAGE };
         return Promise.all([
             api.get('/recovery/payments/list', { params: p }).then(r => setData(r.data)),
-            api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt } }).then(r => setTotals(r.data)),
+            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt } }).then(r => setTotals(r.data)) : Promise.resolve(),
         ]).catch(e => setError(errorText(e))).finally(() => setBusy(false));
-    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, page]);
+    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, page, fullView]);
 
     useEffect(() => {
         let alive = true;
         const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, page, size: PAGE };
         Promise.all([
             api.get('/recovery/payments/list', { params: p }),
-            api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt } }),
+            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt } }) : Promise.resolve({ data: null }),
         ]).then(([l, t]) => { if (alive) { setData(l.data); setTotals(t.data); setError(''); } })
           .catch(e => { if (alive) setError(errorText(e)); });
         return () => { alive = false; };
-    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, page]);
+    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, page, fullView]);
 
     // search waits a moment after typing
     useEffect(() => {
@@ -135,7 +141,7 @@ const PaymentsPage = () => {
                     <p className={styles.subtitle}>Every payment line: title work and storage fees, opening deposits and reversals</p>
                 </div>
                 <HeaderActions>
-                    <HeaderButton icon={FiCheckSquare} label="BOOKS CHECK" tip="Check that every project's payment lines add up to its amount paid" onClick={runBooksCheck} />
+                    {fullView && <HeaderButton icon={FiCheckSquare} label="BOOKS CHECK" tip="Check that every project's payment lines add up to its amount paid" onClick={runBooksCheck} />}
                     <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={busy} tip="Load the payments again" onClick={load} />
                 </HeaderActions>
             </header>
@@ -150,6 +156,10 @@ const PaymentsPage = () => {
                 </div>
             )}
 
+            {!fullView && (
+                <p className={styles.subtitle}>You see the payment lines of the last 90 days, to check and correct entries. Totals and the full history are for the Director.</p>
+            )}
+            {fullView && (<>
             <div className={styles.summaryRow}>
                 <div className={`${styles.sumCard} ${styles.sumGreen}`}>
                     <label>TITLE COLLECTED</label>
@@ -172,7 +182,8 @@ const PaymentsPage = () => {
                     <span>{totals ? fmt(totals.rowCount) + ' lines' : ''}</span>
                 </div>
             </div>
-            {totals && totals.undatedCount > 0 && (
+            </>)}
+            {fullView && totals && totals.undatedCount > 0 && (
                 <p className={styles.subtitle}>UGX {fmt(totals.undatedSum)} recorded without a date ({totals.undatedCount} opening deposit(s)); they are in the totals but in no month.</p>
             )}
 
@@ -203,9 +214,9 @@ const PaymentsPage = () => {
                     <label className={`${styles.checkToggle} ${missingReceipt ? styles.checkToggleOn : ''}`}>
                         <input type="checkbox" checked={missingReceipt} onChange={e => set({ noreceipt: e.target.checked })} /> Missing receipt
                     </label>
-                    <label className={`${styles.checkToggle} ${includeDeleted ? styles.checkToggleOn : ''}`}>
+                    {fullView && <label className={`${styles.checkToggle} ${includeDeleted ? styles.checkToggleOn : ''}`}>
                         <input type="checkbox" checked={includeDeleted} onChange={e => set({ deleted: e.target.checked })} /> Include deleted projects
-                    </label>
+                    </label>}
                 </div>
                 <div className={styles.legendRow}>
                     <span className={styles.legendItem}>Deleted projects are never in the totals. A line can be in two tabs (for example an opening deposit that paid the title).</span>

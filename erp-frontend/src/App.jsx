@@ -151,9 +151,9 @@ const router = createBrowserRouter([
                     { path: "recovery", element: <ProtectedRoute><RecoveryPortal /></ProtectedRoute> },
                     { path: "clients", element: <ProtectedRoute><ClientLedgerPage /></ProtectedRoute> },
                     { path: "client/:id", element: <ProtectedRoute><ClientPortfolioPage /></ProtectedRoute> },
-                    { path: "payments", element: <ProtectedRoute adminOnly><PaymentsPage /></ProtectedRoute> },
+                    { path: "payments", element: <ProtectedRoute managerPlus><PaymentsPage /></ProtectedRoute> },   // fix206: Manager sees lines only
                     { path: "financials", element: <ProtectedRoute managerPlus><ExpensesPage /></ProtectedRoute> },
-                    { path: "reports", element: <ProtectedRoute adminOnly><ReportHub /></ProtectedRoute> },
+                    { path: "reports", element: <ProtectedRoute managerPlus><ReportHub /></ProtectedRoute> },   // fix206: Manager sees the work reports only
                     { path: "audit", element: <ProtectedRoute adminOnly><AuditPage /></ProtectedRoute> },
                     { path: "settings", element: <ProtectedRoute isSettings><SettingsPage /></ProtectedRoute> },
                 ]

@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -103,5 +104,15 @@ public class ManagerMoneyRightsWebTest {
         mvc.perform(post(url).param("reason", "Entered by mistake (wrong amount)").header("Authorization", token(staff(Role.ROLE_MANAGER))))
                 .andExpect(status().isOk());
         assertEquals(0, projects.findById(pay.getProjectId()).orElseThrow().getAmountPaid().signum(), "the payment was taken back");
+    }
+
+    /** fix206 (David): the Manager reads the payment lines (last 90 days) but never the totals; a Secretary reads neither. */
+    @Test
+    public void aManagerSeesPaymentLinesButNotTheTotals() throws Exception {
+        String manager = token(staff(Role.ROLE_MANAGER));
+        mvc.perform(get("/api/v1/recovery/payments/list").param("from", "2000-01-01").header("Authorization", manager)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/recovery/payments/totals").header("Authorization", manager)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/recovery/payments/books-check").header("Authorization", manager)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/recovery/payments/list").header("Authorization", token(staff(Role.ROLE_SECRETARY)))).andExpect(status().isForbidden());
     }
 }
