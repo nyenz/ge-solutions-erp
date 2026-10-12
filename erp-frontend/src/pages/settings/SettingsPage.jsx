@@ -541,7 +541,7 @@ const SettingsPage = () => {
             </div>
             <div className={styles.modalCenter}>
               <button type="button" className={modalStyles.modalBtnPrimary} onClick={changeRank} disabled={rankFor.role === rankFor.op.role}>CHANGE</button>
-              <button type="button" className={styles.commitBtn} onClick={() => setRankFor(null)}>CANCEL</button>
+              <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setRankFor(null)}>CANCEL</button>
             </div>
           </>
         )}
@@ -556,7 +556,7 @@ const SettingsPage = () => {
             </div>
             <div className={styles.modalCenter}>
               <button type="button" className={modalStyles.modalBtnPrimary} onClick={resetKey}><FiRotateCcw aria-hidden="true" /> RESET KEY</button>
-              <button type="button" className={styles.commitBtn} onClick={() => setResetFor(null)}>CANCEL</button>
+              <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setResetFor(null)}>CANCEL</button>
             </div>
           </>
         )}
@@ -569,7 +569,7 @@ const SettingsPage = () => {
             <div className={styles.modalBody}><p className={styles.revealHint}>{restoreAsk.message}</p></div>
             <div className={styles.modalCenter}>
               <button type="button" className={modalStyles.modalBtnPrimary} onClick={() => restore(restoreAsk.project, true)}>RESTORE ANYWAY</button>
-              <button type="button" className={styles.commitBtn} onClick={() => setRestoreAsk(null)}>CANCEL</button>
+              <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setRestoreAsk(null)}>CANCEL</button>
             </div>
           </>
         )}

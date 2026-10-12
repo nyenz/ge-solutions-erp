@@ -57,7 +57,7 @@
 .diagItem {
     display: flex; align-items: center; gap: clamp(4px, 0.5vw, 7px); white-space: nowrap;
     padding: clamp(3px, 0.4vw, 6px) clamp(6px, 0.9vw, 12px);
-    background: var(--navy); color: var(--ink-solid);
+    background: var(--navy); color: #f3efe7;
     border: 1px solid var(--orange-border); border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif; font-size: var(--stat-label); font-weight: 900;
     letter-spacing: 0.5px; text-transform: uppercase;

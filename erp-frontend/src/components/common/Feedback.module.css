@@ -28,10 +28,10 @@
     from { opacity: 0; transform: translateX(50px); }
     to   { opacity: 1; transform: translateX(0); }
 }
-.toast_success { background: rgba(16,185,129,0.95);  border-left: 4px solid #059669; color: var(--ink-solid); }
-.toast_error   { background: rgba(239,68,68,0.95);   border-left: 4px solid #b91c1c; color: var(--ink-solid); }
-.toast_warn    { background: rgba(245,158,11,0.95);  border-left: 4px solid #b45309; color: var(--ink-solid); }
-.toast_info    { background: rgba(6,182,212,0.95);   border-left: 4px solid #0369a1; color: var(--ink-solid); }
+.toast_success { background: rgba(16,185,129,0.95);  border-left: 4px solid #059669; color: #fff; }
+.toast_error   { background: rgba(239,68,68,0.95);   border-left: 4px solid #b91c1c; color: #fff; }
+.toast_warn    { background: rgba(245,158,11,0.95);  border-left: 4px solid #b45309; color: #1a2e30; }
+.toast_info    { background: rgba(6,182,212,0.95);   border-left: 4px solid #0369a1; color: #fff; }
 .toastIcon { font-size: clamp(14px, 1.6vw, 18px); flex-shrink: 0; margin-top: 1px; display: inline-flex; }
 .toastMsg {
     font-family: 'Space Mono', monospace;
