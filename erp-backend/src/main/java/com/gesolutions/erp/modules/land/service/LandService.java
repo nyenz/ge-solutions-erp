@@ -1851,6 +1851,7 @@ public class LandService {
             LandProject project = projectRepository.findById(id).orElse(null);
             if (project == null || project.isDeleted()) continue;
             if (project.getLandTitle() == null) continue;   // fix197: "Titled" is never ticked without Title Details
+            if (!TitledStageService.hasTitleScan(documentRepository, project.getId())) continue;   // fix202: nor without the title scan
             boolean ticked = false;
             for (ProjectStatus st : projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(id)) {
                 if (!st.isCompleted() && isTitledStatus(st.getStatusName())) {

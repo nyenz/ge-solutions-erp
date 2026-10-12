@@ -34,6 +34,7 @@ public class StatusTemplateService {
     private final ProjectStatusRepository projectStatusRepository;
     private final AuditService auditService;
     private final com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepository;
+    private final com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository documentRepository;   // fix202
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -305,6 +306,10 @@ public class StatusTemplateService {
             LandProject project = projectRepository.findById(status.getProjectId()).orElse(null);
             if (project != null && project.getLandTitle() == null) {
                 throw new BusinessException("TITLE_DETAILS_REQUIRED: Enter the Title Details (plot number, block, area, title date) to tick \"Titled\".");
+            }
+            // fix202 (David, test note 26): and the scan of the title must be on file
+            if (project != null && !TitledStageService.hasTitleScan(documentRepository, project.getId())) {
+                throw new BusinessException("TITLE_SCAN_REQUIRED: Attach the scan of the title (PDF or photo) to tick \"Titled\".");
             }
         }
         status.setCompleted(completed);

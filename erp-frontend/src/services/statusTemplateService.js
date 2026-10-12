@@ -58,6 +58,15 @@ const statusTemplateService = {
     },
 
     // fix197: tick the "Titled" stage of a project that has no Title Details yet -- the details are saved first
+    // fix202 (test note 26): the Title Details and the title scan(s) in one step
+    completeTitledWithScans: async (projectId, statusId, details, files) => {
+        const fd = new FormData();
+        fd.append('data', JSON.stringify(details || {}));
+        (files || []).forEach(f => fd.append('scans', f));
+        const response = await api.post(`/land/projects/${projectId}/statuses/${statusId}/complete-titled-scans`, fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 180000 });
+        return response.data;
+    },
+
     completeTitledStage: async (projectId, statusId, details) => {
         const response = await api.post(`/land/projects/${projectId}/statuses/${statusId}/complete-titled`, details || {});
         return response.data;
