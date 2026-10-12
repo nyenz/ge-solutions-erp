@@ -1801,6 +1801,10 @@
 /* info strips (problem / hand-over / deleted / final-stage warning) */
 .infoStrip { display: flex; align-items: flex-start; gap: 10px; padding: clamp(9px, 1.2vw, 12px) clamp(12px, 1.6vw, 16px); border-radius: 8px; border-left: 4px solid; font-family: 'Inter', sans-serif; font-size: clamp(11px, 1.05vw, 13px); font-weight: 700; line-height: 1.5; margin-bottom: clamp(8px, 1vw, 12px); }
 .infoStrip svg { flex-shrink: 0; margin-top: 3px; }
+/* fix204 (David): the strips sit on the light page, where pale text vanished. They now have the dark panel ground of the
+   rest of the page (theme tokens), so the light text and the coloured word read in CREAM, SLATE and LIGHT alike. */
+.infoStrip { background: linear-gradient(135deg, var(--sf-raise-2, #2a4a4c) 0%, var(--sf-2, #213E40) 100%) !important;
+    color: rgba(var(--ink-rgb), 0.92) !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12); }
 .infoStripBad { background: rgba(239, 68, 68, 0.12); border-color: #ef4444; color: var(--tx-red-soft, #fecaca); }
 .infoStripBad svg, .infoStripBad strong { color: var(--tx-red, #f87171); }
 .infoStripInfo { background: rgba(6, 182, 212, 0.1); border-color: #06b6d4; color: #cffafe; }

@@ -47,6 +47,7 @@ public class DocumentCategoryService {
         {"SURVEY_REPORT",             "Survey Report"},
         {"CONTRACT",                  "Contracts"},
         {"PROGRESS_REPORT",           "Progress Reports"},
+        {"HANDOVER_PAPERS",           "Hand-over Papers"},   // fix204: optional papers attached when a title is handed over
     };
 
     private final DocumentCategoryRepository repository;

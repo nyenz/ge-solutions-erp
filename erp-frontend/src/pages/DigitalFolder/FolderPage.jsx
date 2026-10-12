@@ -685,7 +685,13 @@ const FolderPage = () => {
             else if (m.kind === 'SET_ASIDE') { await folderPortalService.exit(id, 'SET_ASIDE', why); toast('Set aside. Unpaid fees are kept on the project.', 'success'); }
             else if (m.kind === 'CAPITALIZE') { await folderPortalService.exit(id, 'CAPITALIZE', why); toast('Storage fees added to the total cost.', 'success'); }
             else if (m.kind === 'CLEAR_PROBLEM') { await folderPortalService.toggleProblem(id, why, false); toast('Problem flag removed.', 'info'); }
-            else if (m.kind === 'RELEASE') { await landService.authorizeRelease(id, why); toast('Title handed over. The project is now HANDED OVER.', 'success'); }
+            else if (m.kind === 'RELEASE') {
+                // fix204 (David): optional papers of the hand-over (signed collection form, ID copy ...). They are filed first,
+                // as Hand-over Papers, because the record is locked once it is handed over.
+                if ((m.files || []).length) await landService.addExtraDocuments(id, m.files, m.files.map(() => 'HANDOVER_PAPERS'));
+                await landService.authorizeRelease(id, why);
+                toast('Title handed over' + ((m.files || []).length ? ' and ' + m.files.length + ' paper(s) filed' : '') + '. The project is now HANDED OVER.', 'success');
+            }
             else if (m.kind === 'DELETE') {
                 await landService.purgeAsset(id, why);
                 setIsEditing(false);
@@ -1683,6 +1689,20 @@ const FolderPage = () => {
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder={reasonCfg.ph || 'Write the reason...'} aria-label="Reason"
                         onChange={e => { setReasonModal(m => ({ ...m, reason: e.target.value })); if (reasonErr) setReasonErr(''); }} />
                     <span className={styles.probCount}>{reasonModal.reason.length}/300</span>
+                    {reasonModal.kind === 'RELEASE' && (<>
+                        {/* fix204 (David): an OPTIONAL attachment on the hand-over */}
+                        <input id="ho-files" type="file" multiple accept={DOC_ACCEPT} style={{ display: 'none' }}
+                            onChange={async e => { const list = Array.from(e.target.files || []); e.target.value = ''; const { ok, bad } = await prepareUploads(list, { exts: DOC_EXTS });
+                                if (bad.length) setReasonErr('NOT ADDED: ' + bad.join('; ')); if (ok.length) setReasonModal(m => ({ ...m, files: [...(m.files || []), ...ok.map(x => x.file)] })); }} />
+                        {(reasonModal.files || []).map((f, i) => (
+                            <div key={f.name + i} className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName}>{f.name}</span>
+                                <button type="button" className={styles.iconBtn} title="Remove this file" aria-label={'Remove ' + f.name}
+                                    onClick={() => setReasonModal(m => ({ ...m, files: m.files.filter((_, j) => j !== i) }))}><FiX aria-hidden="true" /></button></div>))}
+                        <button type="button" className={styles.addDocBtn} onClick={() => document.getElementById('ho-files')?.click()}
+                            title="Optional: the signed collection form, a copy of the collector's ID, a letter of authority ...">
+                            <FiPaperclip aria-hidden="true" />&nbsp;ATTACH PAPERS (OPTIONAL)</button>
+                        <span className={styles.recHint}>Filed in Documents as Hand-over Papers before the record is locked.</span>
+                    </>)}
                     {(reasonCfg.picks || []).length > 0 && (
                         <div className={styles.reasonPicks} role="group" aria-label="Common reasons">
                             {reasonCfg.picks.map(t => (
