@@ -114,8 +114,9 @@ public class StaffGovernanceTest {
     public void testManagerIsBlockedFromAdminEndpoints() throws Exception {
         String managerToken = buildToken(savedManager, "MANAGER");
 
-        // fix181 (9.1): the old /reports/* backend was deleted; the payments list is the money report source now
-        mockMvc.perform(get("/api/v1/recovery/payments/list")
+        // fix181 (9.1): the old /reports/* backend was deleted. fix206 (David): the Manager may now read the payment LINES
+        // (last 90 days), but the company money TOTALS stay closed to him
+        mockMvc.perform(get("/api/v1/recovery/payments/totals")
                 .header("Authorization", "Bearer " + managerToken))
                 .andExpect(status().isForbidden());
 
