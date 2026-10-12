@@ -29,6 +29,7 @@ import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestForRow, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
+import { errorText } from '../../utils/errorText';   // fix205
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 const EMPTY_NEIGHBOR = () => ({ fullName: '', phone: '', side: '', plotNumber: '' });
@@ -383,7 +384,7 @@ export default function IntakePage() {
             setNewCatName(''); setNewCatOpen(false);
             setUploadDraft(d => d && ({ ...d, error: '', batch: d.batch || cat.code, files: d.files.map(f => (f.category ? f : { ...f, category: cat.code })) }));
             toast('Category "' + cat.label + '" ready', 'success');
-        } catch (err) { setUploadDraft(d => d && ({ ...d, error: 'COULD NOT ADD CATEGORY: ' + ((err && err.response && err.response.data && (err.response.data.message || err.response.data.error)) || (err && err.message) || 'unknown error') })); } finally { setCatBusy(false); }
+        } catch (err) { setUploadDraft(d => d && ({ ...d, error: 'Could not add the category: ' + errorText(err) })); } finally { setCatBusy(false); }
     };
     const confirmUploadDraft = () => {
         if (!uploadDraft) return;
@@ -544,7 +545,7 @@ export default function IntakePage() {
             dirtyRef.current = false; setDirty(false);
             return true;
         } catch (err) {
-            toast(err.response?.data?.message || 'Save failed', 'error');
+            toast(errorText(err), 'error');   // fix205
             return false;
         } finally { setSaving(false); }
     };

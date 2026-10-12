@@ -14,6 +14,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './AuditPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { toCSV, downloadCSV, plainStamp } from '../../utils/csv';
+import { cleanMessage } from '../../utils/errorText';   // fix205
 
 const PAGE_SIZE = 50;
 const EXPORT_CAP = 20000;
@@ -127,7 +128,7 @@ const AuditPage = () => {
             auditService.logExport({ ...serverFilters, group: filters.group || ALL_ACTIONS, action: filters.action || '' }, all.length);
             setExporting(total > all.length ? `Exported the newest ${all.length.toLocaleString()} of ${total.toLocaleString()} rows (the limit).` : '');
         } catch (e) {
-            setExporting('Export failed: ' + e.message);
+            setExporting('Export failed: ' + cleanMessage(e.message));   // fix205
         }
     };
 
@@ -231,7 +232,7 @@ const AuditPage = () => {
                     {/* fix181 (10.5): a failed load is an error with Retry, never "nothing found" */}
                     {!loading && fault && (
                         <div className={styles.emptySignal} role="alert">
-                            Could not load the audit trail{fault.status ? ` (HTTP ${fault.status})` : ''}: {fault.message}{' '}
+                            Could not load the audit trail: {cleanMessage(fault.message)}{' '}
                             <button type="button" className={styles.resetBtn} onClick={() => fetchForensics()}><FiRefreshCw aria-hidden="true" /> RETRY</button>
                         </div>
                     )}

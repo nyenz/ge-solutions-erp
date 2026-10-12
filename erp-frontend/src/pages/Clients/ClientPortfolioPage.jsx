@@ -27,6 +27,7 @@ import { PROJECT_STATUS } from '../../utils/projectStatus';
 import styles from './ClientPortfolioPage.module.css';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { LoadingState } from '../../components/common/LoadingState';
+import { errorText } from '../../utils/errorText';   // fix205
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const dayDiff = (iso) => { if (!iso) return null; const d = new Date(iso); if (isNaN(d.getTime())) return null; return Math.floor((Date.now() - d.getTime()) / 86400000); };
@@ -108,7 +109,7 @@ const ClientPortfolioPage = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try { setD(await recoveryService.getClientDossier(id)); setLoadCode(''); }
-    catch (err) { setD(null); setLoadCode(err && err.response ? 'HTTP ' + err.response.status : 'NETWORK'); }
+    catch { setD(null); setLoadCode(''); }   // fix205: no status numbers on screen
     finally { setLoading(false); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -166,7 +167,7 @@ const ClientPortfolioPage = () => {
       });
       setIsEditing(false);
       await load();
-    } catch (err) { setSaveError(err.response?.data?.message || 'Save failed -- try again.'); }
+    } catch (err) { setSaveError(err && err.response ? errorText(err) : 'Not saved. Try again.'); }   // fix205
     finally { setSaving(false); }
   };
 

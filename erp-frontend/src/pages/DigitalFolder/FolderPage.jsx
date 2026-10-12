@@ -48,6 +48,7 @@ import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test 
 import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
+import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
 
 // fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
 const NOTE_MAX = 2000;
@@ -55,16 +56,8 @@ const SCAN_EXT = RECEIPT_EXTS;   // fix199: payment receipts stay scans and phot
 // fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here.
 const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
 // fix165: ONE place that turns any failed request into a sentence a person can read (server words + HTTP number).
-const errText = (err) => {
-    const st = err && err.response && err.response.status;
-    if (!st) return 'NO REPLY FROM THE SERVER (internet is down, or the server is waking up). Nothing was saved. Wait a few seconds and try again.';
-    const d = err.response.data;
-    let msg = '';
-    if (d && typeof d === 'object') msg = d.message || d.error || '';
-    else if (typeof d === 'string' && d.length < 300) msg = d;
-    if (!msg) msg = err.message || 'Unknown error';
-    return msg + ' (HTTP ' + st + ')';
-};
+// fix205 (David): no HTTP numbers or code words in front of people -- the one rule in utils/errorText.js
+const errText = (err) => (err && err.response ? errorText(err) : cleanMessage((err && err.message) || 'Something went wrong. Try again.'));
 // fix165/167: red error box INSIDE a popup. When a popup shows its own error, no toast is shown as well.
 const ModalError = ({ text }) => (text ? (<div className={styles.modalErr} role="alert">
     <FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{text}</span></div>) : null);
