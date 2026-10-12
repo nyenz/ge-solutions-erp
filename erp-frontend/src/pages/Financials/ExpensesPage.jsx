@@ -28,6 +28,7 @@ import { suggestValues } from '../../utils/entryMemory';
 import styles from './ExpensesPage.module.css';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import modalStyles from '../../components/common/HardwareModal.module.css';
+import { errorText } from '../../utils/errorText';   // fix205
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const EDIT_WINDOW_HOURS = 24;
@@ -148,7 +149,7 @@ const ExpensesPage = () => {
             await loadAll();
             toast('Expense logged.', 'success');
         } catch (err) {
-            toast(err.response?.data?.message || 'Could not log this expense.', 'error');
+            toast(err && err.response ? errorText(err) : 'Could not log this expense.', 'error');
         } finally {
             setLogging(false);
         }
@@ -169,7 +170,7 @@ const ExpensesPage = () => {
             await loadAll();
             toast('Preset added.', 'success');
         } catch (err) {
-            toast(err.response?.data?.message || 'Could not create this preset.', 'error');
+            toast(err && err.response ? errorText(err) : 'Could not create this preset.', 'error');
         } finally {
             setSavingPreset(false);
         }
@@ -205,7 +206,7 @@ const ExpensesPage = () => {
             await loadAll();
             toast('Expense updated.', 'success');
         } catch (err) {
-            toast(err.response?.data?.message || 'Could not save this edit.', 'error');
+            toast(err && err.response ? errorText(err) : 'Could not save this edit.', 'error');
         } finally {
             setSaving(false);
         }

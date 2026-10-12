@@ -67,20 +67,18 @@ const ClientLedgerPage = () => {
     const tableScrollRef = useTableScrollHandoff();
 
     const load = useCallback(async () => {
-        let lastErr = null;
         // one quiet retry after 5 seconds (the free server may still be waking up), then the error row
         for (let attempt = 0; attempt < 2; attempt += 1) {
             try {
                 const data = await recoveryService.getClientLedger();
                 setRows(remember('clients', data || [])); setLoading(false); setLoadError(false); setLoadCode('');
                 return;
-            } catch (err) {
-                lastErr = err;
+            } catch {
                 if (attempt === 0) await new Promise(r => setTimeout(r, 5000));
             }
         }
         setLoadError(true); setLoading(false);
-        setLoadCode(lastErr && lastErr.response ? 'HTTP ' + lastErr.response.status : 'NETWORK');
+        setLoadCode('');   // fix205: no status numbers on screen
     }, []);
     useEffect(() => { Promise.resolve().then(load); }, [load]);
     const reload = () => { if (!rows.length) setLoading(true); setLoadError(false); load(); };

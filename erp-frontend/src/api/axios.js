@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/api/axios.js
 
 import axios from 'axios';
+import { errorText } from '../utils/errorText';   // fix205
 
 // fix181 (15.2j): a developer's own computer never talks to the LIVE server by accident. In development the fallback is
 // the local backend; a production build without VITE_API_BASE_URL is refused in vite.config.js.
@@ -110,6 +111,8 @@ api.interceptors.response.use(
                 window.location.href = '/settings?tab=security';
             }
         }
+        // fix205 (David): the sentence a page shows is always plain (no "HTTP 400", no code words)
+        try { if (error && error.response) error.message = errorText(error); } catch { /* keep the original */ }
         return Promise.reject(error);
     }
 );
