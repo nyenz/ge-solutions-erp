@@ -115,7 +115,7 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                 <table className={s.table}>
                     <thead><tr><th className={s.narrow}>#</th><th>Stage</th><th className={s.center}>Done</th><th>Date</th><th>By</th></tr></thead>
                     <tbody>{stageList.map((x, i) => (
-                        <tr key={x.id || i}><td>{i + 1}</td><td>{x.statusName || x.name}</td><td className={s.center}>{x.done ? '✓' : '—'}</td><td>{x.done ? dash(day(x.completedAt)) : ''}</td><td>{x.done ? dash(x.completedBy) : ''}</td></tr>
+                        <tr key={x.id || i} className={x.done ? s.rowDone : ''}><td>{i + 1}</td><td>{x.statusName || x.name}</td><td className={`${s.center} ${x.done ? s.done : s.notDone}`}>{x.done ? '✓' : '—'}</td><td>{x.done ? dash(day(x.completedAt)) : ''}</td><td>{x.done ? dash(x.completedBy) : ''}</td></tr>
                     ))}</tbody>
                 </table>
             </Section>
