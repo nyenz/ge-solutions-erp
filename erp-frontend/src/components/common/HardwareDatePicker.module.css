@@ -85,3 +85,21 @@
 /* fix182: a day outside min / max */
 .dayOff, .dayOff:hover { color: rgba(26, 46, 48, 0.18); background: transparent; border-color: transparent; cursor: not-allowed; text-decoration: line-through; }
 .footBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* fix210: the typing box at the top of the card -- quiet until used */
+.typeRow { display: flex; gap: 6px; margin-bottom: 8px; }
+.typeBox {
+    flex: 1; min-width: 0; height: 30px; padding: 0 9px; border-radius: 6px;
+    border: 1px solid rgba(26, 46, 48, 0.14); background: rgba(26, 46, 48, 0.035);
+    color: #1a2e30; font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.5px; text-transform: none;
+}
+.typeBox::placeholder { color: rgba(26, 46, 48, 0.4); font-family: 'Inter', sans-serif; letter-spacing: 0; }
+.typeBox:focus { outline: none; border-color: rgba(238, 140, 58, 0.7); background: #fff; box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.14); }
+.typeBoxBad, .typeBoxBad:focus { border-color: #dc2626; }
+.typeSet {
+    height: 30px; padding: 0 11px; border-radius: 6px; border: 1px solid rgba(238, 140, 58, 0.45); background: transparent;
+    color: #b8651d; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+}
+.typeSet:hover:not(:disabled) { background: rgba(238, 140, 58, 0.12); }
+.typeSet:disabled { opacity: 0.4; cursor: default; }
+.typeErr { margin: -4px 0 8px; color: #b91c1c; font-size: 11px; line-height: 1.35; }

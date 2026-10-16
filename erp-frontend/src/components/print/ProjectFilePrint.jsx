@@ -1,10 +1,15 @@
 // PATH: erp-frontend/src/components/print/ProjectFilePrint.jsx
-// fix199 (David, test note 10): the PRINT of a project is now a proper document (an A4 "Project File"), drawn only on
-// paper. It replaces the old print, which was the screen layout with the buttons hidden. David's sample pictures
-// (a statement of work, an invoice) were used as a guide for the style only: a letterhead, a reference block,
-// numbered sections with ruled tables, a statement of account with a totals box, and sign-off lines.
+// fix199 (David, test note 10): the PRINT of a project is a proper A4 document (a "Project File"), drawn only on paper.
+// fix207: company colours. fix210 (David sent a "case study" sheet as the look he wants, "similar, not exact"):
+//  - a full-width navy band at the top with the company name;
+//  - a big two-line title on the left, the reference details on the right (small orange labels, thin lines);
+//  - the body in wide bands that alternate pale tint / white, most bands split into two columns
+//    (Overview | Key points, Clients | Owners, Documents | Notes);
+//  - headings are plain coloured words (no numbered boxes), lists use round coloured dots;
+//  - the stages are a two-column checklist with filled (done) and hollow (open) circles.
+// Money stays a ruled statement with a totals box, and the page ends with sign-off lines.
 import React from 'react';
-import { statusOf, moneyWordsOf, stagesOf } from '../../utils/projectStatus';
+import { statusOf, moneyWordsOf, stagesOf, waitingFor } from '../../utils/projectStatus';
 import s from './ProjectFilePrint.module.css';
 
 const money = (n) => 'UGX ' + Number(n || 0).toLocaleString();
@@ -12,29 +17,31 @@ const day = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digi
 const dash = (v) => (v === null || v === undefined || v === '' ? '—' : v);
 const PAY_WORD = { STANDARD: 'Payment', INITIAL_DEPOSIT: 'Deposit at intake', RECEIVABLE_PARTIAL: 'Payment (receivables)', REVERSAL: 'Reversal' };
 
-function Section({ n, title, children }) {
-    return (
-        <section className={s.section}>
-            <h2 className={s.h2}><span className={s.num}>{n}</span>{title}</h2>
-            {children}
-        </section>
-    );
+function H({ children }) { return <h2 className={s.h2}>{children}</h2>; }
+function Band({ tint = false, children, className = '' }) {
+    return <section className={`${s.band} ${tint ? s.tint : ''} ${className}`}>{children}</section>;
+}
+function KV({ k, v, mono = false }) {
+    return <div className={s.kv}><span className={s.k}>{k}</span><span className={`${s.v} ${mono ? s.mono : ''}`}>{v}</span></div>;
 }
 
 function People({ rows }) {
     if (!rows || !rows.length) return <p className={s.none}>None recorded.</p>;
     return (
-        <table className={s.table}>
-            <thead><tr><th className={s.narrow}>#</th><th>Name</th><th>National ID (NIN)</th><th>Phone</th></tr></thead>
-            <tbody>{rows.map((p, i) => (
-                <tr key={p.id || i}><td>{i + 1}</td><td>{p.fullName}</td><td className={s.mono}>{dash(p.nationalId)}</td><td className={s.mono}>{dash(p.phoneNumber || p.phone)}</td></tr>
-            ))}</tbody>
-        </table>
+        <ul className={s.people}>
+            {rows.map((p, i) => (
+                <li key={p.id || i}>
+                    <strong>{p.fullName}</strong>
+                    <span className={s.mono}>NIN {dash(p.nationalId)}</span>
+                    <span className={s.mono}>{dash(p.phoneNumber || p.phone)}</span>
+                </li>
+            ))}
+        </ul>
     );
 }
 
 /**
- * props: project, stages, payments, documents, notes, neighbors, typeLabel, catLabel(code), printedBy, showMoney
+ * props: project, stages, payments, documents, notes, neighbors, typeLabel, catLabel(code), statusNameOf(id), printedBy, showMoney
  * Rendered hidden on screen; the Folder page's print rules show ONLY this when printing.
  */
 export default function ProjectFilePrint({ project: p, stages, payments = [], documents = [], notes = [], neighbors = [],
@@ -45,83 +52,135 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
     const words = moneyWordsOf(p).map(w => w.label).join(' · ');
     const stageList = stagesOf(p, stages);
     const done = stageList.filter(x => x.done).length;
+    const pct = stageList.length ? Math.round((done / stageList.length) * 100) : 0;
+    const waiting = waitingFor(p, stages);
     const cost = Number(p.totalCost || 0);
     const paid = Number(p.amountPaid || 0);
     const fees = Number(p.storageFeesAccumulated || 0);
     const owed = typeof p.owedNow === 'number' ? p.owedNow : Math.max(0, cost + (p.isReceivable ? fees : 0) - paid);
     const printed = new Date();
-    let n = 0;
+    const place = [p.village, p.parish, p.subCounty, p.county, p.district].filter(Boolean).join(', ');
+    const half = Math.ceil(stageList.length / 2);
+
+    const keyPoints = [
+        status.label + (words ? ' — ' + words : ''),
+        done + ' of ' + stageList.length + ' stages done (' + pct + '%)',
+        waiting ? (waiting.stage ? 'Waiting for: ' + (waiting.stage.statusName || waiting.stage.name) : waiting.text.charAt(0) + waiting.text.slice(1).toLowerCase()) : 'Nothing is waiting',
+        showMoney ? (owed > 0 ? 'Balance owed: ' + money(owed) : 'Fully paid') : null,
+        t ? 'Title: Plot ' + dash(t.plotNumber) + ', Block ' + dash(t.block) + (t.isReleased ? ' — handed over to the client' : '') : 'No title details yet',
+        p.problem ? 'Flagged as a PROBLEM' : null,
+        p.isReceivable ? 'In receivables (storage fees apply)' : null,
+    ].filter(Boolean);
 
     return (
         <div className={`${s.doc} ${className}`} aria-hidden="true">
-            {/* letterhead */}
-            <header className={s.letter}>
-                <div>
-                    <div className={s.company}>GE SOLUTIONS</div>
-                    <div className={s.tagline}>Land surveying and title processing</div>
+            {/* top band */}
+            <header className={s.banner}>
+                <div className={s.brand}>
+                    <span className={s.mark} aria-hidden="true">GE</span>
+                    <span>
+                        <span className={s.company}>GE SOLUTIONS</span>
+                        <span className={s.tagline}>Land surveying and title processing</span>
+                    </span>
                 </div>
-                <div className={s.headRight}>
-                    <div className={s.docTitle}>Project File</div>
-                    <div className={s.ref}>Ref. #{p.projectIndex}</div>
+                <div className={s.bannerRight}>
+                    <span>Project #{p.projectIndex}</span>
+                    <span>Printed {day(printed)}{printedBy ? ' by ' + printedBy : ''}</span>
                 </div>
             </header>
-            <div className={s.rule} />
 
-            {/* reference block */}
-            <div className={s.refGrid}>
-                <div><span className={s.k}>Project</span><span className={s.v}>#{p.projectIndex}{t?.plotNumber ? ' · Plot ' + t.plotNumber : ''}</span></div>
-                <div><span className={s.k}>Type</span><span className={s.v}>{typeLabel || dash(p.projectType)}</span></div>
-                <div><span className={s.k}>Status</span><span className={s.v}>{status.label}{words ? ' · ' + words : ''}</span></div>
-                <div><span className={s.k}>Invoice no.</span><span className={`${s.v} ${s.mono}`}>{dash(p.invoiceNumber)}</span></div>
-                <div><span className={s.k}>Contract no.</span><span className={`${s.v} ${s.mono}`}>{dash(p.contractNumber)}</span></div>
-                <div><span className={s.k}>Date started</span><span className={s.v}>{dash(day(p.projectStartDate))}</span></div>
-                <div><span className={s.k}>Entered</span><span className={s.v}>{dash(day(p.entryDate || p.createdAt))}{p.createdBy ? ' by ' + p.createdBy : ''}</span></div>
-                <div><span className={s.k}>Printed</span><span className={s.v}>{day(printed)}{printedBy ? ' by ' + printedBy : ''}</span></div>
+            {/* title + reference details */}
+            <div className={s.hero}>
+                <div className={s.heroLeft}>
+                    <div className={s.title}>Project<br />File</div>
+                    <div className={s.refChip}>#{p.projectIndex}{t?.plotNumber ? ' · Plot ' + t.plotNumber : ''}</div>
+                </div>
+                <div className={s.heroGrid}>
+                    <KV k="Type" v={typeLabel || dash(p.projectType)} />
+                    <KV k="Status" v={status.label} />
+                    <KV k="Invoice no." v={dash(p.invoiceNumber)} mono />
+                    <KV k="Contract no." v={dash(p.contractNumber)} mono />
+                    <KV k="Date started" v={dash(day(p.projectStartDate))} />
+                    <KV k="Entered" v={dash(day(p.entryDate || p.createdAt)) + (p.createdBy ? ' · ' + p.createdBy : '')} />
+                </div>
             </div>
-            {(p.problem || t?.isReleased || p.isReceivable) && (
-                <p className={s.flag}>
-                    {p.problem ? 'FLAGGED AS A PROBLEM. ' : ''}{t?.isReleased ? 'TITLE HANDED OVER TO THE CLIENT. ' : ''}{p.isReceivable ? 'IN RECEIVABLES (storage fees apply).' : ''}
-                </p>
-            )}
 
-            <Section n={++n} title="Location">
-                <table className={s.table}>
-                    <thead><tr><th>District</th><th>County</th><th>Sub-county</th><th>Parish</th><th>Village</th>{!t && <th>Area (ha)</th>}</tr></thead>
-                    <tbody><tr><td>{dash(p.district)}</td><td>{dash(p.county)}</td><td>{dash(p.subCounty)}</td><td>{dash(p.parish)}</td><td>{dash(p.village)}</td>{!t && <td>{dash(p.area)}</td>}</tr></tbody>
-                </table>
-            </Section>
+            {/* overview | key points */}
+            <Band tint className={s.cols}>
+                <div>
+                    <H>Overview</H>
+                    <p className={s.lead}>
+                        {typeLabel || 'Project'} for {(p.clients || []).map(c => c.fullName).join(' and ') || 'a client not yet named'}
+                        {place ? ', at ' + place : ''}.
+                    </p>
+                    <div className={s.miniGrid}>
+                        <KV k="District" v={dash(p.district)} />
+                        <KV k="County" v={dash(p.county)} />
+                        <KV k="Sub-county" v={dash(p.subCounty)} />
+                        <KV k="Parish" v={dash(p.parish)} />
+                        <KV k="Village" v={dash(p.village)} />
+                        <KV k="Area (ha)" v={dash(t ? t.areaHectares : p.area)} />
+                    </div>
+                </div>
+                <div>
+                    <H>Key points</H>
+                    <ul className={s.dots}>{keyPoints.map((k, i) => <li key={i}>{k}</li>)}</ul>
+                </div>
+            </Band>
 
             {t && (
-                <Section n={++n} title="Title details">
-                    <table className={s.table}>
-                        <thead><tr><th>Plot</th><th>Block</th><th>Tenure</th><th>Area (ha)</th><th>Volume</th><th>Folio</th><th>Title date</th></tr></thead>
-                        <tbody><tr><td>{dash(t.plotNumber)}</td><td>{dash(t.block)}</td><td>{dash(t.tenure)}</td><td>{dash(t.areaHectares)}</td><td>{dash(t.volume)}</td><td>{dash(t.folio)}</td><td>{dash(day(t.titleIssueDate))}</td></tr></tbody>
-                    </table>
-                </Section>
+                <Band>
+                    <H>Title details</H>
+                    <div className={s.titleGrid}>
+                        <KV k="Plot" v={dash(t.plotNumber)} />
+                        <KV k="Block" v={dash(t.block)} />
+                        <KV k="Tenure" v={dash(t.tenure)} />
+                        <KV k="Area (ha)" v={dash(t.areaHectares)} />
+                        <KV k="Volume" v={dash(t.volume)} />
+                        <KV k="Folio" v={dash(t.folio)} />
+                        <KV k="Title date" v={dash(day(t.titleIssueDate))} />
+                    </div>
+                </Band>
             )}
 
-            <Section n={++n} title="Clients (they pay)"><People rows={p.clients} /></Section>
-            <Section n={++n} title="Owners (on the title)"><People rows={p.proprietors} /></Section>
+            {/* people */}
+            <Band tint={!!t} className={s.cols}>
+                <div><H>Clients <small>they pay</small></H><People rows={p.clients} /></div>
+                <div><H>Owners <small>on the title</small></H><People rows={p.proprietors} /></div>
+            </Band>
             {neighbors.length > 0 && (
-                <Section n={++n} title="Neighbours">
-                    <table className={s.table}>
-                        <thead><tr><th className={s.narrow}>#</th><th>Name</th><th>Side</th><th>Plot</th><th>Phone</th></tr></thead>
-                        <tbody>{neighbors.map((x, i) => (<tr key={i}><td>{i + 1}</td><td>{x.fullName}</td><td>{dash(x.side)}</td><td>{dash(x.plotNumber)}</td><td className={s.mono}>{dash(x.phone)}</td></tr>))}</tbody>
-                    </table>
-                </Section>
+                <Band tint={!t}>
+                    <H>Neighbours</H>
+                    <ul className={s.neigh}>
+                        {neighbors.map((x, i) => (
+                            <li key={i}><strong>{x.fullName}</strong><span>{dash(x.side)}{x.plotNumber ? ' · Plot ' + x.plotNumber : ''}</span><span className={s.mono}>{dash(x.phone)}</span></li>
+                        ))}
+                    </ul>
+                </Band>
             )}
 
-            <Section n={++n} title={'Stages (' + done + ' of ' + stageList.length + ' done)'}>
-                <table className={s.table}>
-                    <thead><tr><th className={s.narrow}>#</th><th>Stage</th><th className={s.center}>Done</th><th>Date</th><th>By</th></tr></thead>
-                    <tbody>{stageList.map((x, i) => (
-                        <tr key={x.id || i} className={x.done ? s.rowDone : ''}><td>{i + 1}</td><td>{x.statusName || x.name}</td><td className={`${s.center} ${x.done ? s.done : s.notDone}`}>{x.done ? '✓' : '—'}</td><td>{x.done ? dash(day(x.completedAt)) : ''}</td><td>{x.done ? dash(x.completedBy) : ''}</td></tr>
-                    ))}</tbody>
-                </table>
-            </Section>
+            {/* stages */}
+            <Band tint>
+                <H>Stages <small>{done} of {stageList.length} done</small></H>
+                <div className={s.progress}><span style={{ width: pct + '%' }} /></div>
+                <div className={s.stageCols}>
+                    {[stageList.slice(0, half), stageList.slice(half)].map((col, ci) => (
+                        <ol key={ci} className={s.stages} start={ci * half + 1}>
+                            {col.map((x, i) => (
+                                <li key={x.id || i} className={x.done ? s.stageDone : ''}>
+                                    <span className={s.stageDot} aria-hidden="true">{x.done ? '✓' : ''}</span>
+                                    <span className={s.stageName}>{x.statusName || x.name}</span>
+                                    <span className={s.stageMeta}>{x.done ? [day(x.completedAt), x.completedBy].filter(Boolean).join(' · ') : 'open'}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    ))}
+                </div>
+            </Band>
 
             {showMoney && (
-                <Section n={++n} title="Statement of account">
+                <Band>
+                    <H>Statement of account</H>
                     {payments.length ? (
                         <table className={s.table}>
                             <thead><tr><th>Date paid</th><th>Kind</th><th>For</th><th>Paid by</th><th>Recorded by</th><th className={s.right}>Amount</th></tr></thead>
@@ -138,27 +197,34 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                         <div><span>Paid</span><span className={s.mono}>{money(paid)}</span></div>
                         <div className={s.grand}><span>Balance owed</span><span className={s.mono}>{money(owed)}</span></div>
                     </div>
-                </Section>
+                </Band>
             )}
 
-            <Section n={++n} title={'Documents on file (' + documents.length + ')'}>
-                {documents.length ? (
-                    <table className={s.table}>
-                        <thead><tr><th>Type</th><th>File</th><th>Stage</th><th>Added</th></tr></thead>
-                        <tbody>{documents.map((d, i) => (
-                            <tr key={d.id || i}><td>{catLabel(d.category)}</td><td className={s.wrap}>{d.fileName}</td><td>{dash(statusNameOf(d.statusId))}</td><td>{dash(day(d.uploadedAt))}{d.uploadedBy ? ' · ' + d.uploadedBy : ''}</td></tr>
-                        ))}</tbody>
-                    </table>
-                ) : <p className={s.none}>No documents attached.</p>}
-            </Section>
-
-            {notes.length > 0 && (
-                <Section n={++n} title="Notes">
-                    <ol className={s.notes}>{notes.map((x, i) => (
-                        <li key={x.id || i}><span className={s.noteMeta}>{day(x.timestamp)}{x.recordedBy ? ' · ' + x.recordedBy : ''}</span>{x.notes}</li>
-                    ))}</ol>
-                </Section>
-            )}
+            {/* documents | notes */}
+            <Band tint className={notes.length ? s.cols : ''}>
+                <div>
+                    <H>Documents on file <small>{documents.length}</small></H>
+                    {documents.length ? (
+                        <ul className={s.docs}>
+                            {documents.map((d, i) => (
+                                <li key={d.id || i}>
+                                    <span className={s.docType}>{catLabel(d.category)}{statusNameOf(d.statusId) ? ' · ' + statusNameOf(d.statusId) : ''}</span>
+                                    <span className={s.docName}>{d.fileName}</span>
+                                    <span className={s.docMeta}>{dash(day(d.uploadedAt))}{d.uploadedBy ? ' · ' + d.uploadedBy : ''}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : <p className={s.none}>No documents attached.</p>}
+                </div>
+                {notes.length > 0 && (
+                    <div>
+                        <H>Notes</H>
+                        <ul className={s.notes}>{notes.map((x, i) => (
+                            <li key={x.id || i}><span className={s.noteMeta}>{day(x.timestamp)}{x.recordedBy ? ' · ' + x.recordedBy : ''}</span>{x.notes}</li>
+                        ))}</ul>
+                    </div>
+                )}
+            </Band>
 
             <div className={s.sign}>
                 <div><div className={s.line} /><span>Prepared by (name and signature)</span></div>

@@ -1,5 +1,6 @@
 // PATH: erp-frontend/src/services/statusTemplateService.js
 import api from '../api/axios';
+import { retrying } from '../utils/retry';   // fix210
 
 /**
  * GOLDEN SEED - STATUS TEMPLATE SERVICE (fix180: was stageTemplateService)
@@ -11,7 +12,7 @@ const statusTemplateService = {
 
     // the master list of one project type (no type = every type's list)
     getTemplate: async (projectType) => {
-        const response = await api.get('/status-templates', { params: projectType ? { projectType } : {} });
+        const response = await retrying(() => api.get('/status-templates', { params: projectType ? { projectType } : {} }));
         return response.data;
     },
 
@@ -42,7 +43,7 @@ const statusTemplateService = {
     },
 
     getProjectStatuses: async (projectId) => {
-        const response = await api.get(`/land/projects/${projectId}/statuses`);
+        const response = await retrying(() => api.get(`/land/projects/${projectId}/statuses`));
         return response.data;
     },
 

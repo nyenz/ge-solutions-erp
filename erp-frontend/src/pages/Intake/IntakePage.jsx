@@ -7,8 +7,9 @@ import { createPortal } from 'react-dom';
 import {
     FiUser, FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiEdit3, FiBookmark, FiX, FiCopy, FiRefreshCw, FiCalendar, FiGrid, FiLink
+    FiEdit3, FiBookmark, FiX, FiCopy, FiRefreshCw, FiCalendar, FiGrid, FiLink, FiPaperclip
 } from 'react-icons/fi';
+import { categoryForStage } from '../../utils/stageCategory';   // fix210
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import HardwareSelect from '../../components/common/HardwareSelect';
@@ -17,13 +18,14 @@ import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
+import useDocCategories from '../../utils/useDocCategories';
 import pendingService from '../../services/pendingService';
 import { normalizePhones } from '../../utils/phone';
 import statusTemplateService from '../../services/statusTemplateService';
 import { useAuth } from '../../hooks/useAuth';
 import { PROJECT_TYPES, showsTitle } from '../../constants/projectTypes';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
-import { canInsertStageBelow, isInvoiceContractStage } from '../../utils/projectStatus';
+import { canInsertStageBelow, isInvoiceContractStage, stageTakesDocuments } from '../../utils/projectStatus';
 import { prepareUploads, anyToShrink, DOC_EXTS, DOC_ACCEPT, canPreview } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
@@ -139,8 +141,7 @@ export default function IntakePage() {
     useEffect(() => { if (!isEmployee) landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, [isEmployee]);
     const [fileQueue, setFileQueue] = useState([]);
     // fix174: document types = the Folder page classifications (PAYMENT_RECEIPT is filed by the payment window, never at intake)
-    const [docCats, setDocCats] = useState([]);
-    useEffect(() => { landService.getDocumentCategories().then(setDocCats).catch(() => {}); }, []);
+    const { cats: docCats, setCats: setDocCats, ensure: ensureCats, emptyText: catEmptyText } = useDocCategories();   // fix210: retries + loading text
     const catChoices = useMemo(() => docCats.filter(c => c.code !== 'PAYMENT_RECEIPT'), [docCats]);
     const catOptions = useMemo(() => catChoices.map(c => ({ value: c.code, label: c.label })), [catChoices]);
     const [uploadDraft, setUploadDraft] = useState(null); // fix175: { batch, error, files: [{ file, category }] }
@@ -206,8 +207,11 @@ export default function IntakePage() {
 
     // fix180: each project type has its own status list. Legacy Titles arrive with every status done (the title exists);
     // every other type with the first status done.
+    const [stagesState, setStagesState] = useState('loading');   // fix210: loading | ready | failed
     const loadTypeStatuses = useCallback((type) => {
+        setStagesState('loading');
         statusTemplateService.getTemplate(type).then(list => {
+            setStagesState('ready');
             const sorted = [...(list || [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
             const seen = new Set(); const uniq = [];
             sorted.forEach(t => { if (t.statusName && !seen.has(t.statusName)) { seen.add(t.statusName); uniq.push({ id: t.id, name: t.statusName }); } });
@@ -216,7 +220,7 @@ export default function IntakePage() {
             const c = {};
             uniq.forEach((t, i) => { if (i === 0 || type === 'LEGACY_TITLES') c[t.name] = true; });
             setChecked(c);
-        }).catch(() => { setMasterTemplates([]); setStatusList([]); setChecked({}); });
+        }).catch(() => { setStagesState('failed'); setMasterTemplates([]); setStatusList([]); setChecked({}); });
     }, []);
     useEffect(() => { loadTypeStatuses(projectType); }, [projectType, loadTypeStatuses]);
 
@@ -367,10 +371,22 @@ export default function IntakePage() {
         const { ok, bad } = await prepareUploads(picked, { exts: DOC_EXTS });   // fix199 (note 16)
         if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
         if (!ok.length) return;
-        setUploadDraft({ batch: '', error: '', files: ok.map(({ file, note }) => ({ file, category: '', note })) });
+        const stage = attachStageRef.current; attachStageRef.current = '';
+        ensureCats();
+        const stageCat = stage ? categoryForStage(stage, catChoices) : '';
+        setUploadDraft({ batch: stageCat, error: '', stageName: stage, files: ok.map(({ file, note }) => ({ file, category: stageCat, note })) });
     };
+    // fix210 (David): the stage rows get the same paperclip as the Folder page; the stage's document type is picked first
+    const attachStageRef = useRef('');
+    // the types may arrive after the window opened (server waking up): then pick the stage's type for files still without one
+    useEffect(() => {
+        if (!uploadDraft || !uploadDraft.stageName || uploadDraft.batch || !catChoices.length) return;
+        const code = categoryForStage(uploadDraft.stageName, catChoices);
+        if (code) setUploadDraft(d => d && ({ ...d, batch: code, files: d.files.map(f => (f.category ? f : { ...f, category: code })) }));
+    }, [catChoices, uploadDraft]);
+    const attachToStage = (name) => { attachStageRef.current = name; if (fileInputRef.current) fileInputRef.current.click(); };
     const removeFile = (i) => setFileQueue(p => { URL.revokeObjectURL(p[i].url); return p.filter((_, idx) => idx !== i); });
-    const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
+    const triggerFileInput = () => { attachStageRef.current = ''; if (fileInputRef.current) fileInputRef.current.click(); };
     const closeUploadDraft = () => { setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
     const setBatchCategory = (code) => setUploadDraft(d => d && ({ ...d, error: '', batch: code, files: d.files.map(f => ({ ...f, category: code })) }));
     const setDraftFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, error: '', files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));
@@ -882,7 +898,11 @@ export default function IntakePage() {
                     )}
                     <p className={styles.hint}>The {PROJECT_TYPES.find(pt => pt.value === projectType)?.label} stage list. Tick what is already done.{canAddStatus ? '' : ' Only an Admin, Manager or Director can add a stage.'}</p>
                     <div className={styles.statusList}>
-                        {statusList.length === 0 && <p className={styles.hint}>Loading the stage list...</p>}
+                        {statusList.length === 0 && stagesState !== 'failed' && <p className={styles.hint}>Loading the stage list...</p>}
+                        {stagesState === 'failed' && (
+                            <p className={styles.hint} role="alert">The stage list could not be loaded (the server may be waking up).{' '}
+                                <button type="button" className={styles.clearLink} onClick={() => loadTypeStatuses(projectType)}>Try again</button></p>
+                        )}
                         {statusList.map((s, si) => {
                             const isFirst = s.name === firstStatusName;
                             return (
@@ -893,6 +913,13 @@ export default function IntakePage() {
                                         onChange={() => toggleStatus(s.name)} />
                                     <span className={styles.statusName}>{s.name}{isFirst ? ' (required)' : ''}</span>
                                     <span className={styles.statusActions}>
+                                        {stageTakesDocuments(statusList, si) && (
+                                            <button type="button" className={styles.plusBtn} title={'Attach documents to "' + s.name + '"'}
+                                                aria-label={`Attach documents to ${s.name}`}
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); attachToStage(s.name); }}>
+                                                <FiPaperclip size={12} />
+                                            </button>
+                                        )}
                                         {canAddStatus && canInsertStageBelow(statusList, si) && (
                                             <button type="button" className={styles.plusBtn} title="Insert a stage below this one"
                                                 aria-label={`Insert stage below ${s.name}`}
@@ -963,8 +990,10 @@ export default function IntakePage() {
                             <div className={styles.field}>
                                 <label className={styles.label}>Date Last Paid</label>
                                 <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel="Date last paid" onChange={v => { setLastPaidDate(v); markDirty(); }} />
-                                <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(localISO()); markDirty(); }}>Today</button>
-                                {lastPaidDate && <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}
+                                <div className={styles.dateLinks}>
+                                    <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(localISO()); markDirty(); }}>Today</button>
+                                    {lastPaidDate && <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}
+                                </div>
                                 <p className={styles.hint}>Leave empty if you do not know the date. If the client paid today, pick today.</p>
                             </div>
                         </div>
@@ -1063,10 +1092,10 @@ export default function IntakePage() {
             <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
                 {uploadDraft && (<>
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
-                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
+                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText={catEmptyText} ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
                         <span className={styles.upFileName} title={f.file.name}>{f.file.name}{f.note && <small className={styles.upFileNote}>{f.note}</small>}</span>
-                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setDraftFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
+                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setDraftFileCategory(i, code)} placeholder="Category" emptyText={catEmptyText} ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
                     {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
                         <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
                         <div className={styles.upCatActions}>

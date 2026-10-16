@@ -80,7 +80,7 @@
 .badgeStarted { color: var(--tx-green, #34d399); }
 .title .badgePending { color: #0e7490; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px 18px; }   /* fix210: a lone box keeps its width */
 .label {
     font-family: 'DM Sans', sans-serif; font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px;
     color: var(--tx-orange, #ffb46b); text-transform: uppercase; margin-bottom: 3px;

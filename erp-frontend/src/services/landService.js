@@ -1,8 +1,12 @@
 // PATH: erp-frontend/src/services/landService.js
 import api from '../api/axios';
+import { retrying } from '../utils/retry';   // fix210
 
 // fix173: the system default monthly storage fee is fetched once and shared by every page
 let storageFeeDefaultPromise = null;
+// fix210: the document types are shared by every page and asked again (with retries) at most once a minute
+let docCatsCache = null, docCatsAt = 0, docCatsPromise = null;
+const DOC_CATS_FRESH_MS = 60000;
 
 const landService = {
 
@@ -48,8 +52,13 @@ const landService = {
     },
 
     getDocumentCategories: async () => {
-        const response = await api.get('/land/document-categories');
-        return response.data;
+        if (docCatsCache && Date.now() - docCatsAt < DOC_CATS_FRESH_MS) return docCatsCache;
+        if (!docCatsPromise) {
+            docCatsPromise = retrying(() => api.get('/land/document-categories'))
+                .then(r => { docCatsCache = r.data || []; docCatsAt = Date.now(); return docCatsCache; })
+                .finally(() => { docCatsPromise = null; });
+        }
+        return docCatsPromise;
     },
 
     // fix196: set or correct the invoice number and the contract number of a started project (Secretary and above)
@@ -60,6 +69,7 @@ const landService = {
 
     addDocumentCategory: async (label) => {
         const response = await api.post('/land/document-categories', { label });
+        docCatsCache = null;   // fix210: the next read fetches the list with the new type
         return response.data;
     },
 
@@ -133,14 +143,14 @@ const landService = {
 
     // INTAKE: preview the next project index (001A format) before saving
     getNextIndex: async () => {
-        const response = await api.get('/land/next-index');
+        const response = await retrying(() => api.get('/land/next-index'));
         return response.data;
     },
 
     // fix173: the system default monthly storage fee (the server holds the only copy of the number)
     getStorageFeeDefault: () => {
         if (!storageFeeDefaultPromise) {
-            storageFeeDefaultPromise = api.get('/land/storage-fee-default')
+            storageFeeDefaultPromise = retrying(() => api.get('/land/storage-fee-default'))
                 .then(r => Number(r.data && r.data.defaultMonthlyFee) || 0)
                 .catch(e => { storageFeeDefaultPromise = null; throw e; });
         }

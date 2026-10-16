@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { FiChevronDown, FiCheck } from 'react-icons/fi';
 import styles from './HardwareModalSelect.module.css';
+import { useTypeAhead } from '../../utils/typeAhead';   // fix210
 
 /**
  * GOLDEN SEED - HARDWARE MODAL SELECT (fix137)
@@ -18,6 +19,7 @@ import styles from './HardwareModalSelect.module.css';
  * options = [{ value, label }]
  * onChange receives the chosen value.
  * Keyboard: Up/Down/Home/End move, Enter or Space picks, Esc closes.
+ * fix210: typing letters jumps to the matching item (opens the list first when it is closed).
  */
 const GAP = 6;
 const EDGE = 10;
@@ -41,6 +43,7 @@ const HardwareModalSelect = ({
     const triggerRef = useRef(null);
     const panelRef = useRef(null);
     const listId = useId();
+    const typeAhead = useTypeAhead();
 
     const selectedIdx = options.findIndex(o => o.value === value);
     const selected = selectedIdx >= 0 ? options[selectedIdx] : null;
@@ -116,6 +119,13 @@ const HardwareModalSelect = ({
 
     const onKeyDown = (e) => {
         if (disabled) return;
+        const hit = typeAhead(e, options.map(o => o.label), open ? active : selectedIdx);
+        if (hit >= 0) {
+            e.preventDefault();
+            if (!open) { place(); setOpen(true); }
+            setActive(hit);
+            return;
+        }
         if (!open) {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
