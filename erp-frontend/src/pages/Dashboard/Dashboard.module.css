@@ -88,7 +88,28 @@
 .retry:hover { background: #ef4444; color: #fff; }
 
 /* ── GRID ──────────────────────────────────────────────────────── */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: var(--gap); align-items: start; }
+/* fix210 (David): the page is a column of full-width panels with ONE row of small panels in between. The row's columns
+   follow how many small panels the rank gets, so there is never an empty column, and every panel in a row has the
+   same height (the boxes inside stretch to fill it). */
+.grid { display: flex; flex-direction: column; gap: var(--gap); }
+.row { display: grid; gap: var(--gap); align-items: stretch; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.row[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
+.row[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.row[data-n="2"] { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }   /* the work panel first and a little wider */
+.row[data-n="5"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.row[data-n="5"] > :nth-child(-n+3) { grid-column: span 2; }
+.row[data-n="5"] > :nth-child(n+4) { grid-column: span 3; }
+@media (min-width: 1700px) { .row[data-n="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1100px) {
+    .row, .row[data-n="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
+    .row[data-n="5"] > * { grid-column: auto; }
+    .row[data-n="3"] > :last-child, .row[data-n="5"] > :last-child { grid-column: 1 / -1; }   /* an odd last panel takes the whole row */
+}
+@media (max-width: 680px) {
+    .row, .row[data-n] { grid-template-columns: minmax(0, 1fr); }
+    .row[data-n] > * { grid-column: auto; }
+}
 
 /* ── WORKSTATION CARD (Settings) ───────────────────────────────── */
 .card {
@@ -135,6 +156,14 @@
 .headLink { display: inline-flex; align-items: center; gap: 5px; font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-label); letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); }
 .headLink:hover { color: var(--ink-solid); }
 .cardBody { padding: clamp(12px, 1.5vw, 16px); display: flex; flex-direction: column; gap: clamp(10px, 1.2vw, 14px); }
+/* fix210: equal heights in a row -- the card is a column, its body takes the spare height, a lone box inside stretches */
+.row > .card { display: flex; flex-direction: column; }
+.row > .card > .cardBody { flex: 1; }
+.cardBody { container-type: inline-size; }   /* the tile rules below follow the panel's own width */
+.row > .card > .cardBody > .tiles:only-child,
+.row > .card > .cardBody > .checklist:only-child { flex: 1; }
+.row > .card > .cardBody > .tiles:only-child { grid-auto-rows: 1fr; }
+.row > .card > .cardBody > .checklist:only-child > .checkItem { flex: 1; }
 
 /* ── CREAM GROUP BOX (Settings .prefGroupBox) ──────────────────── */
 .group {
@@ -167,6 +196,16 @@
 
 /* ── KPI TILES (cream, with a coloured top edge) ───────────────── */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; }
+/* fix210: 4 tiles go 4 across when there is room, else 2x2 (never 3 + 1); 2 tiles side by side, stacked when narrow */
+.tiles[data-n="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tiles[data-n="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@container (max-width: 900px) { .tiles[data-n="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 540px) { .tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 400px) { .tiles[data-n="6"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 420px) { .tiles[data-n="3"] { grid-template-columns: minmax(0, 1fr); } }
+@container (max-width: 300px) { .tiles[data-n="2"], .tiles[data-n="4"] { grid-template-columns: minmax(0, 1fr); } }
 .tile {
     --tone: #EE8C3A;
     position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 4px;
@@ -306,3 +345,10 @@
 :root[data-theme="bright"] .container { --cream: #ffffff; }
 :root[data-theme="bright"] .group, :root[data-theme="bright"] .tile, :root[data-theme="bright"] .pipeRow,
 :root[data-theme="bright"] .checkItem, :root[data-theme="bright"] .chip { box-shadow: 0 1px 3px rgba(26, 46, 48, 0.08); }
+
+/* fix210: a link at the foot of a panel sits at the bottom when the row makes the panel taller */
+.cardFootLink {
+    margin-top: auto; align-self: flex-end; display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-label); letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent);
+}
+.cardFootLink:hover { color: var(--ink-solid); }

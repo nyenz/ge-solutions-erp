@@ -6,6 +6,7 @@ import {
     FiCalendar, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight
 } from 'react-icons/fi';
 import styles from './HardwareDatePicker.module.css';
+import { readTypedDate } from '../../utils/dateTyping';   // fix210
 
 /**
  * GOLDEN SEED -- DATE PICKER (fix152)
@@ -23,11 +24,13 @@ import styles from './HardwareDatePicker.module.css';
  *   ariaLabel -- accessible name
  *   min / max -- 'yyyy-mm-dd' limits like the native input (days outside are greyed and cannot be picked; fix182)
  *   id        -- put on the visible field so a <label htmlFor> still points at it
+ * fix210 (David): a small box at the top of the card takes a typed date (14/03/2019); the calendar jumps to it as it is
+ * typed and Enter (or SET) puts it in the field.
  */
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const POP_W = 288;
-const POP_H = 352;
+const POP_H = 398;
 
 const pad = (n) => String(n).padStart(2, '0');
 const toValue = (y, m, d) => y + '-' + pad(m + 1) + '-' + pad(d);
@@ -54,11 +57,14 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
     const wrapRef = useRef(null);
     const inputRef = useRef(null);
     const popRef = useRef(null);
+    const [typed, setTyped] = useState('');
+    const [typedErr, setTypedErr] = useState('');
 
     // open the card under the field (or above it when there is no room below)
     const openPicker = () => {
         const p = parse(value) || todayParts();
         setView({ y: p.y, m: p.m });
+        setTyped(show(value)); setTypedErr('');
         if (inputRef.current) {
             // fix181 (15.1b): the card is drawn inside the zoomed #root, so screen pixels are turned into its pixels
             const k = uiScale();
@@ -104,6 +110,20 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
         return { y: d.getFullYear(), m: d.getMonth() };
     });
     const shiftYear = (n) => setView((v) => ({ y: v.y + n, m: v.m }));
+    // the typed box: the calendar follows a complete date at once; Enter / SET applies it
+    const onTyped = (text) => {
+        setTyped(text); setTypedErr('');
+        const r = readTypedDate(text);
+        if (r.value) { const p = parse(r.value); setView({ y: p.y, m: p.m }); }
+    };
+    const applyTyped = () => {
+        const r = readTypedDate(typed);
+        if (!r.value && !r.error) { pick(''); return; }
+        if (r.error) { setTypedErr(r.error); return; }
+        if (outOfRange(r.value)) { setTypedErr(max && r.value > max ? 'That date is too late here.' : 'That date is too early here.'); return; }
+        pick(r.value);
+    };
+    const typedOk = readTypedDate(typed).value;
 
     const sel = parse(value);
     const now = todayParts();
@@ -137,6 +157,14 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
 
             {open && createPortal(
                 <div ref={popRef} className={styles.pop} style={{ top: pos.top, left: pos.left, width: POP_W }} role="dialog" aria-label="Choose a date">
+                    <div className={styles.typeRow}>
+                        <input type="text" inputMode="numeric" className={`${styles.typeBox} ${typedErr ? styles.typeBoxBad : ''}`}
+                            value={typed} placeholder="Type a date: dd/mm/yyyy" aria-label="Type the date (day/month/year)" maxLength={10}
+                            onChange={(e) => onTyped(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyTyped(); } }} />
+                        <button type="button" className={styles.typeSet} onClick={applyTyped} disabled={!typed.trim()}>Set</button>
+                    </div>
+                    {typedErr && <p className={styles.typeErr} role="alert">{typedErr}</p>}
                     <div className={styles.nav}>
                         <button type="button" className={styles.navBtn} onClick={() => shiftYear(-1)} aria-label="Previous year"><FiChevronsLeft /></button>
                         <button type="button" className={styles.navBtn} onClick={() => shiftMonth(-1)} aria-label="Previous month"><FiChevronLeft /></button>
@@ -151,7 +179,7 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
 
                     <div className={styles.grid}>
                         {cells.map((c) => {
-                            const isSel = !!sel && sel.y === c.y && sel.m === c.m && sel.d === c.d;
+                            const isSel = typedOk ? typedOk === toValue(c.y, c.m, c.d) : (!!sel && sel.y === c.y && sel.m === c.m && sel.d === c.d);
                             const isNow = now.y === c.y && now.m === c.m && now.d === c.d;
                             const off = outOfRange(toValue(c.y, c.m, c.d));
                             return (

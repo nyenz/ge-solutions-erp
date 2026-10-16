@@ -1,11 +1,19 @@
 // PATH: erp-frontend/src/components/common/HardwareSelect.jsx
-import React, { useState, useRef, useEffect } from 'react';
+// fix210 (David): the list now works from the keyboard like a normal select box -- Tab reaches it, Up/Down move,
+// Enter picks, Esc closes -- and typing letters jumps to the matching item (utils/typeAhead.js).
+import React, { useState, useRef, useEffect, useId } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import styles from './HardwareSelect.module.css';
+import { useTypeAhead } from '../../utils/typeAhead';
 
 const HardwareSelect = ({ label, options, value, onChange, required = false, placeholder = '', compact = false }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [active, setActive] = useState(-1);
     const containerRef = useRef(null);
+    const listRef = useRef(null);
+    const typeAhead = useTypeAhead();
+    const listId = useId();
+    const current = options.indexOf(value);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -15,6 +23,34 @@ const HardwareSelect = ({ label, options, value, onChange, required = false, pla
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // keep the highlighted row in view
+    useEffect(() => {
+        if (!isOpen || active < 0 || !listRef.current) return;
+        const row = listRef.current.querySelector('[data-idx="' + active + '"]');
+        if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }, [isOpen, active]);
+
+    const openList = () => { setActive(current >= 0 ? current : 0); setIsOpen(true); };
+    const pick = (opt) => { onChange(opt); setIsOpen(false); };
+
+    const onKeyDown = (e) => {
+        const hit = typeAhead(e, options, isOpen ? active : current);
+        if (hit >= 0) {
+            e.preventDefault();
+            if (isOpen) setActive(hit); else onChange(options[hit]);   // closed: a letter picks at once, like a normal select
+            return;
+        }
+        if (!isOpen) {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openList(); }
+            return;
+        }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => Math.min(options.length - 1, i + 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(0, i - 1)); }
+        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (options[active] !== undefined) pick(options[active]); else setIsOpen(false); }
+        else if (e.key === 'Tab') setIsOpen(false);
+    };
+
     return (
         <div className={`${styles.fieldWrapper} ${isOpen ? styles.openWrapper : ''} ${compact ? styles.compactWrapper : ''}`} ref={containerRef}>
             {label && (
@@ -23,21 +59,24 @@ const HardwareSelect = ({ label, options, value, onChange, required = false, pla
                     {required && <span className={styles.requiredMark}>*</span>}
                 </label>
             )}
-            <div className={`${styles.selectBox} ${compact ? styles.compactBox : ''} ${isOpen ? styles.active : ''}`} onClick={() => setIsOpen(!isOpen)}>
+            <div className={`${styles.selectBox} ${compact ? styles.compactBox : ''} ${isOpen ? styles.active : ''}`}
+                role="combobox" tabIndex={0} aria-haspopup="listbox" aria-expanded={isOpen} aria-controls={isOpen ? listId : undefined}
+                aria-label={label || placeholder || undefined}
+                onClick={() => (isOpen ? setIsOpen(false) : openList())} onKeyDown={onKeyDown}>
                 <span className={`${styles.currentValue} ${!value ? styles.placeholder : ''}`}>{value || placeholder}</span>
                 <FiChevronDown className={styles.icon} />
 
                 {isOpen && (
-                    <div className={styles.dropdown}>
-                        {options.map(opt => (
+                    <div className={styles.dropdown} role="listbox" id={listId} ref={listRef}>
+                        {options.map((opt, i) => (
                             <div
                                 key={opt}
-                                className={`${styles.option} ${value === opt ? styles.selected : ''}`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onChange(opt);
-                                    setIsOpen(false);
-                                }}
+                                data-idx={i}
+                                role="option"
+                                aria-selected={value === opt}
+                                className={`${styles.option} ${value === opt ? styles.selected : ''} ${i === active ? styles.optionActive : ''}`}
+                                onMouseEnter={() => setActive(i)}
+                                onClick={(e) => { e.stopPropagation(); pick(opt); }}
                             >
                                 {opt}
                             </div>

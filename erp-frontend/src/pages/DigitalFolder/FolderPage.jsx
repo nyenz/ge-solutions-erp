@@ -25,6 +25,8 @@ import {
     FiDollarSign, FiActivity, FiHome, FiArchive,
     FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiPaperclip, FiExternalLink, FiHash } from 'react-icons/fi';
 import landService from '../../services/landService';
+import useDocCategories from '../../utils/useDocCategories';
+import { useTypeAhead } from '../../utils/typeAhead';
 import statusTemplateService from '../../services/statusTemplateService';
 import { projectTypeOf, showsTitle } from '../../constants/projectTypes';
 import folderPortalService from '../../services/folderPortalService';
@@ -132,13 +134,18 @@ const SmartInput = React.forwardRef(({ label, value, onChange, onBlur, placehold
 SmartInput.displayName = 'SmartInput';
 const SmartSelect = ({ label, options, value, onChange, id }) => {
     const [open, setOpen] = useState(false); const wrapRef = useRef(null);
+    const typeAhead = useTypeAhead();   // fix210: a letter picks the matching item, like a normal select box
     const selectId = id || 'ss-' + (label || '').replace(/\W/g, '-').toLowerCase();
     useEffect(() => { const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, []);
     return (<div className={styles.hwInputWrap} ref={wrapRef} style={{ position: 'relative' }}>
         <div className={styles.inputLabelRow}><label id={selectId + '_lbl'}>{label}</label></div>
         <div id={selectId} role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-labelledby={selectId + '_lbl'} tabIndex={0}
             className={`${styles.selectTrigger} ${open ? styles.selectTriggerOpen : ''}`} onClick={() => setOpen(o => !o)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); } if (e.key === 'Escape') setOpen(false); }}>
+            onKeyDown={e => {
+                const hit = typeAhead(e, options, options.indexOf(value));
+                if (hit >= 0) { e.preventDefault(); onChange(options[hit]); return; }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); } if (e.key === 'Escape') setOpen(false);
+            }}>
             <span className={styles.selectValue}>{value}</span>
             <FiChevronDown className={`${styles.selectChevron} ${open ? styles.rotated : ''}`} aria-hidden="true" />
         </div>
@@ -197,7 +204,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
 // fix193: canTick = may tick / untick (Secretary and above); canEdit = may also add stages (Manager and above, in EDIT)
 // fix196: needsNumbers = the project has no invoice / contract number yet; onNumbers(stage) opens the numbers popup;
 // reloadKey changes when the numbers were saved (the server ticks the Invoice / Contract stage by itself)
-const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, needsTitle = false, onTitled, reloadKey = 0, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc, onStages }) => {
+const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, needsTitle = false, onTitled, reloadKey = 0, canRemove, toast, confirm, docsByStatus, docsByCategory, docCats = [], canAttach, onAttach, onViewDoc, onStages }) => {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
@@ -287,7 +294,9 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumb
             const done = statusDone(status);
             const when = status.completedAt ? fmtDate(status.completedAt) : '';
             const tip = done ? ('Done' + (when ? ' on ' + when : '') + (status.completedBy ? ' by ' + status.completedBy : '') + '.') : 'Not done yet.';
-            const docs = (docsByStatus && docsByStatus.get(status.id)) || [];
+            // fix210 (David): a document filed in DOCUMENTS with this stage's type also shows under the stage
+            const typeCode = docsByCategory && docsByCategory.size ? categoryForStage(status.statusName, docCats) : '';
+            const docs = [...((docsByStatus && docsByStatus.get(status.id)) || []), ...((typeCode && docsByCategory.get(typeCode)) || [])];
             return (<React.Fragment key={status.id}>
                 <label className={`${styles.statusItem} ${done ? styles.statusItemChecked : ''} ${canTick ? '' : styles.statusItemRO}`} title={canTick ? tip + ' Click to ' + (done ? 'untick.' : 'tick.') : tip}>
                     <input type="checkbox" className={styles.statusCheckbox} checked={done} readOnly={!canTick} tabIndex={canTick ? 0 : -1}
@@ -445,14 +454,19 @@ const FolderPage = () => {
     const firstInputRef = useRef(null);
     const fileInputRef = useRef(null);
     // fix136: document categories + the UPLOAD DOCUMENTS window
-    const [docCats, setDocCats] = useState([]);
     const [uploadDraft, setUploadDraft] = useState(null); // { batch, files: [{ file, category }], statusId, statusName }
     const [attachTo, setAttachTo] = useState(null);       // fix180: the status the next picked files are attached to
     const [newCatOpen, setNewCatOpen] = useState(false);
     const [newCatName, setNewCatName] = useState('');
     const [catBusy, setCatBusy] = useState(false);
-    const loadDocCats = useCallback(async () => { try { setDocCats(await landService.getDocumentCategories()); } catch { /* headings fall back to the raw code */ } }, []);
-    useEffect(() => { loadDocCats(); }, [loadDocCats]);
+    // fix210: shared loader (retries while the server wakes, "Loading..." in the pick-lists, asks again when the window opens)
+    const { cats: docCats, reload: loadDocCats, ensure: ensureCats, emptyText: catEmptyText } = useDocCategories();
+    // the types may arrive after the upload window opened: then the stage's type is picked for files still without one
+    useEffect(() => {
+        if (!uploadDraft || !uploadDraft.statusName || uploadDraft.batch || !docCats.length) return;
+        const code = categoryForStage(uploadDraft.statusName, docCats);
+        if (code) setUploadDraft(d => d && ({ ...d, batch: code, files: d.files.map(f => (f.category ? f : { ...f, category: code })) }));
+    }, [docCats, uploadDraft]);
     const touchedSetBuffer = React.useCallback((updater) => { setBuffer(updater); }, []);
     const { blocked: guardModalOpen, proceed: routerProceed, reset: handleStay } = useRouterBlock(!committing && isEditing);
     const lastActiveRef = useRef(Date.now());
@@ -744,6 +758,7 @@ const FolderPage = () => {
         if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
         if (!ok.length) return;
         // fix199 (test note 22): a file attached from a stage starts with that stage's document type (it can be changed)
+        ensureCats();
         const stageCat = target ? categoryForStage(target.statusName, docCats) : '';
         setUploadDraft({ batch: stageCat, error: '', files: ok.map(({ file, note }) => ({ file, category: stageCat, note })), statusId: target ? target.id : null, statusName: target ? target.statusName : '' });
     };
@@ -990,7 +1005,14 @@ const FolderPage = () => {
     const neighbors = binder.neighbors || [];
     const subdivisions = binder.subdivisions || [];
     const docsByStatus = new Map();
-    (binder.documents || []).forEach(d => { if (d.statusId) { if (!docsByStatus.has(d.statusId)) docsByStatus.set(d.statusId, []); docsByStatus.get(d.statusId).push(d); } });
+    const docsByCategory = new Map();   // fix210: documents with no stage, by type (shown under the stage of that type)
+    (binder.documents || []).forEach(d => {
+        const map = d.statusId ? docsByStatus : docsByCategory;
+        const k = d.statusId || d.category;
+        if (!k) return;
+        if (!map.has(k)) map.set(k, []);
+        map.get(k).push(d);
+    });
     const docCount = (binder.documents || []).length;
     const UNCATEGORISED = '__NONE__';
     const catLabel = (code) => (docCats.find(c => c.code === code)?.label) || String(code).replace(/_/g, ' ');
@@ -1216,7 +1238,7 @@ const FolderPage = () => {
                             needsTitle={!project.landTitle || !(binder.documents || []).some(d => d.category === 'COPY_OF_TITLE')} onTitled={openTitled}
                             canRemove={isDirector && !isDeleted && isEditing && !isReleased}
                             toast={toast} confirm={confirm}
-                            docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
+                            docsByStatus={docsByStatus} docsByCategory={docsByCategory} docCats={docCats} canAttach={canUploadDocs && !isDeleted && !isReleased}
                             onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} onStages={setLiveStages} />
                         {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick stages. The paperclip attaches documents to a stage.</span>}
                     </div></div>
@@ -1553,10 +1575,10 @@ const FolderPage = () => {
                 {uploadDraft && (<>
                     {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the stage &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
-                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
+                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText={catEmptyText} ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
                         <span className={styles.upFileName} title={f.file.name}>{f.file.name}{f.note && <small className={styles.upFileNote}>{f.note}</small>}</span>
-                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
+                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setFileCategory(i, code)} placeholder="Category" emptyText={catEmptyText} ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
                     {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
                         <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
                         <div className={styles.upCatActions}>

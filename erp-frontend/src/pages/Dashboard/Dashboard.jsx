@@ -53,6 +53,12 @@ function Card({ title, icon: Icon, accent = 'orange', wide = false, right, child
     );
 }
 
+/** fix210: the tile box knows how many tiles it holds, so 4 tiles sit 4 across or 2x2 -- never 3 + 1. */
+function Tiles({ children }) {
+    const n = React.Children.toArray(children).filter(Boolean).length;
+    return <div className={styles.tiles} data-n={n}>{children}</div>;
+}
+
 /** A cream KPI tile: icon frame, big figure, label, and where the click goes. */
 function Tile({ to, n, label, icon: Icon, tone = 'orange', money = false, hint }) {
     const value = n == null ? '-' : money ? short(n) : fmt(n);
@@ -224,7 +230,104 @@ const Dashboard = () => {
 
             {error && (<div className={styles.error} role="alert"><FiAlertTriangle aria-hidden="true" /> {error} <button type="button" className={styles.retry} onClick={load}>RETRY</button></div>)}
 
-            {data && (
+            {data && (() => {
+                // fix210 (David: "awkward spaces, panels of unmatched lengths" on ranks with few panels). The small panels
+                // share one row whose columns follow HOW MANY there are (1, 2, 3, 2x2, 3+2), so no empty column is left and
+                // the panels in a row have the same height. The wide panels (money, stages, activity) stay full width.
+                const normal = [
+                    <React.Fragment key="workQueue">
+                        {b.has('workQueue') && (
+                            <Card title="Today's work" icon={FiInbox} accent="orange">
+                                <Tiles>
+                                    {b.has('dueCalls') && <Tile to="/recovery" n={data.dueCalls} label="Clients due for a call" icon={FiPhoneCall} tone="cyan" />}
+                                    {b.has('newProjects') && <Tile to="/land/projects" n={data.newProjects} label="New projects (7 days)" icon={FiPlusSquare} tone="green" />}
+                                    <Tile to="/land/projects?tab=PENDING" n={wq.pending && wq.pending.count} icon={FiClock} tone="slate"
+                                        label={'Pending - set prices' + (wq.pending && wq.pending.oldestDays != null && wq.pending.count ? ' (oldest ' + wq.pending.oldestDays + ' d)' : '')} />
+                                    <Tile to="/land/projects?tab=PROBLEM" n={wq.problems} label="Problem flags" icon={FiAlertTriangle} tone="red" />
+                                    <Tile to="/land/projects?tab=RECEIVABLES" n={wq.receivables} label="In receivables" icon={FiArchive} tone="yellow" />
+                                    <Tile to="/land/projects?tab=PAID" n={wq.releaseReady} label="Ready for hand-over" icon={FiPackage} tone="green" />
+                                </Tiles>
+                            </Card>
+                        )}
+                    </React.Fragment>,
+                    <React.Fragment key="dueCalls">
+                        {/* fix210: when the work queue is shown, its panel also holds these two tiles (one panel instead of two half-empty ones) */}
+                        {!b.has('workQueue') && (b.has('dueCalls') || b.has('newProjects') || b.has('problems') || b.has('receivables')) && (
+                            <Card title="Today" icon={FiCalendar} accent="green">
+                                <Tiles>
+                                    {b.has('dueCalls') && <Tile to="/recovery" n={data.dueCalls} label="Clients due for a call" icon={FiPhoneCall} tone="cyan" />}
+                                    {b.has('newProjects') && <Tile to="/land/projects" n={data.newProjects} label="New projects (7 days)" icon={FiPlusSquare} tone="green" />}
+                                    {b.has('problems') && !b.has('workQueue') && <Tile to="/land/projects?tab=PROBLEM" n={data.problems} label="Problem flags" icon={FiAlertTriangle} tone="red" />}
+                                    {b.has('receivables') && !b.has('workQueue') && <Tile to="/land/projects?tab=RECEIVABLES" n={data.receivables} label="In receivables" icon={FiArchive} tone="yellow" />}
+                                </Tiles>
+                            </Card>
+                        )}
+                    </React.Fragment>,
+                    <React.Fragment key="releaseReady">
+                        {b.has('releaseReady') && data.releaseReady && (
+                            <Card title={'Ready for hand-over (' + fmt(data.releaseReady.count) + ')'} icon={FiPackage} accent="green">
+                                {(data.releaseReady.first || []).length === 0 ? <div className={styles.empty}>Nothing is ready.</div>
+                                    : (<div className={styles.chips}>{data.releaseReady.first.map(p => (
+                                        <Link key={p.id} to={'/folder/' + p.id} className={styles.chip} title={[p.type, p.client].filter(Boolean).join(' - ')}>
+                                            <strong>#{p.index}</strong>{p.client && <span>{p.client}</span>}
+                                        </Link>))}</div>)}
+                                <Link to="/land/projects?tab=PAID" className={styles.cardFootLink}>Open the full hand-over list <FiArrowRight aria-hidden="true" /></Link>
+                            </Card>
+                        )}
+                    </React.Fragment>,
+                    <React.Fragment key="waitingForYou">
+                        {b.has('waitingForYou') && data.waitingForYou && (
+                            <Card title="Waiting for you" icon={FiBookOpen} accent="violet">
+                                <div className={styles.checklist}>
+                                    {[
+                                        ['/land/projects?tab=PAID', data.waitingForYou.releaseReady, 'titles ready to hand over', FiPackage],
+                                        ['/land/projects?tab=PROBLEM', data.waitingForYou.problems, 'problem flags to clear', FiAlertTriangle],
+                                        ['/land/projects?tab=RECEIVABLES', data.waitingForYou.flaggedReceivableThisWeek, 'went into receivables this week', FiArchive],
+                                        ['/payments?books=1', data.waitingForYou.booksMismatch, 'books check differences', FiShield],
+                                    ].map(([to, n, text, icon]) => (
+                                        <Link key={to + text} to={to} className={`${styles.checkItem} ${Number(n) > 0 ? styles.checkItemHot : ''}`}>
+                                            {React.createElement(icon, { 'aria-hidden': true, className: styles.checkIcon })}
+                                            <strong>{n == null || n < 0 ? '-' : fmt(n)}</strong><span>{text}</span>
+                                            <FiArrowRight aria-hidden="true" className={styles.checkGo} />
+                                        </Link>
+                                    ))}
+                                </div>
+                            </Card>
+                        )}
+                    </React.Fragment>,
+                    <React.Fragment key="periods">
+                        {b.has('periods') && data.periods && (
+                            <Card title="Money in and out" icon={FiTrendingUp} accent="cyan">
+                                <div className={styles.stack}>{Object.entries(data.periods).map(([k, p]) => <Period key={k} p={p} />)}</div>
+                            </Card>
+                        )}
+                    </React.Fragment>,
+                    <React.Fragment key="systemHealth">
+                        {b.has('systemHealth') && health && (
+                            <Card title="System health" icon={FiShield} accent="slate">
+                                <div className={styles.group}>
+                                    {[
+                                        ['Failed sign-ins (24 h)', fmt(health.failedLogins24h), Number(health.failedLogins24h) > 5 ? 'warn' : 'ok', '/audit'],
+                                        ['Night job failures (7 days)', fmt(health.jobFailures7d), Number(health.jobFailures7d) > 0 ? 'bad' : 'ok', null],
+                                        ['Books check', health.booksMismatch === 0 ? 'adds up' : health.booksMismatch < 0 ? 'not checked' : health.booksMismatch + ' differ', health.booksMismatch === 0 ? 'ok' : 'bad', '/payments?books=1'],
+                                        ['Staff accounts', fmt(health.accounts), 'ok', null],
+                                        ['Audit lines today', fmt(health.auditLinesToday), 'ok', '/audit'],
+                                    ].map(([k, v, st, to]) => (
+                                        <div key={k} className={styles.kv}>
+                                            <span><i className={styles.light} data-state={st} aria-hidden="true" />{k}</span>
+                                            {to ? <Link to={to} className={styles.kvLink}>{v}</Link> : <strong>{v}</strong>}
+                                        </div>
+                                    ))}
+                                    {health.oneAdminWarning && <div className={`${styles.note} ${styles.bad}`}><FiLock aria-hidden="true" /> {health.oneAdminWarning}</div>}
+                                </div>
+                            </Card>
+                        )}
+                    </React.Fragment>
+                ].filter(f => {
+                    const c = f.props.children;
+                    return c !== false && c !== null && c !== undefined && c !== '';
+                });
+                return (
                 <div className={styles.grid}>
                     {b.has('money') && money && (
                         <Card title="Money" icon={FiDollarSign} wide accent="orange">
@@ -237,12 +340,12 @@ const Dashboard = () => {
                                         <span className={styles.muted}>of UGX {fmt(money.totalValue)} in title work</span>
                                     </div>
                                 </div>
-                                <div className={styles.tiles}>
+                                <Tiles>
                                     <Tile to="/payments?tab=TITLE" n={money.titleCollected} money label="Title money collected" icon={FiCheckCircle} tone="green" />
                                     <Tile to="/land/projects?tab=CRITICAL" n={money.titleArrears} money label="Title money still owed" icon={FiAlertTriangle} tone="red" />
                                     <Tile to="/payments" n={money.collectedThisMonth} money label="Collected this month" icon={FiTrendingUp} tone="orange" />
                                     <Tile to="/land/projects?tab=RECEIVABLES" n={money.storageFeesUnpaid} money label="Storage fees unpaid" icon={FiArchive} tone="yellow" />
-                                </div>
+                                </Tiles>
                             </div>
                             <div className={styles.moneyBottom}>
                                 <div className={styles.group}>
@@ -260,92 +363,13 @@ const Dashboard = () => {
                             </div>
                         </Card>
                     )}
-
-                    {b.has('periods') && data.periods && (
-                        <Card title="Money in and out" icon={FiTrendingUp} accent="cyan">
-                            <div className={styles.stack}>{Object.entries(data.periods).map(([k, p]) => <Period key={k} p={p} />)}</div>
-                        </Card>
-                    )}
-
-                    {(b.has('dueCalls') || b.has('newProjects') || b.has('problems') || b.has('receivables')) && (
-                        <Card title="Today" icon={FiCalendar} accent="green">
-                            <div className={styles.tiles}>
-                                {b.has('dueCalls') && <Tile to="/recovery" n={data.dueCalls} label="Clients due for a call" icon={FiPhoneCall} tone="cyan" />}
-                                {b.has('newProjects') && <Tile to="/land/projects" n={data.newProjects} label="New projects (7 days)" icon={FiPlusSquare} tone="green" />}
-                                {b.has('problems') && !b.has('workQueue') && <Tile to="/land/projects?tab=PROBLEM" n={data.problems} label="Problem flags" icon={FiAlertTriangle} tone="red" />}
-                                {b.has('receivables') && !b.has('workQueue') && <Tile to="/land/projects?tab=RECEIVABLES" n={data.receivables} label="In receivables" icon={FiArchive} tone="yellow" />}
-                            </div>
-                        </Card>
-                    )}
-
-                    {b.has('workQueue') && (
-                        <Card title="Work queue" icon={FiInbox} accent="orange">
-                            <div className={styles.tiles}>
-                                <Tile to="/land/projects?tab=PENDING" n={wq.pending && wq.pending.count} icon={FiClock} tone="slate"
-                                    label={'Pending - set prices' + (wq.pending && wq.pending.oldestDays != null && wq.pending.count ? ' (oldest ' + wq.pending.oldestDays + ' d)' : '')} />
-                                <Tile to="/land/projects?tab=PROBLEM" n={wq.problems} label="Problem flags" icon={FiAlertTriangle} tone="red" />
-                                <Tile to="/land/projects?tab=RECEIVABLES" n={wq.receivables} label="In receivables" icon={FiArchive} tone="yellow" />
-                                <Tile to="/land/projects?tab=PAID" n={wq.releaseReady} label="Ready for hand-over" icon={FiPackage} tone="green" />
-                            </div>
-                        </Card>
-                    )}
-
-                    {b.has('waitingForYou') && data.waitingForYou && (
-                        <Card title="Waiting for you" icon={FiBookOpen} accent="violet">
-                            <div className={styles.checklist}>
-                                {[
-                                    ['/land/projects?tab=PAID', data.waitingForYou.releaseReady, 'titles ready to hand over', FiPackage],
-                                    ['/land/projects?tab=PROBLEM', data.waitingForYou.problems, 'problem flags to clear', FiAlertTriangle],
-                                    ['/land/projects?tab=RECEIVABLES', data.waitingForYou.flaggedReceivableThisWeek, 'went into receivables this week', FiArchive],
-                                    ['/payments?books=1', data.waitingForYou.booksMismatch, 'books check differences', FiShield],
-                                ].map(([to, n, text, icon]) => (
-                                    <Link key={to + text} to={to} className={`${styles.checkItem} ${Number(n) > 0 ? styles.checkItemHot : ''}`}>
-                                        {React.createElement(icon, { 'aria-hidden': true, className: styles.checkIcon })}
-                                        <strong>{n == null || n < 0 ? '-' : fmt(n)}</strong><span>{text}</span>
-                                        <FiArrowRight aria-hidden="true" className={styles.checkGo} />
-                                    </Link>
-                                ))}
-                            </div>
-                        </Card>
-                    )}
-
-                    {b.has('releaseReady') && data.releaseReady && (
-                        <Card title={'Ready for hand-over (' + fmt(data.releaseReady.count) + ')'} icon={FiPackage} accent="green">
-                            {(data.releaseReady.first || []).length === 0 ? <div className={styles.empty}>Nothing is ready.</div>
-                                : (<div className={styles.chips}>{data.releaseReady.first.map(p => (
-                                    <Link key={p.id} to={'/folder/' + p.id} className={styles.chip} title={[p.type, p.client].filter(Boolean).join(' - ')}>
-                                        <strong>#{p.index}</strong>{p.client && <span>{p.client}</span>}
-                                    </Link>))}</div>)}
-                        </Card>
-                    )}
-
-                    {b.has('systemHealth') && health && (
-                        <Card title="System health" icon={FiShield} accent="slate">
-                            <div className={styles.group}>
-                                {[
-                                    ['Failed sign-ins (24 h)', fmt(health.failedLogins24h), Number(health.failedLogins24h) > 5 ? 'warn' : 'ok', '/audit'],
-                                    ['Night job failures (7 days)', fmt(health.jobFailures7d), Number(health.jobFailures7d) > 0 ? 'bad' : 'ok', null],
-                                    ['Books check', health.booksMismatch === 0 ? 'adds up' : health.booksMismatch < 0 ? 'not checked' : health.booksMismatch + ' differ', health.booksMismatch === 0 ? 'ok' : 'bad', '/payments?books=1'],
-                                    ['Staff accounts', fmt(health.accounts), 'ok', null],
-                                    ['Audit lines today', fmt(health.auditLinesToday), 'ok', '/audit'],
-                                ].map(([k, v, st, to]) => (
-                                    <div key={k} className={styles.kv}>
-                                        <span><i className={styles.light} data-state={st} aria-hidden="true" />{k}</span>
-                                        {to ? <Link to={to} className={styles.kvLink}>{v}</Link> : <strong>{v}</strong>}
-                                    </div>
-                                ))}
-                                {health.oneAdminWarning && <div className={`${styles.note} ${styles.bad}`}><FiLock aria-hidden="true" /> {health.oneAdminWarning}</div>}
-                            </div>
-                        </Card>
-                    )}
-
+                    {normal.length > 0 && <div className={styles.row} data-n={normal.length}>{normal}</div>}
                     {b.has('pipeline') && (
                         <Card title="Projects by type and stage" icon={FiLayers} wide accent="cyan"
                             right={<span className={styles.headNote}>Click a type to see every stage</span>}>
                             <Pipeline byType={data.pipeline} />
                         </Card>
                     )}
-
                     {b.has('recentActivity') && (
                         <Card title="Recent activity" icon={FiActivity} wide accent="orange" right={<Link to="/audit" className={styles.headLink}>Full audit log <FiArrowRight aria-hidden="true" /></Link>}>
                             {(data.recentActivity || []).length === 0 ? <div className={styles.empty}>Nothing yet.</div> : (
@@ -367,7 +391,8 @@ const Dashboard = () => {
                         </Card>
                     )}
                 </div>
-            )}
+                );
+            })()}
         </div>
     );
 };
