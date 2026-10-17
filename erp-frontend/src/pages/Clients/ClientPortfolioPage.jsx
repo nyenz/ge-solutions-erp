@@ -15,8 +15,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft, FiPhoneCall, FiMail, FiMapPin, FiClock, FiCreditCard,
   FiUsers, FiUser, FiEdit3, FiSave, FiX, FiFolder, FiPercent, FiAlertTriangle,
-  FiArrowUp, FiArrowDown,
+  FiArrowUp, FiArrowDown, FiPrinter,
 } from 'react-icons/fi';
+import ClientFilePrint from '../../components/print/ClientFilePrint';   // fix212
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
 import clientService from '../../services/clientService';
@@ -203,9 +204,12 @@ const ClientPortfolioPage = () => {
             <button type="button" className={styles.cancelBtn} onClick={cancelEdit} disabled={saving}><FiX aria-hidden="true" /> CANCEL</button>
             <button type="button" className={styles.saveBtn} onClick={saveEdit} disabled={saving}><FiSave aria-hidden="true" /> {saving ? 'SAVING...' : 'SAVE'}</button>
           </div>)}
+          {!isEditing && (<button type="button" className={styles.editBtn} onClick={() => window.print()} title="Print this client's file"><FiPrinter aria-hidden="true" /> PRINT</button>)}
           {backBtn}
         </div>
       </header>
+      {/* fix212: what PRINT puts on paper -- a Client File in the same layout as the Project File */}
+      <ClientFilePrint className={styles.printDocWrap} client={d} plots={plots} totals={totals} showMoney={isDirector} printedBy={user?.username} />
 
       <CollapsibleSection icon={<FiUsers aria-hidden="true" />} title="IDENTITY">
         <CornerDecor hideTop />

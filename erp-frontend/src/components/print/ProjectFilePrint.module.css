@@ -12,7 +12,8 @@
         size: A4 portrait;
         margin: 12mm 0 14mm;
         @bottom-center {
-            content: "GE SOLUTIONS  ·  PROJECT FILE  ·  Page " counter(page) " of " counter(pages);
+            content: "GE SOLUTIONS  ·  Page "   /* fix212: shared with the Client File */
+             counter(page) " of " counter(pages);
             font-family: Arial, sans-serif; font-size: 7pt; color: #6b8486;
         }
     }

@@ -32,6 +32,7 @@ import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestForRow, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
 import { errorText } from '../../utils/errorText';   // fix205
+const fmtDMY = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : iso; };   // fix212
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 const EMPTY_NEIGHBOR = () => ({ fullName: '', phone: '', side: '', plotNumber: '' });
@@ -45,7 +46,6 @@ const TYPE_HINTS = {
     TOPOGRAPHIC_SURVEY: 'Title Details optional', RESURVEY: 'Survey a titled plot again', SPECIAL_PROJECTS: 'Contract work, no title',
 };
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
-const sameRows = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here.
 // fix190: "today" is the day on THIS device's calendar (it used to be London time: yesterday until 3 am in Kampala)
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -224,8 +224,10 @@ export default function IntakePage() {
     }, []);
     useEffect(() => { loadTypeStatuses(projectType); }, [projectType, loadTypeStatuses]);
 
-    // fix180: TRANSFER of a subdivision plot (opened from the subdivision's folder page): the type is Transfer of Title and
-    // the Clients and Owners are copied from the subdivision. Title Details, Neighbors and everything else start blank.
+    // fix180: TRANSFER of a subdivision plot (opened from the subdivision's folder page): the type is Transfer of Title.
+    // fix212 (David, test step L11): the CLIENT is NOT copied (the plot has a new buyer); the Owners (the sellers) and the
+    // LOCATION (same land) are copied. Title Date starts EMPTY: the plot gets its own new title with its own date. The
+    // original title's number and date show as a read-only line above it so nobody has to look them up.
     useEffect(() => {
         const from = searchParams.get('transferFrom');
         const plot = parseInt(searchParams.get('plot') || '', 10);
@@ -234,12 +236,15 @@ export default function IntakePage() {
             const p = data && data.project;
             if (!p) return;
             const toRow = (c) => ({ fullName: c.fullName || '', phone: c.phoneNumber || '', email: c.email || '', nationalId: c.nationalId || '', address: c.homeAddress || '' });
-            const cl = (p.clients && p.clients.length ? p.clients : (p.proprietors || [])).map(toRow);
             const ow = (p.proprietors || []).map(toRow);
             setProjectType('TRANSFER_OF_TITLE');
-            if (cl.length) setClients(cl);
-            if (ow.length) { setOwners(ow); setOwnersLinked(sameRows(ow, cl)); }
-            setTransferFrom({ id: p.id, index: p.projectIndex, plot });
+            setClients([EMPTY_OWNER()]);
+            if (ow.length) { setOwners(ow); setOwnersLinked(false); }
+            setDistrict(p.district || ''); setCounty(p.county || ''); setSubCounty(p.subCounty || '');
+            setParish(p.parish || ''); setVillage(p.village || '');
+            const t = p.landTitle || {};
+            const mother = [t.plotNumber ? 'Plot ' + t.plotNumber : '', t.block ? 'Block ' + t.block : '', t.volume ? 'Vol ' + t.volume : '', t.folio ? 'Folio ' + t.folio : ''].filter(Boolean).join(', ');
+            setTransferFrom({ id: p.id, index: p.projectIndex, plot, mother, motherDate: t.titleIssueDate || '' });
         }).catch(() => toast('Could not load the subdivision project. Open the transfer again from its folder page.', 'error'));
     }, [searchParams, toast]);
 
@@ -742,7 +747,7 @@ export default function IntakePage() {
                     </div>
                     {transferFrom && (
                         <div className={styles.transferBanner} role="status">
-                            <FiLink aria-hidden="true" /> Transfer of plot {transferFrom.plot} of subdivision #{transferFrom.index}. Clients and Owners were copied; Title Details and Neighbors start blank.
+                            <FiLink aria-hidden="true" /> Transfer of plot {transferFrom.plot} of subdivision #{transferFrom.index}. Owners and Location were copied. Add the new client (the buyer). Title Details and Neighbors start blank.
                             {' '}<button type="button" className={styles.clearLink} onClick={() => navigate('/folder/' + transferFrom.id)}>Back to original project</button>
                         </div>
                     )}
@@ -811,6 +816,9 @@ export default function IntakePage() {
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Title Date</label>
                                 <HardwareDatePicker block className={styles.input} value={titleIssueDate} ariaLabel="Title date" onChange={v => { setTitleIssueDate(v); markDirty(); }} />
+                                {transferFrom && (transferFrom.mother || transferFrom.motherDate) && (
+                                    <p className={styles.hint}>Original title: {transferFrom.mother || 'no number'}{transferFrom.motherDate ? ', dated ' + fmtDMY(transferFrom.motherDate) : ''}. Enter the date of this plot's new title.</p>
+                                )}
                             </div>
                         </div>
                     </CollapsibleSection>

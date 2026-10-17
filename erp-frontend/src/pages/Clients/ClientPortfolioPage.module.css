@@ -258,3 +258,9 @@
 .tag { display: inline-block; margin-right: 8px; }
 .payList { margin: 6px 0 0; padding-left: 18px; flex: 1 1 100%; font-size: clamp(11px, 1.1vw, 13px); line-height: 1.6; color: rgba(var(--ink-rgb), 0.85); }
 .payList li { overflow-wrap: anywhere; }
+
+/* fix212: PRINT shows only the Client File document (components/print/ClientFilePrint) */
+@media print {
+  .container > :not(.printDocWrap) { display: none !important; }
+  .container { padding: 0 !important; margin: 0 !important; max-width: none !important; background: #fff !important; }
+}
