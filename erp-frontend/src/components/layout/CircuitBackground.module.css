@@ -109,3 +109,7 @@
 .p18{top:68%;left:18%;animation:floatP2 5.3s ease-out infinite 1.9s}
 .p19{top:52%;left:85%;animation:floatP 4.1s ease-out infinite 0.7s}
 .p20{top:78%;left:35%;animation:floatP3 4.6s ease-out infinite 2.3s}
+/* fix211: the fixed orange background layer printed as an orange block at the end of the Project File. Never print it. */
+@media print {
+    .wrapper, .bgSvg, .particle { display: none !important; }
+}
