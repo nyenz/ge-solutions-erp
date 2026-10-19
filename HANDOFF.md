@@ -17,7 +17,7 @@
 
 ## 2. The way every change is shipped (do exactly this)
 1. `cd ge-solutions-erp && git checkout main && git pull`, then a new branch `fixNNN-short-name` (the last one is **fix213**,
-   so the next is **fix214**; fix214 and fix215 were done on 19 Oct afternoon (see the guide), next is **fix218** (fix216 = explainers, fix217 = Reports PDF + Office default + type-ahead everywhere, done)).
+   so the next is **fix214**; fix214 and fix215 were done on 19 Oct afternoon (see the guide), next is **fix219** (fix218 = test pack shows only what is left) (fix216 = explainers, fix217 = Reports PDF + Office default + type-ahead everywhere, done)).
 2. Make the change. Frontend checks: `cd erp-frontend && npx eslint src && npm test && npm run build` (57 tests pass).
    The backend cannot be built in the cloud box (no Maven internet); GitHub runs the server tests on every PR.
 3. Update `LLM_CONTEXT_GUIDE.md`: add `fixNNN: ...;` at the FRONT of the "# Last updated: October 2026 (" line, and
@@ -62,7 +62,7 @@
 - **fix207:** company colours on the printed Project File.
 
 ## 5. The manual test (Round 1) -- where David is
-- **Test pack page:** https://claude.ai/artifact/MvDzEYDPtWGu58GBr92HfF (version 11, sections R, S, T, U added 19 Oct). Source copy:
+- **Test pack page:** https://claude.ai/artifact/MvDzEYDPtWGu58GBr92HfF (version 12: only-what-is-left view, results built in via SAVED). Source copy:
   `docs/testing/round1-fresh-survey.html`. Sections **A to Q** -- **never reorder or rename the step ids**: David's
   ticks are kept in that page's browser storage by step id. To change the pack, READ the artifact first, edit, and
   publish to the SAME url.
