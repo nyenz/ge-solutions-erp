@@ -118,7 +118,15 @@ export default function RecoveryPortal() {
     }, 250);
     return () => clearTimeout(t);
   }, [search]);
-  const open = (c) => { setSel(c); setPicked(null); setText(''); recoveryService.getNotes(c.id).then((r) => setNotes(r.data || [])); };
+  // fix220: the history says when it is loading or could not load (it used to stay silently empty)
+  const [notesState, setNotesState] = useState('');
+  const loadNotes = (cid) => {
+    setNotesState('loading');
+    recoveryService.getNotes(cid)
+      .then((r) => { setNotes(Array.isArray(r.data) ? r.data : []); setNotesState(''); })
+      .catch(() => { setNotes([]); setNotesState('error'); });
+  };
+  const open = (c) => { setSel(c); setPicked(null); setText(''); setNotes([]); loadNotes(c.id); };
   const jump = (co) => {
     const target = co.state === 'LOCKED' ? 'LOCKED' : co.state === 'SITE' ? 'SITE' : 'ALL';
     pendingOpen.current = co.id;
@@ -135,7 +143,7 @@ export default function RecoveryPortal() {
     if (confirmDel !== noteId) { setConfirmDel(noteId); setTimeout(() => setConfirmDel((cur) => (cur === noteId ? null : cur)), 3000); return; }
     setConfirmDel(null);
     recoveryService.deleteNote(noteId)
-      .then(() => { toast('Note deleted.', 'warn'); recoveryService.getNotes(sel.id).then((r) => setNotes(r.data || [])); load(true); })
+      .then(() => { toast('Note deleted.', 'warn'); loadNotes(sel.id); load(true); })
       .catch(() => toast('Could not delete the note.', 'error'));
   };
   const term = search.toLowerCase().replace(/\s+/g, '');
@@ -282,7 +290,9 @@ export default function RecoveryPortal() {
                 )}
               </div>
             ))}
-            {notes.length === 0 && (<div className={styles.trayEmpty}>NO CALLS LOGGED YET.</div>)}
+            {notesState === 'loading' && (<div className={styles.histEmpty}>LOADING THE CALL HISTORY...</div>)}
+            {notesState === 'error' && (<div className={styles.histEmpty} role="alert">COULD NOT LOAD THE CALL HISTORY. <button type="button" className={styles.histRetry} onClick={() => loadNotes(sel.id)} title="Try loading the history again">TRY AGAIN</button></div>)}
+            {!notesState && notes.length === 0 && (<div className={styles.histEmpty}>NO CALLS LOGGED YET.</div>)}
           </div>
           <div className={modalStyles.modalFooter}>
             <HardwareButton type="button" onClick={save} loading={busy} icon={FiPhone} disabled={!picked || (!!sel.unlock || sel.state === 'LOCKED')}>LOG OUTCOME</HardwareButton>

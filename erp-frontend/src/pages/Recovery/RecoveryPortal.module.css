@@ -643,3 +643,9 @@
     font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: 10px; letter-spacing: 1px; transition: background 0.2s, border-color 0.2s; }
 .histSection .histDelete:hover { border-color: #b91c1c; background: rgba(239, 68, 68, 0.1); }
 .histSection .histDeleteArmed { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+
+/* fix220: the empty / loading / error line of the call history is readable on its white box (it was white on white) */
+.histEmpty { padding: 6px 0; color: #64748b; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 1px; }
+.histRetry { margin-left: 8px; padding: 3px 8px; border-radius: 5px; border: 1.5px solid #EE8C3A; background: transparent; color: #9a4407;
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: 10px; letter-spacing: 1px; cursor: pointer; }
+.histRetry:hover { background: rgba(238, 140, 58, 0.12); }
