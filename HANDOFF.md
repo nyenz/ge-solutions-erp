@@ -62,7 +62,7 @@
 - **fix207:** company colours on the printed Project File.
 
 ## 5. The manual test (Round 1) -- where David is
-- **Test pack page:** https://claude.ai/artifact/MvDzEYDPtWGu58GBr92HfF (version 9). Source copy:
+- **Test pack page:** https://claude.ai/artifact/MvDzEYDPtWGu58GBr92HfF (version 10, sections R, S, T added 19 Oct). Source copy:
   `docs/testing/round1-fresh-survey.html`. Sections **A to Q** -- **never reorder or rename the step ids**: David's
   ticks are kept in that page's browser storage by step id. To change the pack, READ the artifact first, edit, and
   publish to the SAME url.
