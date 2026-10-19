@@ -118,6 +118,7 @@ public class PendingWorkflowTest {
         price.setInvoiceNumber("INV-" + UUID.randomUUID()); price.setContractNumber("CTR-" + UUID.randomUUID());   // fix196
         price.setTotalCost(new BigDecimal("1000000"));
         price.setInitialPayment(new BigDecimal("100000"));
+        price.setPaymentMethod("OFFICE");   // fix214
         pending.graduatePending(base.getId(), price);
         var known = clients.findByNationalId(nin).orElseThrow();
         known.setEmail("known@t.co");
@@ -185,6 +186,7 @@ public class PendingWorkflowTest {
         price.setInvoiceNumber("INV-" + UUID.randomUUID()); price.setContractNumber("CTR-" + UUID.randomUUID());   // fix196
         price.setTotalCost(new BigDecimal("2000000"));
         price.setInitialPayment(new BigDecimal("500000"));
+        price.setPaymentMethod("OFFICE");   // fix214
         pending.graduatePending(p.getId(), price);
         LandProject started = projects.findById(p.getId()).orElseThrow();
         assertFalse(started.isPending());

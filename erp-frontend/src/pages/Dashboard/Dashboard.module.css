@@ -178,6 +178,9 @@
 }
 .groupFoot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: var(--fs-body); font-weight: 700; color: rgba(26, 46, 48, 0.7); padding-top: 4px; border-top: 1px dashed var(--cream-line); }
 .groupFoot strong { font-family: 'Space Mono', monospace; }
+/* fix214: money in by payment method, one quiet line under the bars */
+.methodLine { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-body); font-weight: 700; color: rgba(26, 46, 48, 0.62); }
+.methodLine strong { font-family: 'Space Mono', monospace; color: #1a2e30; }
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .kv { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--cream-line); font-size: var(--fs-body); font-weight: 700; color: rgba(26, 46, 48, 0.75); }
 .kv:last-of-type { border-bottom: 0; }

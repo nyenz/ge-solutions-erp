@@ -240,6 +240,9 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS paid_on TIMESTAMP",
             "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS client_request_id VARCHAR(64)",
             "CREATE INDEX IF NOT EXISTS idx_payment_client_request ON payment_records (client_request_id)",
+            // fix214 (David): how the money was paid; old lines stay NULL ("not recorded")
+            "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20)",
+            "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(80)",
             "UPDATE payment_records SET paid_on = timestamp WHERE paid_on IS NULL AND NOT (payment_type = 'INITIAL_DEPOSIT' AND (notes IS NULL OR notes NOT LIKE '%paid on%'))",
             // fix181 (17.2, 17.14, 17.1): alert group, who caused it, repeat key; indexes for the bell queries
             "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(20)",

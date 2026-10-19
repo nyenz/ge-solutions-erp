@@ -89,6 +89,8 @@ public class ScenarioSeeder {
     private final LandProjectRepository projectRepository;
     private final ProjectStatusRepository statusRepository;
     private final PaymentRecordRepository paymentRepository;
+    /** fix214: demo payments are spread over the first three methods (most money comes in these ways). */
+    private static final String[] DEMO_METHODS = { "OFFICE", "MOBILE_MONEY", "BANK", "MOBILE_MONEY" };
     private final ProjectDocumentRepository documentRepository;
     private final ProjectNeighborRepository neighborRepository;   // fix182
     private final FollowUpRepository followUpRepository;
@@ -747,7 +749,8 @@ public class ScenarioSeeder {
             PaymentRecord saved = paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(p.amount))
                     .paymentType(type).recordedBy(by).notes(notes).timestamp(t).paidOn(t).balanceAfter(BigDecimal.valueOf(after))
                     .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName())
-                    .receiptDocumentId(receipt != null ? receipt.getId() : null).build());
+                    .receiptDocumentId(receipt != null ? receipt.getId() : null)
+                    .paymentMethod(DEMO_METHODS[Math.abs((s.key + p.amount).hashCode()) % DEMO_METHODS.length]).build());   // fix214
             if (p.ago >= 0) {
                 audit("PAYMENT_RECORDED", "Operator [" + by + "] recorded UGX " + p.amount + " for plot: " + lbl + " | Type: " + type
                         + " | For: " + (p.storage ? "STORAGE" : "TITLE") + " | Paid by: " + payer.getFullName() + " | Amount owed after: UGX " + after, by, t);
@@ -763,7 +766,8 @@ public class ScenarioSeeder {
                 paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(-p.amount))
                         .paymentType("REVERSAL").recordedBy(p.reverseBy).notes("[REVERSAL OF " + saved.getId() + "] " + p.reverseWhy)
                         .timestamp(rt).paidOn(rt).balanceAfter(BigDecimal.valueOf(after + p.amount))
-                        .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName()).build());
+                        .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName())
+                        .paymentMethod(saved.getPaymentMethod()).build());
                 audit("PAYMENT_REVERSED", "Operator [" + p.reverseBy + "] reversed UGX " + p.amount + " on " + lbl + ". Reason: " + p.reverseWhy, p.reverseBy, rt);
             }
         }

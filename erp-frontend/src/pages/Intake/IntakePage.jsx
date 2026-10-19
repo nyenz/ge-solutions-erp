@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import { portalRoot } from '../../components/common/portalRoot';
 import { roleFlags } from '../../utils/roles';
+import { PAY_METHODS, methodLabel, methodCode, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -136,6 +137,8 @@ export default function IntakePage() {
     const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
     const [titlePayerIdx, setTitlePayerIdx] = useState(0);          // fix172: which client (row number) paid; fix199 (note 14): the first client until changed
     const [feesPayerIdx, setFeesPayerIdx] = useState(0);            // fix172: which client paid the storage fees (first client by default)
+    const [payMethod, setPayMethod] = useState('');                 // fix214 (David): how the intake money was paid (no default: staff pick it)
+    const [payRef, setPayRef] = useState('');                       // fix214: transaction ID / bank reference; for Other, how it was paid
     // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('');
     const [systemFee, setSystemFee] = useState(0);
@@ -470,6 +473,11 @@ export default function IntakePage() {
         if (lastPaidDate && lastPaidDate > localISO()) return fail('Date Last Paid cannot be in the future.', 'Date Last Paid', 'Financ');
         // fix199 (note 13): Date Last Paid starts on today; it is simply not sent when nothing was paid
         if (isLegacy && receivablesSince && receivablesSince > localISO()) return fail('In Receivables Since cannot be in the future.', 'In Receivables Since', 'Financ');
+        // fix214: money received says how it was paid
+        if ((Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0)) {
+            const bad = checkMethod(payMethod, payRef);
+            if (bad) return fail(bad, payMethod ? referenceLabel(payMethod) : 'Payment Method', 'Financ');
+        }
         if (clients.length > 1) {
             if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') return fail('Pick which client paid the Initial Payment.', 'Initial Payment Paid By', 'Financ');
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') return fail('Pick which client paid the Storage Fees Already Paid.', 'Storage Fees Paid By', 'Financ');
@@ -553,13 +561,14 @@ export default function IntakePage() {
             const paidSomething = (Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0);
             if (lastPaidDate && paidSomething && !officeDraft) payload.lastPaidDate = lastPaidDate;   // fix199 (note 13)
             if (isLegacy && receivablesSince) payload.receivablesSince = receivablesSince;
+            if (paidSomething && !officeDraft) { payload.paymentMethod = payMethod; if (payRef.trim()) payload.paymentReference = payRef.trim(); }   // fix214
             const ninOf = (idx) => (idx !== '' && clients[idx]) ? clients[idx].nationalId.trim().toUpperCase() : '';
             if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);
             if (isEmployee) {
                 // fix181 (8.7e): never send a money field; the server refuses them from an Employee anyway
                 ['invoiceNumber', 'contractNumber', 'totalCost', 'initialPayment', 'isStartAsReceivable', 'initialStorageFee', 'initialStorageFeePaid', 'monthlyStorageFee',
-                    'lastPaidDate', 'receivablesSince', 'initialPaymentPayerNin', 'initialStorageFeePaidPayerNin'].forEach(k => { delete payload[k]; });
+                    'lastPaidDate', 'receivablesSince', 'initialPaymentPayerNin', 'initialStorageFeePaidPayerNin', 'paymentMethod', 'paymentReference'].forEach(k => { delete payload[k]; });
                 payload.selectedStatuses = payload.selectedStatuses.filter(s => !s.isCustom).map(s => ({ ...s, cost: undefined }));
                 await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
             } else {
@@ -601,7 +610,7 @@ export default function IntakePage() {
         setNeighbors([]); setSubdivisionCount('');
         setInvoiceNumber(''); setContractNumber('');   // fix196: every project has its own numbers
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
-        setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0);   // fix172; fix199: same defaults as a new form
+        setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0); setPayMethod(''); setPayRef('');   // fix172; fix199: same defaults as a new form
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         loadTypeStatuses(projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
@@ -1000,6 +1009,19 @@ export default function IntakePage() {
                                 </div>
                             )}
                             <div className={styles.field}>
+                                <HardwareSelect label="Payment Method" required placeholder="How was it paid?" options={PAY_METHODS.map(m => m.label)}
+                                    value={payMethod ? methodLabel(payMethod) : ''} onChange={v => { setPayMethod(methodCode(v)); markDirty(); }} />
+                                <p className={styles.hint}>{payMethod ? PAY_METHODS.find(m => m.value === payMethod).hint : 'Office, Mobile Money, Bank or Other. Used for every payment typed here.'}</p>
+                            </div>
+                            {payMethod && (
+                                <div className={styles.field}>
+                                    <label className={`${styles.label} ${payMethod === 'OTHER' ? styles.required : ''}`}>{referenceLabel(payMethod)}</label>
+                                    <input type="text" className={styles.input} value={payRef} maxLength={80} aria-label={referenceLabel(payMethod)}
+                                        placeholder={payMethod === 'OTHER' ? 'e.g. Cheque no. 1042' : payMethod === 'MOBILE_MONEY' ? 'e.g. MP241019.1532.A12345' : ''}
+                                        onChange={e => { setPayRef(e.target.value); markDirty(); }} />
+                                </div>
+                            )}
+                            <div className={styles.field}>
                                 <label className={styles.label}>Date Last Paid</label>
                                 <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel="Date last paid" onChange={v => { setLastPaidDate(v); markDirty(); }} />
                                 <div className={styles.dateLinks}>
@@ -1054,6 +1076,7 @@ export default function IntakePage() {
                         {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
                         {isLegacy && backlogMonths > 0 && <div className={styles.finRow}><span>Backlog Storage Fees ({backlogMonths} mo)</span><span>{backlogFees}</span></div>}
                         {isLegacy && <div className={styles.finRow}><span>Storage Fees Already Paid</span><span>{Number(initialStorageFeePaid) || 0}</span></div>}
+                        {(titlePaidNow || feesPaidEntered) && <div className={styles.finRow}><span>Paid With</span><span>{payMethod ? methodLine(payMethod, payRef.trim()) : 'Not picked yet'}</span></div>}
                         <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
                     </div>
                 </CollapsibleSection>

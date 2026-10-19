@@ -273,6 +273,9 @@ public class LandController {
             m.put("payerClientId", r.getPayerClientId()); m.put("balanceAfter", r.getBalanceAfter());
             m.put("hasReceipt", r.getReceiptDocumentId() != null); m.put("receiptDocumentId", r.getReceiptDocumentId());
             m.put("notes", r.getNotes());
+            m.put("paymentMethod", r.getPaymentMethod());                                   // fix214
+            m.put("paymentMethodLabel", com.gesolutions.erp.modules.land.model.PaymentMethods.label(r.getPaymentMethod()));
+            m.put("paymentReference", r.getPaymentReference());
             out.add(m);
         }
         return ResponseEntity.ok(out);
@@ -289,9 +292,11 @@ public class LandController {
                                                @RequestParam(value = "allocation", required = false) String allocation,
                                                @RequestParam(value = "receipt", required = false) MultipartFile receipt,
                                                @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
+                                               @RequestParam(value = "method", required = false) String method,          // fix214
+                                               @RequestParam(value = "reference", required = false) String reference,
                                                @RequestParam(value = "paidOn", required = false)
                                                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate paidOn) throws Exception {
-        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn);
+        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn, method, reference);
         return ResponseEntity.ok().build();
     }
 

@@ -45,7 +45,7 @@ public class PendingProjectService {
     public static final List<String> PRICING_FIELDS = List.of(
             "totalCost", "initialPayment", "isStartAsReceivable", "monthlyStorageFee", "initialStorageFee",
             "initialStorageFeePaid", "lastPaidDate", "receivablesSince", "initialPaymentPayerNin",
-            "initialStorageFeePaidPayerNin", "weeklyInstallment", "planType", "status costs");
+            "initialStorageFeePaidPayerNin", "paymentMethod", "paymentReference", "weeklyInstallment", "planType", "status costs");
 
     /** fix181 (17.8): a Pending project older than this many days is reminded once a day. */
     public static final int STALE_DAYS = 3;
@@ -82,6 +82,8 @@ public class PendingProjectService {
         if (r.getReceivablesSince() != null) sent.add("receivablesSince");
         if (notBlank(r.getInitialPaymentPayerNin())) sent.add("initialPaymentPayerNin");
         if (notBlank(r.getInitialStorageFeePaidPayerNin())) sent.add("initialStorageFeePaidPayerNin");
+        if (notBlank(r.getPaymentMethod())) sent.add("paymentMethod");          // fix214
+        if (notBlank(r.getPaymentReference())) sent.add("paymentReference");
         if (positive(r.getWeeklyInstallment())) sent.add("weeklyInstallment");
         if (notBlank(r.getPlanType())) sent.add("planType");
         if (r.getSelectedStatuses() != null && r.getSelectedStatuses().stream().anyMatch(s -> positive(s.getCost()))) sent.add("status costs");
@@ -270,7 +272,7 @@ public class PendingProjectService {
             return out;
         }
         List<String> moneySent = new ArrayList<>(pricingFieldsSent(request));
-        moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs"));
+        moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs", "paymentMethod", "paymentReference"));   // fix214: a picked method alone is not money
         if (!moneySent.isEmpty()) {
             throw new BusinessException("MONEY_NEEDS_START: Money received is recorded when the project starts (it needs the invoice number, "
                     + "the contract number and the price). Fill in all three, or clear: " + String.join(", ", moneySent) + ".");

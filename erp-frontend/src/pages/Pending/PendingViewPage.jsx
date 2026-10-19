@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { roleFlags } from '../../utils/roles';
 import { flagField, flagServerError } from '../../utils/fieldError';   // fix213
 import { errorText } from '../../utils/errorText';
+import { PAY_METHODS, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import pendingService from '../../services/pendingService';
 import landService from '../../services/landService';
 import clientService from '../../services/clientService';
@@ -86,6 +87,8 @@ export default function PendingViewPage() {
     const [deposit, setDeposit] = useState('');
     const [payerNin, setPayerNin] = useState('');
     const [paidDate, setPaidDate] = useState(() => localISO());   // fix199 (test note 13): today, until changed
+    const [payMethod, setPayMethod] = useState('');   // fix214 (David): how the money already received was paid
+    const [payRef, setPayRef] = useState('');
     const [rejectWhy, setRejectWhy] = useState('');
     const [ninEdit, setNinEdit] = useState({});
 
@@ -124,7 +127,7 @@ export default function PendingViewPage() {
     const run = async (fn, ok) => {
         setBusy(true);
         try { const r = await fn(); setMsg(typeof r === 'string' ? r : ok); await load(); }
-        catch (e) { fail(errorText(e)); flagServerError(e, { INVOICE_NUMBER_TAKEN: 'Invoice number', CONTRACT_NUMBER_TAKEN: 'Contract number', PRICE_REQUIRED: 'Total cost (UGX)' }); }   // fix213
+        catch (e) { fail(errorText(e)); flagServerError(e, { INVOICE_NUMBER_TAKEN: 'Invoice number', CONTRACT_NUMBER_TAKEN: 'Contract number', PRICE_REQUIRED: 'Total cost (UGX)', PAYMENT_METHOD_REQUIRED: 'How was it paid?' }); }   // fix213, fix214
         finally { setBusy(false); }
     };
 
@@ -140,9 +143,11 @@ export default function PendingViewPage() {
         if (dep > total && complete) { fail('The money already received is more than the total cost.'); flagField('Money already received (UGX, optional)'); return; }
         const clients = (p && p.clients) || [];
         if (dep > 0 && clients.length > 1 && !payerNin) { fail('Pick which client paid the money already received.'); flagField('Which client paid?'); return; }
+        if (dep > 0) { const bad = checkMethod(payMethod, payRef); if (bad) { fail(bad); flagField(payMethod ? referenceLabel(payMethod) : 'How was it paid?'); return; } }   // fix214
         const body = { invoiceNumber: inv || null, contractNumber: con || null, totalCost: total || null,
             initialPayment: dep || null, initialPaymentPayerNin: dep > 0 ? (payerNin || null) : null,
-            lastPaidDate: dep > 0 && paidDate ? paidDate : null };
+            lastPaidDate: dep > 0 && paidDate ? paidDate : null,
+            paymentMethod: dep > 0 ? payMethod : null, paymentReference: dep > 0 && payRef.trim() ? payRef.trim() : null };
         run(async () => {
             const r = await pendingService.saveParts(id, body);
             if (r && r.started) { navigate('/folder/' + id); return 'Project started.'; }
@@ -263,6 +268,16 @@ export default function PendingViewPage() {
                             {Number(digits(deposit)) > 0 && (p.clients || []).length > 1 && (
                                 <label className={styles.field}><span className={styles.label}>Which client paid?</span>
                                     <HardwareModalSelect value={payerNin} options={payerOptions} onChange={setPayerNin} placeholder="Choose the client" ariaLabel="Client who paid" /></label>
+                            )}
+                            {Number(digits(deposit)) > 0 && (
+                                <label className={styles.field}><span className={styles.label}>How was it paid?</span>
+                                    <HardwareModalSelect value={payMethod} options={[{ value: '', label: 'Choose the method' }].concat(PAY_METHODS.map(m => ({ value: m.value, label: m.label })))}
+                                        onChange={setPayMethod} placeholder="Choose the method" ariaLabel="How was it paid?" /></label>
+                            )}
+                            {Number(digits(deposit)) > 0 && payMethod && (
+                                <label className={styles.field}><span className={styles.label}>{referenceLabel(payMethod)}</span>
+                                    <input className={`${styles.input} ${styles.mono}`} value={payRef} maxLength={80} autoComplete="off" aria-label={referenceLabel(payMethod)}
+                                        onChange={e => setPayRef(e.target.value)} placeholder={payMethod === 'OTHER' ? 'e.g. Cheque no. 1042' : ''} /></label>
                             )}
                             {Number(digits(deposit)) > 0 && (
                                 <label className={styles.field}><span className={styles.label}>Date it was paid (leave empty if not known)</span>

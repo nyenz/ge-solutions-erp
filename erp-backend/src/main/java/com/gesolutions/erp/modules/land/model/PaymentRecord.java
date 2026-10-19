@@ -72,6 +72,18 @@ public class PaymentRecord {
     @Column(name = "paid_on")
     private LocalDateTime paidOn;
 
+    /**
+     * fix214 (David): HOW the money came in -- OFFICE (cash at the office), MOBILE_MONEY, BANK or OTHER
+     * (PaymentMethods is the one list). NULL on lines saved before fix214 ("not recorded").
+     * A reversal copies the method of the line it cancels.
+     */
+    @Column(name = "payment_method", length = 20)
+    private String paymentMethod;
+
+    /** fix214: the transaction reference (mobile money / bank) or, for OTHER, how it was paid. Optional except for OTHER. */
+    @Column(name = "payment_reference", length = 80)
+    private String paymentReference;
+
     /** fix181 (16.12b): one-time id sent by the payment window, so a retried request is not saved twice. */
     @Column(name = "client_request_id", length = 64)
     private String clientRequestId;

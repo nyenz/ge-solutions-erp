@@ -4,6 +4,7 @@ package com.gesolutions.erp.modules.land.service;
 import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.PaymentMethods;
 import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.modules.land.model.ProjectType;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
@@ -37,8 +38,14 @@ public class PaymentQueryService {
     private final LandProjectRepository projectRepository;
     private final ClientRepository clientRepository;
 
+    // fix214: method = OFFICE / MOBILE_MONEY / BANK / OTHER, or NONE for lines saved before fix214; null = every method
     public record Filter(LocalDate from, LocalDate to, String tab, String projectType, String q,
-                         boolean includeDeleted, boolean missingReceipt, String sort, String dir) {}
+                         boolean includeDeleted, boolean missingReceipt, String sort, String dir, String method) {
+        public Filter(LocalDate from, LocalDate to, String tab, String projectType, String q,
+                      boolean includeDeleted, boolean missingReceipt, String sort, String dir) {
+            this(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir, null);
+        }
+    }
 
     public static String kindOf(PaymentRecord r) {
         if ("REVERSAL".equals(r.getPaymentType())) return "REVERSAL";
@@ -101,6 +108,9 @@ public class PaymentQueryService {
             m.put("ownerName", name != null ? name : "Payer not recorded");   // old field name, same value
             m.put("payerClientId", r.getPayerClientId());
             m.put("payerPhone", payer != null ? payer.getPhoneNumber() : null);
+            m.put("paymentMethod", r.getPaymentMethod());                                // fix214
+            m.put("paymentMethodLabel", PaymentMethods.label(r.getPaymentMethod()));
+            m.put("paymentReference", r.getPaymentReference());
             m.put("hasReceipt", r.getReceiptDocumentId() != null);
             m.put("receiptDocumentId", r.getReceiptDocumentId());
             PaymentRecord rev = reversalOf.get(String.valueOf(r.getId()));
@@ -131,6 +141,10 @@ public class PaymentQueryService {
             default -> { }
         }
         if (f.projectType() != null && !f.projectType().isBlank() && !f.projectType().equals(m.get("projectType"))) return false;
+        if (f.method() != null && !f.method().isBlank() && !"ALL".equalsIgnoreCase(f.method())) {   // fix214
+            Object pm = m.get("paymentMethod");
+            if ("NONE".equalsIgnoreCase(f.method()) ? pm != null : !f.method().equalsIgnoreCase(String.valueOf(pm))) return false;
+        }
         if (f.missingReceipt() && (Boolean.TRUE.equals(m.get("hasReceipt")) || "REVERSAL".equals(m.get("kind")))) return false;
         LocalDateTime paid = (LocalDateTime) m.get("paidOn");
         if ((f.from() != null || f.to() != null) && paid == null) return false;   // undated rows only without a date filter
@@ -140,7 +154,8 @@ public class PaymentQueryService {
             String t = f.q().toLowerCase(Locale.ROOT).trim();
             String digits = t.replaceAll("[^0-9]", "");
             StringBuilder hay = new StringBuilder();
-            for (String k : List.of("projectIndex", "plotNumber", "clientName", "payerPhone", "recordedBy", "notes", "projectTypeLabel")) {
+            for (String k : List.of("projectIndex", "plotNumber", "clientName", "payerPhone", "recordedBy", "notes", "projectTypeLabel",
+                    "paymentMethodLabel", "paymentReference")) {
                 Object v = m.get(k);
                 if (v != null) hay.append(v).append(' ');
             }
@@ -190,7 +205,11 @@ public class PaymentQueryService {
 
     /** The card numbers for the same filters: never a deleted project, reversals subtracted (net). */
     public Map<String, Object> totals(Filter f) {
-        Filter live = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir());
+        Filter live = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir(), f.method());
+        // fix214: net money per method (Office, Mobile Money, Bank, Other, then "Not recorded" for old lines)
+        Map<String, BigDecimal> byMethod = new LinkedHashMap<>();
+        for (String code : PaymentMethods.LABELS.keySet()) byMethod.put(code, BigDecimal.ZERO);
+        byMethod.put("NONE", BigDecimal.ZERO);
         BigDecimal title = BigDecimal.ZERO, storage = BigDecimal.ZERO, reversed = BigDecimal.ZERO, undatedSum = BigDecimal.ZERO;
         long undated = 0, count = 0;
         for (Map<String, Object> m : rows(live)) {
@@ -200,6 +219,13 @@ public class PaymentQueryService {
             if ("STORAGE".equals(m.get("allocation"))) storage = storage.add(a); else title = title.add(a);
             if ("REVERSAL".equals(m.get("kind"))) reversed = reversed.add(a.abs());
         }
+        // the per-method amounts use every OTHER filter but not the method itself, so all the method buttons keep their numbers
+        Filter allMethods = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir(), null);
+        for (Map<String, Object> m : rows(allMethods)) {
+            BigDecimal a = m.get("amountPaid") instanceof BigDecimal b ? b : BigDecimal.ZERO;
+            String code = m.get("paymentMethod") == null ? "NONE" : String.valueOf(m.get("paymentMethod"));
+            byMethod.merge(byMethod.containsKey(code) ? code : "OTHER", a, BigDecimal::add);
+        }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("titleNet", title);
         out.put("storageNet", storage);
@@ -208,6 +234,16 @@ public class PaymentQueryService {
         out.put("undatedCount", undated);
         out.put("undatedSum", undatedSum);
         out.put("rowCount", count);
+        List<Map<String, Object>> methods = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> e : byMethod.entrySet()) {
+            if ("NONE".equals(e.getKey()) && e.getValue().signum() == 0) continue;   // "Not recorded" only when there is some
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("method", e.getKey());
+            one.put("label", PaymentMethods.label("NONE".equals(e.getKey()) ? null : e.getKey()));
+            one.put("net", e.getValue());
+            methods.add(one);
+        }
+        out.put("byMethod", methods);
         return out;
     }
 }

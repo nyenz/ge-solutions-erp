@@ -29,6 +29,7 @@ import styles from './ClientPortfolioPage.module.css';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { LoadingState } from '../../components/common/LoadingState';
 import { errorText } from '../../utils/errorText';   // fix205
+import { methodLine } from '../../utils/paymentMethods';   // fix214
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const dayDiff = (iso) => { if (!iso) return null; const d = new Date(iso); if (isNaN(d.getTime())) return null; return Math.floor((Date.now() - d.getTime()) / 86400000); };
@@ -408,7 +409,7 @@ const ClientPortfolioPage = () => {
                     <li key={pay.id} style={{ textDecoration: pay.reversed ? 'line-through' : 'none' }}>
                       <span className={styles.mono}>UGX {fmt(pay.amount)}</span> {pay.allocation === 'STORAGE' ? '(storage fees)' : ''}
                       {' - '}{pay.paidOn ? String(pay.paidOn).slice(0, 10) : 'date not recorded'}
-                      {' - '}{pay.payerName}{pay.reversal ? ' - REVERSAL' : ''}{pay.reversed ? ' (reversed)' : ''}
+                      {' - '}{pay.payerName}{' - '}{methodLine(pay.paymentMethod, pay.paymentReference)}{pay.reversal ? ' - REVERSAL' : ''}{pay.reversed ? ' (reversed)' : ''}
                     </li>
                   ))}
                 </ul>
