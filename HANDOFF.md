@@ -17,7 +17,7 @@
 
 ## 2. The way every change is shipped (do exactly this)
 1. `cd ge-solutions-erp && git checkout main && git pull`, then a new branch `fixNNN-short-name` (the last one is **fix213**,
-   so the next is **fix214**).
+   so the next is **fix214**; fix214 and fix215 were done on 19 Oct afternoon (see the guide), next is **fix216**).
 2. Make the change. Frontend checks: `cd erp-frontend && npx eslint src && npm test && npm run build` (57 tests pass).
    The backend cannot be built in the cloud box (no Maven internet); GitHub runs the server tests on every PR.
 3. Update `LLM_CONTEXT_GUIDE.md`: add `fixNNN: ...;` at the FRONT of the "# Last updated: October 2026 (" line, and
@@ -68,6 +68,7 @@
   publish to the SAME url.
 - **Results so far (19 Oct 2026):** 99 passed, 0 failed, 31 not done:
   N2-N12, O1-O9, P1-P8, Q1-Q6. (N1 is done.)
+- **19 Oct afternoon:** N passed in full; David is on **O. Recovery calls**. fix216 (next) = hover explainers on every tab, filter, column heading and small button + Settings > Appearance > Hover explainers OFF must hide the browser's own titles too.
 - **He starts again at section N. "Storage fees and receivables (a Legacy Title)"**, step N2 (finishing N1's save):
   in N1 the plot number was changed from 214 to **316** (214 was already on project 001A; with fix213 a different
   block would now also be allowed).

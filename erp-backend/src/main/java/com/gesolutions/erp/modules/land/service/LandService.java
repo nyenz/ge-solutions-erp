@@ -36,6 +36,7 @@ public class LandService {
     private final ClientService clientService;
     private final FileStorageService fileStorageService;
     private final AuditService auditService;
+    private final TimelineService timeline;   // fix215: the Notes timeline
     private final PaymentRecordRepository paymentRecordRepository;
     private final ProjectIndexService projectIndexService;
     private final ProjectNumbersService projectNumbers;   // fix196
@@ -59,6 +60,8 @@ public class LandService {
     // directly goes through this instead -- falls back to projectIndex
     // (now on LandProject itself, see Phase B migration) when there is no
     // title yet, instead of NPE-ing.
+    private static String ugx(BigDecimal v) { return TimelineService.ugx(v); }   // fix215
+
     private String plotLabel(LandProject project) {
         if (project.getLandTitle() != null && project.getLandTitle().getPlotNumber() != null) {
             return project.getLandTitle().getPlotNumber();
@@ -303,6 +306,8 @@ public class LandService {
             auditService.logActionAfterCommit("RECEIVABLE_EXIT",
                 "Operator [" + operator + "] -- Plot " + plotLabel(project)
                 + " EXITED RECEIVABLE after full payment clearance (UGX " + fees.toPlainString() + " of paid storage fees moved into the total cost).");
+            timeline.event(projectId, "RECEIVABLE_EXIT", "Left receivables: fully paid",
+                    ugx(fees) + " of paid storage fees moved into the total cost", true);   // fix215
             notificationService.emitToAudience("RECEIVABLE_EXIT",   // fix181 (17.2)
                 plotLabel(project) + " left receivables: fully paid.", "PROJECT", projectId);
         } else {
@@ -629,6 +634,9 @@ public class LandService {
                 : officeDraft ? "saved a PENDING project (invoice number, contract number or price still missing): " : "ingested binder: ")
             + plotOrIndex + receivableNote + fix172Note);
 
+        // fix215: the first line of every project's Notes timeline
+        timeline.event(saved.getId(), savePending ? "PENDING_CREATED" : "INTAKE",
+                savePending ? "Entered as Pending (waiting for the office)" : "Project entered", null, false);
         if (startAsReceivable) {
             auditService.logActionAfterCommit("RECEIVABLE_TRIGGER",
                 "Operator [" + getCurrentOperator() + "] flagged plot "
@@ -1063,6 +1071,7 @@ public class LandService {
             if (!Integer.valueOf(want).equals(project.getSubdivisionCount())) {
                 auditService.logActionAfterCommit("SUBDIVISIONS_CHANGED", "Operator [" + getCurrentOperator() + "] changed the number of subdivisions of project #"
                         + project.getProjectIndex() + " from " + project.getSubdivisionCount() + " to " + want);
+                timeline.event(project.getId(), "SUBDIVISIONS_CHANGED", "Number of plots changed", project.getSubdivisionCount() + " -> " + want, false);
             }
             project.setSubdivisionCount(want);
         }
@@ -1143,6 +1152,7 @@ public class LandService {
                 "Operator [" + getCurrentOperator() + "] changed total cost on " + plotLabel(project)
                 + " from UGX " + oldTotalCost.toPlainString() + " to UGX " + newTotalCost.toPlainString()
                 + ". Reason: " + costWhy);
+            timeline.reason(project.getId(), "COST_CHANGED", "Total cost changed", costWhy, ugx(oldTotalCost) + " -> " + ugx(newTotalCost), true);
         }
         project.setTotalCost(newTotalCost);
         // fix162 AMOUNT PAID is never taken from the edit form. It only moves through RECORD PAYMENT and REVERSE.
@@ -1210,6 +1220,7 @@ public class LandService {
 
         auditService.logActionAfterCommit("RECORD_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
+        timeline.reason(project.getId(), "RECORD_DELETED", "Project deleted", why, "Hidden from every list; a Director can restore it from the Archive.", false);
         /* fix71: CRITICAL was a severity the frontend rendered and the backend
            never emitted. Deleting a plot is exactly what it is for. emitRaw,
            not emit: emit de-duplicates on (type, entityId) forever, so a plot
@@ -1252,6 +1263,7 @@ public class LandService {
 
         auditService.logActionAfterCommit("RECORD_RESTORED",
             "Operator [" + getCurrentOperator() + "] restored plot: " + plotNo);
+        timeline.event(project.getId(), "RECORD_RESTORED", "Project restored from the Archive", null, false);
         notificationService.emitToAudience("PROJECT_RESTORED",
             "Plot " + plotNo + " restored by " + getCurrentOperator() + ".",
             "PROJECT", project.getId());
@@ -1406,7 +1418,7 @@ public class LandService {
 
     // fix167: notes the system writes for a PROBLEM flag, a cleared flag or a hand-over are evidence, like a receipt:
     // they cannot be edited or deleted (the audit log keeps them too).
-    private static boolean isEvidenceNote(String text) {
+    static boolean isEvidenceNote(String text) {   // fix215: TimelineService uses the same rule
         if (text == null) return false;
         String t = text.trim();
         return t.startsWith("[PROBLEM]") || t.startsWith("[PROBLEM CLEARED]") || t.startsWith("[HANDED OVER]") || t.startsWith("[HAND-OVER UNDONE]");
@@ -1838,6 +1850,7 @@ public class LandService {
         auditService.logActionAfterCommit("TITLE_REVERTED",
             "Operator [" + getCurrentOperator() + "] took the saved title off project " + project.getProjectIndex()
             + ". Old title: " + oldValues + ". Reason: " + why);
+        timeline.reason(project.getId(), "TITLE_REVERTED", "Title details removed", why, "Old title: " + oldValues, false);
     }
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────

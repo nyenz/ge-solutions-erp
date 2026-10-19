@@ -52,4 +52,22 @@ public class FollowUpLog {
     @Builder.Default
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp = LocalDateTime.now();
+
+    // fix215 (David): the Notes timeline. A note can be PINNED to the top, carry a FOLLOW-UP date (the bell reminds the
+    // office that morning), a short TOPIC picked from the quick list, and ONE attached file (a project document).
+    @Builder.Default
+    @Column(name = "pinned")
+    private Boolean pinned = Boolean.FALSE;
+
+    @Column(name = "follow_up_on")
+    private java.time.LocalDate followUpOn;
+
+    @Column(name = "topic", length = 60)
+    private String topic;
+
+    @Column(name = "document_id")
+    private UUID documentId;
+
+    @Column(name = "edited_at")
+    private LocalDateTime editedAt;
 }

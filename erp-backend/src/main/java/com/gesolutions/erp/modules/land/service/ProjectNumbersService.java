@@ -37,6 +37,7 @@ public class ProjectNumbersService {
     private final LandProjectRepository projectRepository;
     private final ProjectStatusRepository statusRepository;
     private final AuditService auditService;
+    private final TimelineService timeline;   // fix215
 
     /** Trimmed, inner spaces tidied; null when nothing was typed. */
     public static String clean(String v) {
@@ -127,6 +128,9 @@ public class ProjectNumbersService {
             auditService.logActionAfterCommit("PROJECT_NUMBERS_CHANGED", "Operator [" + AuditService.currentOperator() + "] set the numbers of project #"
                     + saved.getProjectIndex() + ". Invoice: " + (oldInv == null ? "(none)" : oldInv) + " -> " + saved.getInvoiceNumber()
                     + ". Contract: " + (oldCon == null ? "(none)" : oldCon) + " -> " + saved.getContractNumber() + ".");
+            timeline.event(saved.getId(), "PROJECT_NUMBERS_CHANGED", "Invoice or contract number changed",
+                    "Invoice " + (oldInv == null ? "(none)" : oldInv) + " -> " + saved.getInvoiceNumber()
+                    + "; contract " + (oldCon == null ? "(none)" : oldCon) + " -> " + saved.getContractNumber(), false);
         }
         return saved;
     }

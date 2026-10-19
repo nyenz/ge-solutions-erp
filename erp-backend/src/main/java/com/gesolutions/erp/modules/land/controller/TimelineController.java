@@ -1,0 +1,70 @@
+// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/TimelineController.java
+package com.gesolutions.erp.modules.land.controller;
+
+import com.gesolutions.erp.modules.land.model.FollowUpLog;
+import com.gesolutions.erp.modules.land.service.NoteService;
+import com.gesolutions.erp.modules.land.service.TimelineService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.UUID;
+
+/** fix215 (David): the Notes timeline of a project or a client, and the typed notes in it. Secretary and above. */
+@RestController
+@RequestMapping("/api/v1/timeline")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_SECRETARY', 'ROLE_MANAGER', 'ROLE_DIRECTOR', 'ROLE_ADMIN')")
+public class TimelineController {
+
+    private final TimelineService timeline;
+    private final NoteService notes;
+
+    @GetMapping("/project/{id}")
+    public Map<String, Object> project(@PathVariable UUID id) { return timeline.forProject(id); }
+
+    @GetMapping("/client/{id}")
+    public Map<String, Object> client(@PathVariable UUID id) { return timeline.forClient(id); }
+
+    @PostMapping(value = "/project/{id}/notes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> add(@PathVariable UUID id,
+                                   @RequestParam(required = false) String content,
+                                   @RequestParam(required = false) String topic,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate followUpOn,
+                                   @RequestParam(defaultValue = "false") boolean pinned,
+                                   @RequestParam(value = "file", required = false) MultipartFile file) throws Exception {
+        FollowUpLog n = notes.add(id, content, topic, followUpOn, pinned, file);
+        return Map.of("id", n.getId());
+    }
+
+    @PutMapping("/notes/{noteId}")
+    public Map<String, Object> edit(@PathVariable UUID noteId, @RequestBody Map<String, String> body) {
+        String day = body.get("followUpOn");
+        LocalDate on;
+        try {
+            on = day == null || day.isBlank() ? null : LocalDate.parse(day.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("DATE_INVALID: The follow-up day is not a valid date.");
+        }
+        FollowUpLog n = notes.edit(noteId, body.get("content"), body.get("topic"), on);
+        return Map.of("id", n.getId());
+    }
+
+    @PatchMapping("/notes/{noteId}/pin")
+    public Map<String, Object> pin(@PathVariable UUID noteId, @RequestBody Map<String, Object> body) {
+        FollowUpLog n = notes.pin(noteId, Boolean.TRUE.equals(body.get("pinned")));
+        return Map.of("id", n.getId(), "pinned", Boolean.TRUE.equals(n.getPinned()));
+    }
+
+    @DeleteMapping("/notes/{noteId}")
+    public ResponseEntity<Void> delete(@PathVariable UUID noteId) {
+        notes.delete(noteId);
+        return ResponseEntity.noContent().build();
+    }
+}

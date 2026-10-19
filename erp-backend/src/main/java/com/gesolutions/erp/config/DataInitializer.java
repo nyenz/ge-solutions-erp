@@ -243,6 +243,12 @@ public class DataInitializer implements CommandLineRunner {
             // fix214 (David): how the money was paid; old lines stay NULL ("not recorded")
             "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20)",
             "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(80)",
+            // fix215 (David): the Notes timeline -- pin, follow-up day, topic, attached file, last edit
+            "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS follow_up_on DATE",
+            "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS topic VARCHAR(60)",
+            "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS document_id UUID",
+            "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP",
             "UPDATE payment_records SET paid_on = timestamp WHERE paid_on IS NULL AND NOT (payment_type = 'INITIAL_DEPOSIT' AND (notes IS NULL OR notes NOT LIKE '%paid on%'))",
             // fix181 (17.2, 17.14, 17.1): alert group, who caused it, repeat key; indexes for the bell queries
             "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(20)",

@@ -35,6 +35,7 @@ public class TitledStageService {
     private final PlotNumberGuard plotGuard;   // fix213
     private final ProjectStatusRepository statusRepository;
     private final AuditService auditService;
+    private final TimelineService timeline;   // fix215
     private final LandService landService;                                                                         // fix202
     private final com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository documentRepository;       // fix202
 
@@ -118,6 +119,7 @@ public class TitledStageService {
             statusRepository.save(stage);
             auditService.logActionAfterCommit("PROJECT_STATUS_CHANGED", "Operator [" + AuditService.currentOperator() + "] marked status \""
                     + stage.getStatusName() + "\" as COMPLETE on project: " + projectId);
+            timeline.event(projectId, "PROJECT_STATUS_CHANGED", "Stage ticked: " + stage.getStatusName(), null, false);
         }
         return saved;
     }

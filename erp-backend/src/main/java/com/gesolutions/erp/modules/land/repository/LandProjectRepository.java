@@ -60,6 +60,10 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
 
     // STAGE 3: restore screen -- deliberately the ONLY query that returns
     // deleted=true rows.
+    /** fix215: every project, Pending and deleted included (the one-time Notes back-fill matches audit lines to them) */
+    @Query("SELECT p FROM LandProject p")
+    List<LandProject> findAllIncludingPendingAndDeleted();
+
     @Query("SELECT p FROM LandProject p WHERE p.deleted = true ORDER BY p.deletedAt DESC")
     List<LandProject> findAllDeleted();
 

@@ -1682,7 +1682,7 @@
 
 /* fix113: middle-insert plus button + insert position line + print-safe tab wrapper */
 
-.tabWrap { display: block; }
+.tabWrap { display: flex; flex-direction: column; gap: var(--gap-lg, clamp(10px, 1.4vw, 14px)); }   /* fix215: panels in a tab no longer touch */
 @media print { .tabWrap { display: block !important; } }
 
 /* fix114: middle-insert plus button + insert position line */

@@ -24,6 +24,7 @@ public class FolderPortalController {
 
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
+    private final com.gesolutions.erp.modules.land.service.TimelineService timeline;   // fix215: reasons go to the Notes timeline
     private final NotificationService notificationService;
     private final com.gesolutions.erp.modules.land.repository.FollowUpRepository followUpRepository;
 
@@ -118,6 +119,8 @@ public class FolderPortalController {
         p.setStatus("RECEIVABLE");
         projectRepository.save(p);
         auditService.logActionAfterCommit("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables. Debt frozen at UGX " + owed.max(BigDecimal.ZERO).toPlainString() + ". Reason: " + enterWhy);
+        timeline.reason(p.getId(), "RECEIVABLE_ENTER", "Moved to receivables", enterWhy,
+                "Owed when it moved: " + ugx(owed.max(BigDecimal.ZERO)) + ". Storage fees start after 30 days.", true);
         return receivable(id);
     }
 
@@ -158,12 +161,16 @@ public class FolderPortalController {
             auditService.logActionAfterCommit("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + feesUnpaid.toPlainString() + " of unpaid storage fees on #" + p.getProjectIndex()
                     + (feesPaid.signum() > 0 ? " (UGX " + feesPaid.toPlainString() + " already paid toward fees stays counted: total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(feesPaid).toPlainString() + ")" : "")
                     + ". Reason: " + reason);
+            timeline.reason(p.getId(), "FEES_WAIVED", "Storage fees waived", reason,
+                    ugx(feesUnpaid) + " of unpaid fees forgiven" + (feesPaid.signum() > 0 ? "; total cost " + ugx(costBefore) + " -> " + ugx(costBefore.add(feesPaid)) : ""), true);
         } else if ("CAPITALIZE".equals(action)) {
             p.setTotalCost(costBefore.add(fees));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
             p.setStorageFeesPaid(BigDecimal.ZERO);
             auditService.logActionAfterCommit("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees.toPlainString() + " of storage fees into total cost on #" + p.getProjectIndex()
                     + " (total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(fees).toPlainString() + "). Reason: " + reason);
+            timeline.reason(p.getId(), "FEES_CAPITALIZED", "Storage fees added to the cost", reason,
+                    ugx(fees) + " of fees added; total cost " + ugx(costBefore) + " -> " + ugx(costBefore.add(fees)), true);
         } else {
             p.setTotalCost(costBefore.add(feesPaid));
             p.setStorageFeesAccumulated(feesUnpaid);
@@ -171,6 +178,9 @@ public class FolderPortalController {
             auditService.logActionAfterCommit("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (UGX " + feesUnpaid.toPlainString()
                     + " of unpaid fees kept, billing stopped"
                     + (feesPaid.signum() > 0 ? "; UGX " + feesPaid.toPlainString() + " of paid fees moved into the total cost" : "") + "). Reason: " + reason);
+            timeline.reason(p.getId(), "RECEIVABLE_SET_ASIDE", "Set aside: storage fees stopped", reason,
+                    ugx(feesUnpaid) + " of unpaid fees kept aside (they block the hand-over)"
+                    + (feesPaid.signum() > 0 ? "; " + ugx(feesPaid) + " already paid moved into the total cost" : ""), true);
         }
         if (p.getStoragePausedAt() != null || p.getNegotiationDeadline() != null || p.isStoragePaused()) p.endStoragePause(LocalDateTime.now());
         p.setReceivable(false);
@@ -272,6 +282,7 @@ public class FolderPortalController {
         projectRepository.save(p);
         auditService.logActionAfterCommit("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
                 + " from UGX " + current.toPlainString() + " to UGX " + target.toPlainString() + ". Reason: " + why);
+        timeline.reason(p.getId(), "FEES_REDUCED", "Storage fees reduced", why, ugx(current) + " -> " + ugx(target), true);
         return receivable(id);
     }
 
@@ -349,6 +360,15 @@ public class FolderPortalController {
                 + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toLocalDate().toString() : (p.isStoragePaused() ? "paused" : "not paused"))
                 + " -> " + (resume ? "RESUMED now" : (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toLocalDate().toString() : "not paused")) + ")"
                 + ". Reason: " + why);
+        // fix215: one plain line for the Notes timeline
+        String title = resume ? "Storage fees resumed" : pauseSet && !rateChanged ? "Storage fees paused" : rateChanged && !pauseSet ? "Monthly storage rate changed" : "Storage fee rate and pause changed";
+        List<String> bits = new ArrayList<>();
+        if (rateChanged) bits.add("monthly rate " + (oldRate != null ? ugx(oldRate) : "default") + " -> " + (newRate != null ? ugx(newRate) : "default"));
+        if (pauseSet) bits.add("paused until " + newDeadline.toLocalDate());
+        if (resume) bits.add("fees run again from today; the paused days are not charged");
+        timeline.reason(p.getId(), "RECEIVABLE_SETTINGS", title, why, String.join("; ", bits), true);
         return receivable(id);
     }
+
+    private static String ugx(BigDecimal v) { return com.gesolutions.erp.modules.land.service.TimelineService.ugx(v); }
 }
