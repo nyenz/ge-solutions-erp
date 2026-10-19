@@ -652,3 +652,30 @@ input[type="checkbox"]:disabled { opacity: 0.5; cursor: not-allowed; }
     }
     #root button:has(> svg:only-child):not([class*="link" i]):not([class*="chip" i]):not([class*="tag" i]) { min-width: 36px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   fix213 (David): the box a form refused. utils/fieldError.js puts data-field-error on it, scrolls to it and puts the
+   cursor in it; it clears itself the moment the box is changed. A soft red ring, the label turns red, one small nudge.
+   ═══════════════════════════════════════════════════════════════ */
+:root { --field-err: #e0623a; --field-err-glow: rgba(224, 98, 58, 0.22); }
+[data-field-error] input,
+[data-field-error] textarea,
+[data-field-error] select,
+[data-field-error] [role="combobox"],
+[data-field-error] button[aria-haspopup] {
+    border-color: var(--field-err) !important;
+    box-shadow: 0 0 0 3px var(--field-err-glow) !important;
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+[data-field-error] label,
+[data-field-error] [class*="label" i] { color: var(--field-err) !important; }
+[data-field-error] { animation: fieldErrNudge 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 1; border-radius: 8px; }
+section[data-field-error] { box-shadow: 0 0 0 2px var(--field-err-glow), 0 0 0 1px var(--field-err) !important; }
+@keyframes fieldErrNudge {
+    0%, 100% { transform: none; }
+    25% { transform: translateX(-3px); }
+    55% { transform: translateX(3px); }
+    80% { transform: translateX(-1px); }
+}
+@media (prefers-reduced-motion: reduce) { [data-field-error] { animation: none; } }
+:root[data-motion="reduced"] [data-field-error] { animation: none; }

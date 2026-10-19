@@ -51,6 +51,7 @@ import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
+import { flagId, flagField, flagServerError, errorCode } from '../../utils/fieldError';   // fix213
 
 // fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
 const NOTE_MAX = 2000;
@@ -59,6 +60,10 @@ const SCAN_EXT = RECEIPT_EXTS;   // fix199: payment receipts stay scans and phot
 const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
 // fix165: ONE place that turns any failed request into a sentence a person can read (server words + HTTP number).
 // fix205 (David): no HTTP numbers or code words in front of people -- the one rule in utils/errorText.js
+// fix213: the box ids of the EDIT panel, by the key validateBuffer uses (people rows use the key itself as the id)
+const EDIT_IDS = { plotNumber: 'inp-plot-number', block: 'inp-block', areaHectares: 'inp-area--hectares-', area: 'inp-area--hectares-',
+    district: 'inp-district', subdivisionCount: 'inp-number-of-subdivisions', costChangeReason: 'inp-reason-for-cost-change' };
+const editTabOf = (key) => (/^(clients|owners|neighbors)_/.test(key) ? 'PEOPLE' : key === 'costChangeReason' ? 'FINANCIALS' : 'OVERVIEW');
 const errText = (err) => (err && err.response ? errorText(err) : cleanMessage((err && err.message) || 'Something went wrong. Try again.'));
 // fix165/167: red error box INSIDE a popup. When a popup shows its own error, no toast is shown as well.
 const ModalError = ({ text }) => (text ? (<div className={styles.modalErr} role="alert">
@@ -619,11 +624,15 @@ const FolderPage = () => {
         const hasTitle = titleShown(project, buffer);
         const { errors, fe } = validateBuffer(buffer, hasTitle);
         if (errors.length) {
-            setFieldErrors(fe); toast('NOT SAVED: ' + errors[0], 'error', 6000); return;
+            setFieldErrors(fe); toast('NOT SAVED: ' + errors[0], 'error', 6000);
+            // fix213: open the tab that holds the first wrong box, scroll to it, cursor in it
+            const first = Object.keys(fe)[0];
+            if (first) { setActiveTab(editTabOf(first)); setTimeout(() => flagId(EDIT_IDS[first] || first), 80); }
+            return;
         }
-        if (!readShillings(buffer.totalCost).ok) { toast('TOTAL COST: ' + MONEY_BAD, 'error'); return; }   // fix199
+        if (!readShillings(buffer.totalCost).ok) { toast('TOTAL COST: ' + MONEY_BAD, 'error'); setActiveTab('FINANCIALS'); setTimeout(() => flagField('Total Cost'), 80); return; }   // fix199
         if ((Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
-            setFieldErrors({ costChangeReason: 'Write why (5+ characters)' }); setActiveTab('FINANCIALS'); toast('WRITE WHY THE TOTAL COST CHANGED (AT LEAST 5 CHARACTERS)', 'error', 6000); return;
+            setFieldErrors({ costChangeReason: 'Write why (5+ characters)' }); setActiveTab('FINANCIALS'); toast('WRITE WHY THE TOTAL COST CHANGED (AT LEAST 5 CHARACTERS)', 'error', 6000); setTimeout(() => flagId(EDIT_IDS.costChangeReason), 80); return;
         }
         setFieldErrors({}); setCommitting(true);
         try {
@@ -640,7 +649,13 @@ const FolderPage = () => {
                 totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0, costChangeReason: (buffer.costChangeReason || '').trim(), expectedTotalCost: Number(project.totalCost) || 0 });
             predictionService.learn(buffer); setIsEditing(false);
             await loadFolderData(); toast('Changes saved.', 'success');
-        } catch (err) { toast('NOT SAVED: ' + errText(err), 'error'); }
+        } catch (err) {
+            toast('NOT SAVED: ' + errText(err), 'error');
+            // fix213: point at the box the server refused (plot taken in that block and district, NIN used ...)
+            const code = errorCode(err);
+            if (code) { setActiveTab(/NIN|PHONE|EMAIL|CLIENT|OWNER/.test(code) ? 'PEOPLE' : 'OVERVIEW');
+                setTimeout(() => flagServerError(err, { NIN_TAKEN: 'NIN', NIN_CONFLICT: 'NIN', NIN_REQUIRED: 'NIN', PHONE_INVALID: 'PHONE', PLOT_TAKEN: 'Plot Number', PLOT_REQUIRED: 'Plot Number' }), 80); }
+        }
         finally { setCommitting(false); }
     };
     const handleLeave = () => routerProceed();
@@ -792,12 +807,12 @@ const FolderPage = () => {
         if (!titleModal || titleSaving) return;
         const m = titleModal;
         if (!m.scanOnly) {
-            if (!m.plotNumber.trim()) { setTitleErr('PLOT NUMBER IS REQUIRED.'); return; }
-            if (!m.block.trim()) { setTitleErr('BLOCK IS REQUIRED.'); return; }
-            if (!(Number(m.areaHectares) > 0)) { setTitleErr('AREA (HECTARES) MUST BE MORE THAN 0.'); return; }
-            if (!m.titleIssueDate) { setTitleErr('TITLE DATE IS REQUIRED.'); return; }
+            if (!m.plotNumber.trim()) { setTitleErr('PLOT NUMBER IS REQUIRED.'); flagId('tt-plot'); return; }
+            if (!m.block.trim()) { setTitleErr('BLOCK IS REQUIRED.'); flagId('tt-block'); return; }
+            if (!(Number(m.areaHectares) > 0)) { setTitleErr('AREA (HECTARES) MUST BE MORE THAN 0.'); flagId('tt-area'); return; }
+            if (!m.titleIssueDate) { setTitleErr('TITLE DATE IS REQUIRED.'); flagField('Title date'); return; }
         }
-        if (!(m.files || []).length) { setTitleErr('ATTACH THE SCAN OF THE TITLE (PDF OR PHOTO). "TITLED" IS NOT TICKED WITHOUT IT.'); return; }
+        if (!(m.files || []).length) { setTitleErr('ATTACH THE SCAN OF THE TITLE (PDF OR PHOTO). "TITLED" IS NOT TICKED WITHOUT IT.'); flagId('tt-scan'); return; }
         setTitleSaving(true); setTitleErr('');
         try {
             const details = m.scanOnly ? {} : { plotNumber: m.plotNumber.trim().toUpperCase(), block: m.block.trim().toUpperCase(),
@@ -808,7 +823,7 @@ const FolderPage = () => {
                 tenure: details.tenure, volume: details.volume || '', folio: details.folio || '', titleIssueDate: details.titleIssueDate } : b));
             setTitleModal(null); toast(m.scanOnly ? 'Title scan saved. "Titled" is ticked.' : 'Title Details and scan saved. "Titled" is ticked.', 'success');
             await loadFolderData(); setStagesReload(n => n + 1);
-        } catch (err) { setTitleErr(errText(err)); }
+        } catch (err) { setTitleErr(errText(err)); const c = errorCode(err); if (/PLOT/.test(c)) flagId('tt-plot'); else if (/BLOCK/.test(c)) flagId('tt-block'); else if (/AREA/.test(c)) flagId('tt-area'); else if (/TITLE_DATE/.test(c)) flagField('Title date'); else if (/SCAN/.test(c)) flagId('tt-scan'); }
         finally { setTitleSaving(false); }
     };
     // fix196: the two numbers of the project. Opened from the page head or from the Invoice / Contract stage.

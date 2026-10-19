@@ -42,6 +42,7 @@ public class LandService {
     private final StatusTemplateService statusTemplateService;
     private final ProjectStatusRepository projectStatusRepository;
     private final LandTitleRepository landTitleRepository;
+    private final PlotNumberGuard plotGuard;   // fix213
     private final ProjectNeighborRepository neighborRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
@@ -491,6 +492,7 @@ public class LandService {
             if (request.getTitleIssueDate() == null) {
                 throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
             }
+            plotGuard.assertFree(request.getPlotNumber(), request.getBlock(), request.getDistrict(), null);   // fix213
             title = LandTitle.builder()
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
@@ -978,6 +980,7 @@ public class LandService {
         }
         boolean titleAllowed = title != null || type.showsTitle(project.isTitleDetailsEnabled());
         boolean hasTitleFields = titleAllowed && request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
+        if (hasTitleFields) plotGuard.assertFree(request.getPlotNumber(), request.getBlock(), request.getDistrict(), project.getId());   // fix213
         if (title == null && hasTitleFields) {
             // fix167: a title saved from the folder page needs the same details as one typed on New Project
             if (request.getBlock() == null || request.getBlock().isBlank()) {

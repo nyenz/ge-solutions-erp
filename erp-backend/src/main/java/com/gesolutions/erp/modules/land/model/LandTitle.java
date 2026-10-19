@@ -32,7 +32,7 @@ public class LandTitle {
     @Column(nullable = false, length = 50)
     private String tenure; // e.g. MAILO, FREEHOLD
 
-    @Column(name = "plot_number", unique = true, length = 100)
+    @Column(name = "plot_number", length = 100)   // fix213: unique per plot + block + district (PlotNumberGuard), not system-wide
     private String plotNumber;
 
     // fix180: BLOCK (the Java name was block; the column keeps its old name so no data moves)

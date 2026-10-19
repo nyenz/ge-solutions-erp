@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { roleFlags } from '../../utils/roles';
+import { flagField, flagServerError } from '../../utils/fieldError';   // fix213
 import { errorText } from '../../utils/errorText';
 import pendingService from '../../services/pendingService';
 import landService from '../../services/landService';
@@ -123,7 +124,7 @@ export default function PendingViewPage() {
     const run = async (fn, ok) => {
         setBusy(true);
         try { const r = await fn(); setMsg(typeof r === 'string' ? r : ok); await load(); }
-        catch (e) { fail(errorText(e)); }
+        catch (e) { fail(errorText(e)); flagServerError(e, { INVOICE_NUMBER_TAKEN: 'Invoice number', CONTRACT_NUMBER_TAKEN: 'Contract number', PRICE_REQUIRED: 'Total cost (UGX)' }); }   // fix213
         finally { setBusy(false); }
     };
 
@@ -134,11 +135,11 @@ export default function PendingViewPage() {
     const complete = !!(inv && con && total > 0);
     const save = () => {
         const dep = Number(digits(deposit) || 0);
-        if (!inv && !con && !total) { fail('Type the invoice number, the contract number or the price first.'); return; }
-        if (dep > 0 && !complete) { fail('Money already received is recorded when the project starts. Fill in the invoice number, the contract number and the price, or clear the money box.'); return; }
-        if (dep > total && complete) { fail('The money already received is more than the total cost.'); return; }
+        if (!inv && !con && !total) { fail('Type the invoice number, the contract number or the price first.'); flagField('Invoice number'); return; }
+        if (dep > 0 && !complete) { fail('Money already received is recorded when the project starts. Fill in the invoice number, the contract number and the price, or clear the money box.'); flagField(!inv ? 'Invoice number' : !con ? 'Contract number' : 'Total cost (UGX)'); return; }
+        if (dep > total && complete) { fail('The money already received is more than the total cost.'); flagField('Money already received (UGX, optional)'); return; }
         const clients = (p && p.clients) || [];
-        if (dep > 0 && clients.length > 1 && !payerNin) { fail('Pick which client paid the money already received.'); return; }
+        if (dep > 0 && clients.length > 1 && !payerNin) { fail('Pick which client paid the money already received.'); flagField('Which client paid?'); return; }
         const body = { invoiceNumber: inv || null, contractNumber: con || null, totalCost: total || null,
             initialPayment: dep || null, initialPaymentPayerNin: dep > 0 ? (payerNin || null) : null,
             lastPaidDate: dep > 0 && paidDate ? paidDate : null };
@@ -151,7 +152,7 @@ export default function PendingViewPage() {
     };
 
     const reject = () => {
-        if (rejectWhy.trim().length < 5) { fail('Write why this entry is rejected (at least 5 characters).'); return; }
+        if (rejectWhy.trim().length < 5) { fail('Write why this entry is rejected (at least 5 characters).'); flagField('Reason for rejecting'); return; }
         run(async () => { await pendingService.reject(id, rejectWhy.trim()); navigate('/land/projects'); }, 'Entry rejected.');
     };
 
@@ -278,7 +279,7 @@ export default function PendingViewPage() {
                     <Card title="Reject this entry">
                         <span className={styles.muted}>A mistake or a duplicate. The person who entered it reads the reason for 30 days.</span>
                         <div className={styles.form}>
-                            <textarea className={styles.textarea} value={rejectWhy} maxLength={500} onChange={e => setRejectWhy(e.target.value)} placeholder="Why? The person who entered it will read this." aria-label="Reason for rejecting" />
+                            <textarea className={styles.textarea} aria-label="Reason for rejecting" value={rejectWhy} maxLength={500} onChange={e => setRejectWhy(e.target.value)} placeholder="Why? The person who entered it will read this." aria-label="Reason for rejecting" />
                             <div className={styles.actions}>
                                 <button type="button" className={`${styles.btn} ${styles.btnDanger}`} disabled={busy} onClick={reject}>REJECT ENTRY</button>
                             </div>

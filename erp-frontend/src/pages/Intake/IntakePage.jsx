@@ -32,6 +32,7 @@ import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestForRow, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
 import { errorText } from '../../utils/errorText';   // fix205
+import { flagField, flagServerError } from '../../utils/fieldError';   // fix213
 const fmtDMY = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : iso; };   // fix212
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
@@ -415,79 +416,81 @@ export default function IntakePage() {
         closeUploadDraft();
     };
 
+    // fix213: every refusal marks the box that is wrong and scrolls to it (utils/fieldError.js)
+    const fail = (msg, field, section) => { toast(msg, 'error'); flagField(field, { section }); return false; };
     const validate = () => {
-        if (!district.trim()) { toast('District is required.', 'error'); return false; }
-        if (!county.trim()) { toast('County is required.', 'error'); return false; }
-        if (!subCounty.trim()) { toast('Sub-county is required.', 'error'); return false; }
-        if (!parish.trim()) { toast('Parish is required.', 'error'); return false; }
-        if (!village.trim()) { toast('Village is required.', 'error'); return false; }
+        if (!district.trim()) return fail('District is required.', 'District', 'Location');
+        if (!county.trim()) return fail('County is required.', 'County', 'Location');
+        if (!subCounty.trim()) return fail('Sub-county is required.', 'Sub-county', 'Location');
+        if (!parish.trim()) return fail('Parish is required.', 'Parish', 'Location');
+        if (!village.trim()) return fail('Village is required.', 'Village', 'Location');
         // fix199 (David, test note 11): Area is the size of the land in hectares, so digits only (e.g. 0.405)
         // fix203 (David): Area is typed ONCE. With Title Details it is the title's Area (required there); without a title
         // it is the Location box, which may be left empty but must be a number when typed.
-        if (!isTitleSectionVisible && area.trim() && !(Number(area) > 0)) { toast('Area (hectares) must be a number more than 0, for example 0.405.', 'error'); return false; }
+        if (!isTitleSectionVisible && area.trim() && !(Number(area) > 0)) return fail('Area (hectares) must be a number more than 0, for example 0.405.', 'Area (hectares)', 'Location');
         const checkPeople = (rows, what) => {
             for (let i = 0; i < rows.length; i++) {
                 const o = rows[i];
-                if (!o.nationalId.trim()) { toast(`${what} ${i + 1}: NIN is required.`, 'error'); return false; }
-                if (!o.fullName.trim()) { toast(`${what} ${i + 1}: Full Name is required.`, 'error'); return false; }
-                if (!o.phone.trim()) { toast(`${what} ${i + 1}: Phone is required (use / for multiple numbers).`, 'error'); return false; }
+                if (!o.nationalId.trim()) return fail(`${what} ${i + 1}: NIN is required.`, `NIN of ${what} ${i + 1}`, what);
+                if (!o.fullName.trim()) return fail(`${what} ${i + 1}: Full Name is required.`, `Full name of ${what} ${i + 1}`, what);
+                if (!o.phone.trim()) return fail(`${what} ${i + 1}: Phone is required (use / for multiple numbers).`, `Phone of ${what} ${i + 1}`, what);
                 const ph = normalizePhones(o.phone);
-                if (!ph.ok) { toast(`${what} ${i + 1}: ${ph.error}`, 'error'); return false; }
+                if (!ph.ok) return fail(`${what} ${i + 1}: ${ph.error}`, `Phone of ${what} ${i + 1}`, what);
             }
             return true;
         };
         if (!checkPeople(clients, 'Client') || !checkPeople(owners, 'Owner')) return false;
         for (let i = 0; i < neighbors.length; i++) {
             const nb = neighbors[i];
-            if (!nb.fullName.trim()) { toast(`Neighbor ${i + 1}: Name is required (or remove the row).`, 'error'); return false; }
-            if (nb.phone.trim() && !normalizePhones(nb.phone).ok) { toast(`Neighbor ${i + 1}: ${normalizePhones(nb.phone).error}`, 'error'); return false; }
+            if (!nb.fullName.trim()) return fail(`Neighbor ${i + 1}: Name is required (or remove the row).`, `Name of Neighbor ${i + 1}`, 'Neighbor');
+            if (nb.phone.trim() && !normalizePhones(nb.phone).ok) return fail(`Neighbor ${i + 1}: ${normalizePhones(nb.phone).error}`, `Phone of Neighbor ${i + 1}`, 'Neighbor');
         }
-        if (isSubdivision && !(Number(subdivisionCount) >= 1 && Number.isInteger(Number(subdivisionCount)))) { toast('Enter the number of subdivisions (plots) being created.', 'error'); return false; }
+        if (isSubdivision && !(Number(subdivisionCount) >= 1 && Number.isInteger(Number(subdivisionCount)))) return fail('Enter the number of subdivisions (plots) being created.', 'Number of Subdivisions');
         if (isTitleSectionVisible) {
-            if (!plotNumber.trim()) { toast('Plot Number is required.', 'error'); return false; }
-            if (!block.trim()) { toast('Block is required.', 'error'); return false; }
-            if (!(Number(areaHectares) > 0)) { toast('Area (hectares) is required and must be more than 0.', 'error'); return false; }
-            if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
+            if (!plotNumber.trim()) return fail('Plot Number is required.', 'Plot Number', 'Title');
+            if (!block.trim()) return fail('Block is required.', 'Block', 'Title');
+            if (!(Number(areaHectares) > 0)) return fail('Area (hectares) is required and must be more than 0.', 'Area (hectares)', 'Title');
+            if (!titleIssueDate) return fail('Title Date is required.', 'Title date', 'Title');
         }
         if (isEmployee) return fileCheck();   // fix181: no money on a field entry; the office adds it
         // fix199 (David, test notes 9 + 12): an office entry with no invoice number, no contract number or no price is
         // saved as PENDING instead of being refused. It cannot carry money received yet.
         if (officeDraft) {
             if ((Number(initialPayment) || 0) > 0 || (isLegacy && ((Number(initialStorageFee) || 0) > 0 || (Number(initialStorageFeePaid) || 0) > 0))) {
-                toast('Money received is recorded once the project has its Invoice Number, Contract Number and Total Cost. Fill in all three, or set the payment boxes to 0.', 'error'); return false;
+                return fail('Money received is recorded once the project has its Invoice Number, Contract Number and Total Cost. Fill in all three, or set the payment boxes to 0.', !invoiceNumber.trim() ? 'Invoice Number' : !contractNumber.trim() ? 'Contract Number' : 'Total Cost', 'Financ');
             }
-            if (!Number.isInteger(Number(totalCost) || 0)) { toast('Total Cost: whole shillings only (no decimals).', 'error'); return false; }
+            if (!Number.isInteger(Number(totalCost) || 0)) return fail('Total Cost: whole shillings only (no decimals).', 'Total Cost', 'Financ');
             return fileCheck();
         }
-        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
-        if (!Number.isInteger(Number(totalCost)) || !Number.isInteger(Number(initialPayment))) { toast('Total Cost and Initial Payment: whole shillings only (no decimals).', 'error'); return false; }
+        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) return fail('Initial Payment is required (0 or more).', isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment', 'Financ');
+        if (!Number.isInteger(Number(totalCost)) || !Number.isInteger(Number(initialPayment))) return fail('Total Cost and Initial Payment: whole shillings only (no decimals).', !Number.isInteger(Number(totalCost)) ? 'Total Cost' : (isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'), 'Financ');
         // fix171: the same checks the server makes, so the message shows before anything is sent
-        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }
+        if (Number(initialPayment) > Number(totalCost)) return fail('Initial Payment cannot be more than the Total Cost.', isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment', 'Financ');
         // fix172: the optional dates, and which owner paid the intake money
-        if (lastPaidDate && lastPaidDate > localISO()) { toast('Date Last Paid cannot be in the future.', 'error'); return false; }
+        if (lastPaidDate && lastPaidDate > localISO()) return fail('Date Last Paid cannot be in the future.', 'Date Last Paid', 'Financ');
         // fix199 (note 13): Date Last Paid starts on today; it is simply not sent when nothing was paid
-        if (isLegacy && receivablesSince && receivablesSince > localISO()) { toast('In Receivables Since cannot be in the future.', 'error'); return false; }
+        if (isLegacy && receivablesSince && receivablesSince > localISO()) return fail('In Receivables Since cannot be in the future.', 'In Receivables Since', 'Financ');
         if (clients.length > 1) {
-            if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') { toast('Pick which client paid the Initial Payment.', 'error'); return false; }
-            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') { toast('Pick which client paid the Storage Fees Already Paid.', 'error'); return false; }
+            if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') return fail('Pick which client paid the Initial Payment.', 'Initial Payment Paid By', 'Financ');
+            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') return fail('Pick which client paid the Storage Fees Already Paid.', 'Storage Fees Paid By', 'Financ');
         }
         if (isLegacy) {
             fixFeeBox();   // fix173: 0 or negative monthly fee -> default, with a message
             const feeCharged = Number(initialStorageFee) || 0;
             const feePaid = Number(initialStorageFeePaid) || 0;
-            if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }
-            if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }
+            if (feeCharged < 0 || feePaid < 0) return fail('Storage fees cannot be negative.', feeCharged < 0 ? 'Initial Storage Fee' : 'Storage Fees Already Paid', 'Financ');
+            if (!Number.isInteger(feePaid)) return fail('Storage Fees Already Paid: whole shillings only.', 'Storage Fees Already Paid', 'Financ');
             const backlogNow = receivablesSince ? monthsSince(receivablesSince) * feeOrDefault(monthlyStorageFee) : 0;
-            if (feePaid > feeCharged + backlogNow) { toast('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'error'); return false; }
+            if (feePaid > feeCharged + backlogNow) return fail('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'Storage Fees Already Paid', 'Financ');
             if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0 || receivablesSince)) {
-                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;
+                return fail('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', receivablesSince ? 'In Receivables Since' : 'Initial Storage Fee', 'Financ');
             }
         }
         return fileCheck();
     };
     function fileCheck() {
-        if (!isEmployee && fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
-        if (fileQueue.some(q => !q.category)) { toast('Pick a document type for every file.', 'error'); return false; }   // fix174
+        if (!isEmployee && fileQueue.length === 0) return fail('At least one document is required.', null, 'Documents');
+        if (fileQueue.some(q => !q.category)) return fail('Pick a document type for every file.', null, 'Documents');   // fix174
         return true;
     }
 
@@ -567,6 +570,7 @@ export default function IntakePage() {
             return true;
         } catch (err) {
             toast(errorText(err), 'error');   // fix205
+            flagServerError(err);   // fix213: mark the box the server refused (plot taken, invoice number used ...)
             return false;
         } finally { setSaving(false); }
     };
@@ -850,11 +854,11 @@ export default function IntakePage() {
                         <div key={idx} className={`${styles.ownerRow} ${styles.neighborRow}`}>
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Full Name</label>
-                                <input className={styles.input} value={nb.fullName} onChange={e => updateNeighbor(idx, 'fullName', e.target.value)} />
+                                <input className={styles.input} value={nb.fullName} aria-label={'Name of Neighbor ' + (idx + 1)} onChange={e => updateNeighbor(idx, 'fullName', e.target.value)} />
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Phone</label>
-                                <input className={styles.input} value={nb.phone} onChange={e => updateNeighbor(idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (e.target.value.trim() && r.ok && r.value !== e.target.value) updateNeighbor(idx, 'phone', r.value); }} />
+                                <input className={styles.input} value={nb.phone} aria-label={'Phone of Neighbor ' + (idx + 1)} onChange={e => updateNeighbor(idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (e.target.value.trim() && r.ok && r.value !== e.target.value) updateNeighbor(idx, 'phone', r.value); }} />
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Side</label>

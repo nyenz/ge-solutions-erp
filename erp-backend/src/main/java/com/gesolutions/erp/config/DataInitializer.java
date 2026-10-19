@@ -191,6 +191,8 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+            // fix213: a plot number is unique per plot + block + district (PlotNumberGuard), so the old system-wide UNIQUE goes
+            "DO $$ DECLARE c record; BEGIN FOR c IN SELECT con.conname FROM pg_constraint con JOIN pg_class t ON t.oid = con.conrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(con.conkey) WHERE t.relname = 'land_titles' AND con.contype = 'u' AND a.attname = 'plot_number' AND array_length(con.conkey, 1) = 1 LOOP EXECUTE 'ALTER TABLE land_titles DROP CONSTRAINT ' || quote_ident(c.conname); END LOOP; END $$",
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
