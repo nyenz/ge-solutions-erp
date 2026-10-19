@@ -1,0 +1,617 @@
+<title>Round 1 Test Pack</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow working column; a sticky score bar on top; each step is a row with DO, COPY chips, EXPECT and PASS/FAIL. */
+:root {
+  --bg: #f3f5f4; --panel: #ffffff; --ink: #1c3335; --ink-soft: #55696b; --line: #d3dcdb;
+  --accent: #c96a1b; --accent-wash: #fbeee1; --chip: #e9efee;
+  --pass: #1f7a4d; --pass-wash: #e2f3ea; --fail: #b3261e; --fail-wash: #fbe6e4;
+  --f-display: 'Cinzel', Georgia, serif; --f-body: 'DM Sans', system-ui, sans-serif; --f-mono: 'DM Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12201f; --panel: #1b2e2f; --ink: #e6eeed; --ink-soft: #9fb3b2; --line: #2f4647;
+  --accent: #ee8c3a; --accent-wash: #3a2a1a; --chip: #24393a;
+  --pass: #5fcf97; --pass-wash: #173527; --fail: #ff8a80; --fail-wash: #3d1f1d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12201f; --panel: #1b2e2f; --ink: #e6eeed; --ink-soft: #9fb3b2; --line: #2f4647;
+  --accent: #ee8c3a; --accent-wash: #3a2a1a; --chip: #24393a;
+  --pass: #5fcf97; --pass-wash: #173527; --fail: #ff8a80; --fail-wash: #3d1f1d; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 60px; display: flex; flex-direction: column; gap: 22px; }
+h1 { font-family: var(--f-display); font-size: clamp(22px, 4vw, 30px); margin: 0; letter-spacing: .02em; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-size: 18px; margin: 0; letter-spacing: .03em; color: var(--accent); text-wrap: balance; }
+p { margin: 0; }
+.lead { color: var(--ink-soft); max-width: 65ch; }
+.how { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: var(--accent-wash); border-left: 4px solid var(--accent); }
+.how b { font-weight: 700; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.score { display: flex; gap: 14px; font-variant-numeric: tabular-nums; font-weight: 700; flex-wrap: wrap; }
+.score .p { color: var(--pass); } .score .f { color: var(--fail); } .score .l { color: var(--ink-soft); }
+.bar .sp { flex: 1 1 auto; }
+button { font: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 6px; padding: 7px 12px; font-weight: 700; font-size: 14px; }
+.btn:hover { border-color: var(--accent); }
+.btn.main { background: var(--accent); border-color: var(--accent); color: #fff; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.files { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.files ul { margin: 4px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 14px; }
+.files li { font-family: var(--f-mono); font-size: 13px; overflow-wrap: anywhere; }
+.fgroup { display: flex; flex-direction: column; }
+section { display: flex; flex-direction: column; gap: 10px; }
+.secnote { color: var(--ink-soft); font-size: 15px; max-width: 65ch; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.step.pass { border-color: var(--pass); } .step.fail { border-color: var(--fail); }
+.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.num { font-family: var(--f-mono); font-size: 13px; color: var(--ink-soft); }
+.role { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: var(--chip); color: var(--ink); }
+.do { font-weight: 500; min-width: 0; }
+.lbl { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.copies { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.copy { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; color: var(--ink); min-width: 0; }
+.copy:hover { border-color: var(--accent); }
+.copy .k { font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+.copy .v { font-family: var(--f-mono); font-size: 14px; overflow-wrap: anywhere; }
+.copy.done { border-color: var(--pass); background: var(--pass-wash); }
+.expect { padding: 9px 12px; background: var(--bg); border-radius: 6px; min-width: 0; }
+.expect ul { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+.mark { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mark button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 7px 16px; font-weight: 700; font-size: 14px; }
+.mark .bp[aria-pressed="true"] { background: var(--pass-wash); border-color: var(--pass); color: var(--pass); }
+.mark .bf[aria-pressed="true"] { background: var(--fail-wash); border-color: var(--fail); color: var(--fail); }
+.mark input { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-weight: 700; font-size: 14px; max-width: calc(100% - 32px); }
+textarea#out { width: 100%; min-height: 140px; font-family: var(--f-mono); font-size: 13px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1>Round 1: Fresh Survey</h1>
+    <p class="lead">Golden Seed ERP manual test. Brand new app, all five ranks, one project type from first entry to title handed over, then a Subdivision.</p>
+  </header>
+
+  <div class="how">
+    <p><b>16 Oct: new section M checks the fixes of fix210.</b> Your ticks are kept. Carry on from <b>K3</b>, then L, then M. New: <b>N</b> storage fees, <b>O</b> recovery calls, <b>P</b> payments, expenses and reports by rank.</p>
+    <p><b>Updated after fix199 (your notes 1 to 25).</b> Nothing was wiped and your ticks are kept. Carry on from <b>G5</b>. Steps changed by the fixes say so. Then do <b>K</b> (check each fix) and <b>L</b> (Subdivision).</p>
+    <p><b>How to use this page.</b> Do the steps from top to bottom. Tap a grey box to copy its value, then paste it in the app.</p>
+    <p>Read <b>What should happen</b>. If the app does that, press PASS. If not, press FAIL and type what you saw.</p>
+    <p>At the end press <b>Copy results</b> and paste them to Claude.</p>
+  </div>
+
+  <section class="files" id="files">
+    <h2>All the files you need (29)</h2>
+    <p class="secnote">Claude also sent them as one zip, <b>golden-seed-test-files.zip</b>, already named. Unzip it into one folder and pick from there. If you use your own files, rename them to these names. Files ending .docx must be real Word files.</p>
+    <div class="fgroup"><div class="lbl">Project 1 (001A)</div><ul><li>P1-application-form.pdf</li><li>P1-area-land-committee.pdf</li><li>P1-physical-planning-consent.pdf</li><li>P1-board-minute.pdf</li><li>P1-instruction-to-survey.pdf</li><li>P1-job-record-jacket.pdf</li><li>P1-deed-plan.pdf</li><li>P1-offer-letter.pdf</li><li>P1-forwarding-letter.pdf</li><li>P1-copy-of-title.pdf</li><li>P1-receipt-01.jpg</li><li>P1-receipt-02.jpg</li><li>P1-receipt-03.jpg</li></ul></div>
+    <div class="fgroup"><div class="lbl">Projects 2 to 5</div><ul><li>P2-application-form.pdf</li><li>P2-invoice.pdf</li><li>P2-receipt-01.jpg</li><li>P2-letter.docx</li><li>P2-wrong-kind.zip</li><li>P3-application-form.pdf</li><li>P3-area-land-committee.pdf</li><li>P3-receipt-01.jpg</li><li>P4-application-form.pdf</li><li>P5-application-form.pdf</li></ul></div>
+    <div class="fgroup"><div class="lbl">Subdivision (section L)</div><ul><li>S1-application-form.pdf</li><li>S1-copy-of-mother-title.pdf</li><li>S1-consent-letter.docx</li><li>S1-consent-for-subdivision.pdf</li><li>S1-receipt-01.jpg</li><li>S1-P1-transfer-form.pdf</li></ul></div>
+    <div class="fgroup"><div class="lbl">Money and recovery (sections N and O)</div><ul><li>N1-copy-of-title.pdf</li><li>N-receipt-01.jpg</li><li>N-receipt-02.jpg</li><li>R1-application-form.pdf</li><li>R1-receipt-01.jpg</li></ul></div>
+  </section>
+
+  <div class="bar" role="status">
+    <div class="score"><span class="p" id="nPass">0 passed</span><span class="f" id="nFail">0 failed</span><span class="l" id="nLeft">0 left</span></div>
+    <span class="sp"></span>
+    <button class="btn main" id="copyResults" type="button">Copy results</button>
+    <button class="btn" id="resetAll" type="button">Clear ticks</button>
+  </div>
+
+  <main id="main" style="display:flex;flex-direction:column;gap:28px"></main>
+
+  <section id="outBox" hidden>
+    <h2>Your results</h2>
+    <p class="secnote">The copy did not work here. Select all the text in this box and copy it by hand.</p>
+    <textarea id="out" readonly></textarea>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+var DATA = [
+{ title: "A. Make the app brand new", note: "Sign in as the Admin. This uses the new FRESH START tick box.", steps: [
+  { role: "Admin", does: "Open Settings, then the DANGER ZONE tab. Look for a tick box that says FRESH START.",
+    expect: ["The FRESH START tick box is there. If it is not, the update is still loading. Wait 10 minutes, refresh, look again."] },
+  { role: "Admin", does: "Tick FRESH START. Type the phrase. Type your own key. Press the red button FRESH START: WIPE EVERYTHING.",
+    copy: [["Phrase", "WIPE-EVERYTHING"]],
+    expect: ["A green box says Wipe complete.", "It also says: Fresh start: the audit trail was cleared, and the demo data is switched off."] },
+  { role: "Admin", does: "Open Ledger, Clients, Payments and Dashboard, one after the other.",
+    expect: ["No projects. No clients. No payments.", "All money figures on the Dashboard are 0."] },
+  { role: "Admin", does: "Open Audit.",
+    expect: ["Only the line All business data wiped is there (your own sign-in lines after it are fine).", "No older lines."] },
+  { role: "Admin", does: "Open Settings, then the STAFF tab.",
+    expect: ["No names that start with demo.", "Your Admin account is still there."] },
+  { role: "Admin", does: "Open New Project and look at the project index shown on the form.",
+    expect: ["The index is 001A."] }
+]},
+{ title: "B. Make one account for each rank", note: "Do not start a username with demo. Pick your own keys: 8 or more characters, with a capital letter and a number.", steps: [
+  { role: "Admin", does: "Settings, STAFF tab. Add a new staff member with the rank Director.",
+    copy: [["Username", "test.director"]],
+    expect: ["The account is made and a temporary key is shown. Write it down."] },
+  { role: "Director", does: "Sign out. Sign in as test.director with the temporary key.",
+    expect: ["Only the Security tab opens. The app makes you set a new key before anything else.", "After the new key is saved, the normal pages open."] },
+  { role: "Director", does: "Settings, STAFF tab. Add three staff: a Manager, a Secretary and an Employee.",
+    copy: [["Manager", "test.manager"], ["Secretary", "test.secretary"], ["Employee", "test.employee"]],
+    expect: ["All three are made, each with a temporary key.", "The rank list does not let a Director make another Director or an Admin."] },
+  { role: "Director", does: "Look at the Settings tabs.",
+    expect: ["Appearance, Security, Staff and Archive are there.", "There is no Danger Zone tab."] }
+]},
+{ title: "C. Project 1: entered in the field, started by the office", note: "One client. This project goes all the way to title handed over.", steps: [
+  { role: "Employee", does: "Sign in as test.employee and set a new key. Look at the menu.",
+    expect: ["You land on New Project.", "The menu has only New Project, My Entries and Settings.", "No bell. No money anywhere."] },
+  { role: "Employee", does: "Type this address in the browser to try and reach the Ledger.",
+    copy: [["Address", "https://golden-seed.onrender.com/land/projects"]],
+    expect: ["The app sends you back to New Project."] },
+  { role: "Employee", does: "On New Project choose the type Fresh Survey. Fill the place boxes.",
+    copy: [["District", "Jinja"], ["County", "Butembe"], ["Sub-county", "Mafubira"], ["Parish", "Wanyange"], ["Village", "Wanyange Hill"], ["Area (hectares)", "0.405"]],
+    expect: ["There are no Title Details boxes for a Fresh Survey.", "There is no Financials section for an Employee.", "The stage list has 11 stages, from Field Measurement to Titled."] },
+  { role: "Employee", does: "Fill Client 1. Leave the owner as the copy of the client. Add one neighbor.",
+    copy: [["Client NIN", "CM86021104KJTA"], ["Client full name", "Kato Samuel Wanyama"], ["Client phone", "0772 418 306"], ["Neighbor name", "Nabirye Florence"], ["Neighbor side", "North"]],
+    expect: ["The phone changes by itself to +256772418306 when you leave the box."] },
+  { role: "Employee", does: "Add one document and pick the type Application Forms. Write a note. Save.",
+    copy: [["File name", "P1-application-form.pdf"], ["Note", "Client met on site. Boundary marks seen on all four corners."]],
+    expect: ["Message: Saved as PENDING. The office will add the prices.", "You go to My Entries and the project is there.", "It shows a line that it is waiting for the office: invoice number, contract number and prices."] },
+  { role: "Secretary", does: "Sign in as test.secretary and set a new key. Open Ledger, then the PENDING tab. Open the project.",
+    expect: ["The project is in the PENDING tab only. It is not in the normal list and not in any money figure."] },
+  { role: "Secretary", does: "(Changed by fix199.) On the NUMBERS AND PRICE panel type only the total cost. Press SAVE (STAYS PENDING).",
+    copy: [["Total cost", "3500000"]],
+    expect: ["A pop-up says: Saved. Still Pending: waiting for the invoice number, contract number.", "The project is still Pending and the price stays in the box."] },
+  { role: "Secretary", does: "Now type the two numbers as well and press SAVE AND START PROJECT.",
+    copy: [["Invoice number", "INV-2026-001"], ["Contract number", "CTR-2026-001"], ["Total cost", "3500000"]],
+    expect: ["The project leaves Pending. Its index is 001A.", "Status ACTIVE with the money word CRITICAL (nothing paid yet).", "The stage Invoice / Contract Number is ticked by itself.", "The folder shows WAITING FOR: AREA LAND COMMITTEE."] }
+]},
+{ title: "D. Project 2: entered by the office, two clients", note: "First try the wrong values. Each one must be refused. Then put the right value back.", steps: [
+  { role: "Secretary", does: "New Project, type Fresh Survey. Fill the place boxes.",
+    copy: [["District", "Iganga"], ["County", "Kigulu"], ["Sub-county", "Nakalama"], ["Parish", "Bukoona"], ["Village", "Bukoona A"], ["Area (hectares)", "0.620"]],
+    expect: ["The Financials section is there for the Secretary, with Invoice Number and Contract Number as its first boxes."] },
+  { role: "Secretary", does: "Fill Client 1. In the phone box type the BAD phone first and try to save.",
+    copy: [["Client 1 NIN", "CF91030577LMPE"], ["Client 1 full name", "Namukose Sarah Babirye"], ["BAD phone", "0777777777"], ["GOOD phone", "0701 593 268"]],
+    expect: ["The bad phone is refused as a made-up number.", "The good phone is accepted."] },
+  { role: "Secretary", does: "Add Client 2 with two phone numbers in one box.",
+    copy: [["Client 2 NIN", "CM88071902RQWD"], ["Client 2 full name", "Isabirye Moses Tenywa"], ["Client 2 phones", "0756 204 917 / 0782 630 145"]],
+    expect: ["Both numbers are kept, separated by /."] },
+  { role: "Secretary", does: "Fill Financials with the invoice number of Project 1 (already used). Add the two documents (types Application Forms and Invoices). Choose who paid. Save.",
+    copy: [["USED invoice number", "INV-2026-001"], ["Contract number", "CTR-2026-002"], ["Total cost", "4800000"], ["Initial payment", "1200000"], ["File 1", "P2-application-form.pdf"], ["File 2", "P2-invoice.pdf"]],
+    expect: ["Refused: that invoice number is already on another project.", "Nothing is saved."] },
+  { role: "Secretary", does: "Change the invoice number to the right one. Change Initial Payment to the TOO HIGH value and save.",
+    copy: [["Invoice number", "INV-2026-002"], ["TOO HIGH payment", "5000000"]],
+    expect: ["Refused: the initial payment cannot be more than the total cost."] },
+  { role: "Secretary", does: "(Changed by fix199.) Put the initial payment back. Look at Initial Payment Paid By and Date Last Paid.",
+    copy: [["Initial payment", "1200000"]],
+    expect: ["Paid By already shows client 1 (Namukose Sarah Babirye). You can change it.", "Date Last Paid already shows today. You can change or clear it."] },
+  { role: "Secretary", does: "(Changed by fix199.) Try to add a ZIP file as a document. Word and Excel files are now allowed.",
+    copy: [["File name", "P2-wrong-kind.zip"]],
+    expect: ["Not added. The app lists the kinds it takes (PDF, photos, Word, Excel, PowerPoint, text or CSV)."] },
+  { role: "Secretary", does: "Keep Namukose Sarah Babirye as the payer and today as the date. Save Project.",
+    expect: ["Message: Project registered successfully!", "Index 002A. Status ACTIVE.", "NOT critical (exactly 25% is paid).", "In the Ledger the two numbers show under the index: INV-2026-002 and CTR-2026-002."] }
+]},
+{ title: "E. Project 3: a client the app already knows, nothing paid", steps: [
+  { role: "Manager", does: "Sign in as test.manager and set a new key. New Project, Fresh Survey. Fill the place boxes.",
+    copy: [["District", "Mayuge"], ["County", "Bunya"], ["Sub-county", "Kigandalo"], ["Parish", "Bugoto"], ["Village", "Bugoto B"], ["Area (hectares)", "0.250"]],
+    expect: ["While you type, the place boxes may offer past entries. That is fine."] },
+  { role: "Manager", does: "In the NIN box type the NIN of Project 1 and type the WRONG name. Fill the rest and save.",
+    copy: [["NIN", "CM86021104KJTA"], ["WRONG name", "Mukasa Peter Wrong"], ["Phone", "0772 418 306"], ["Invoice number", "INV-2026-003"], ["Contract number", "CTR-2026-003"], ["Total cost", "2000000"], ["Initial payment", "0"], ["File name", "P3-application-form.pdf"]],
+    expect: ["Refused: this NIN is already registered to Kato Samuel Wanyama."] },
+  { role: "Manager", does: "Clear the name. Start typing the NIN again and pick Kato from the list of known clients. Save.",
+    copy: [["Right name", "Kato Samuel Wanyama"]],
+    expect: ["The name and phone fill by themselves from the client list.", "Saved. Index 003A. Status ACTIVE, money word CRITICAL."] },
+  { role: "Manager", does: "Open Clients and find Kato Samuel Wanyama.",
+    expect: ["He is listed ONCE, with two projects (001A and 003A)."] }
+]},
+{ title: "F. Stages and their documents (Project 1)", note: "Tick the stages in order. After each tick the app asks to attach its document.", steps: [
+  { role: "Manager", does: "Open the folder of 001A. Tick Area Land Committee and attach its file. When you pick the type, add a NEW CATEGORY.",
+    copy: [["New category", "Committee and Consent Papers"], ["File name", "P1-area-land-committee.pdf"]],
+    expect: ["The app asks: attach its document now?", "The new category is saved and can be picked.", "The file shows under that stage and in Documents.", "WAITING FOR moves to PHYSICAL PLANNING CONSENT."] },
+  { role: "Manager", does: "Tick the next four stages, one by one, and attach each file (type Committee and Consent Papers).",
+    copy: [["Physical Planning Consent", "P1-physical-planning-consent.pdf"], ["Board Minute", "P1-board-minute.pdf"], ["Instruction to Survey", "P1-instruction-to-survey.pdf"], ["Job Record Jacket (JRJ)", "P1-job-record-jacket.pdf"]],
+    expect: ["Each tick is saved and the WAITING FOR line moves to the next stage each time."] },
+  { role: "Secretary", does: "Sign in as test.secretary. In the same folder tick Deed Plan, Offer Letter and Forwarding Letter. Use the matching document type for each.",
+    copy: [["Deed Plan", "P1-deed-plan.pdf"], ["Offer Letter", "P1-offer-letter.pdf"], ["Forwarding Letter", "P1-forwarding-letter.pdf"]],
+    expect: ["The Secretary is allowed to tick these stages.", "WAITING FOR now says TITLED."] },
+  { role: "Secretary", does: "Tick the stage Titled. When the Title Details boxes open, close them without filling.",
+    expect: ["The Title Details boxes open.", "After closing, Titled is NOT ticked."] }
+]},
+{ title: "G. Payments", note: "Payments are recorded from the project folder with RECORD PAYMENT. Every payment needs a receipt file.", steps: [
+  { role: "Manager", does: "Folder of 001A. RECORD PAYMENT with this amount and NO receipt file.",
+    copy: [["Amount", "1000000"]],
+    expect: ["Refused: a payment cannot be saved without its receipt."] },
+  { role: "Manager", does: "Same amount, now with the receipt. Date paid: today.",
+    copy: [["Amount", "1000000"], ["Receipt file", "P1-receipt-01.jpg"]],
+    expect: ["Saved. Paid 1,000,000. Still owed 2,500,000.", "The word CRITICAL is gone (more than 25% is paid)."] },
+  { role: "Manager", does: "Try an amount with a decimal.",
+    copy: [["Amount", "1500.50"], ["Receipt file", "P1-receipt-02.jpg"]],
+    expect: ["Refused: whole shillings only."] },
+  { role: "Manager", does: "Try an amount bigger than what is owed.",
+    copy: [["Amount", "3000000"], ["Receipt file", "P1-receipt-02.jpg"]],
+    expect: ["Refused: only UGX 2,500,000 is left to pay."] },
+  { role: "Manager", does: "(Changed by fix199: the Manager now has REVERSE.) Record this payment. Then open Payment History and REVERSE it with the reason.",
+    copy: [["Amount", "500000"], ["Receipt file", "P1-receipt-02.jpg"], ["Reason", "Entered on the wrong project"]],
+    expect: ["After saving: owed 2,000,000.", "After the reversal: owed is back to 2,500,000.", "History shows the payment and a minus line. The receipt is still there.",
+      "Sign in as test.director: the bell has an alert saying UGX 500,000 was reversed by test.manager.",
+      "Also reverse the 150,050 line from before (reason: Test: decimal amount saved by mistake), so the numbers below stay right."] },
+  { role: "Manager", does: "(Changed.) Look for HAND OVER TITLE on 001A now.",
+    expect: ["It is NOT there yet: it shows only once the project has Title Details (section H).", "After H3 it shows, greyed out while money is owed; hold the mouse on it and it says how much."] },
+  { role: "Manager", does: "Folder of 002A (two clients). RECORD PAYMENT without choosing who paid.",
+    copy: [["Amount", "600000"], ["Receipt file", "P2-receipt-01.jpg"]],
+    expect: ["Refused: this project has 2 clients, pick which client paid."] },
+  { role: "Manager", does: "Choose Isabirye Moses Tenywa as the payer and save.",
+    expect: ["Saved. 002A: paid 1,800,000, still owed 3,000,000.", "History shows who paid each line."] }
+]},
+{ title: "H. The ending: Titled, fully paid, handed over (Project 1)", steps: [
+  { role: "Manager", does: "Folder of 001A. Record the last payment.",
+    copy: [["Amount", "2500000"], ["Receipt file", "P1-receipt-03.jpg"]],
+    expect: ["Owed is 0. The money word is FULLY PAID."] },
+  { role: "Manager", does: "Tick Titled. Fill Block, Area and Title Date but leave Plot Number EMPTY. Save.",
+    copy: [["Block", "7"], ["Area (hectares)", "0.405"]],
+    expect: ["Refused: the plot number is required.", "Titled is not ticked."] },
+  { role: "Manager", does: "Type the plot number. Tenure Freehold. Title date today. Save. Then attach the title copy (type Copy of Title).",
+    copy: [["Plot number", "214"], ["Block", "7"], ["Area (hectares)", "0.405"], ["File name", "P1-copy-of-title.pdf"]],
+    expect: ["Titled is ticked. The badge says HAS TITLE DETAILS.", "There is no WAITING FOR line any more."] },
+  { role: "Manager", does: "Press HAND OVER TITLE and type who collected it. (fix199: the Manager now has this button.)",
+    copy: [["Who collected", "Collected by Kato Samuel Wanyama, National ID shown"]],
+    expect: ["Status becomes HANDED OVER.", "The Director's bell says the title was handed over by test.manager and who collected it.", "The Manager has no UNDO button (only the Director has it)."] },
+  { role: "Manager", does: "Try to change something on 001A, and try to delete one of its documents.",
+    expect: ["Both refused: the record is locked after the hand-over. Only a Director can undo it."] },
+  { role: "Manager", does: "Folder of 003A. Tick Titled and use the SAME plot and block as Project 1.",
+    copy: [["Plot number", "214"], ["Block", "7"], ["Area (hectares)", "0.250"]],
+    expect: ["Refused: that plot number is taken.", "Titled on 003A is not ticked."] }
+]},
+{ title: "I. What each rank can see", note: "Open every page in the menu for each rank.", steps: [
+  { role: "Secretary", does: "Look at the menu and open each page.",
+    expect: ["Dashboard, New Project, Ledger, Clients and Recovery open.", "No Payments page, no Reports, no Audit, no Expenses.", "Settings has only Appearance and Security."] },
+  { role: "Manager", does: "Look at the menu and open each page.",
+    expect: ["Same as the Secretary, plus Expenses.", "No Payments page, no Reports, no Audit.", "The Dashboard shows no company money totals."] },
+  { role: "Director", does: "Open Payments.",
+    expect: ["Every payment from this round is listed, with the reversal as a minus line.", "Total collected: UGX 5,300,000 (001A 3,500,000 and 002A 1,800,000)."] },
+  { role: "Director", does: "Open Dashboard.",
+    expect: ["Money collected: 5,300,000.", "Money still owed: 5,000,000 (002A 3,000,000 and 003A 2,000,000).", "3 projects: 1 handed over, 2 active."] },
+  { role: "Director", does: "Open Recovery.",
+    expect: ["The clients of 002A and 003A are listed as people to call.", "Nobody is listed for 001A (nothing is owed)."] },
+  { role: "Director", does: "Open Reports, then Projects.",
+    expect: ["The 3 projects are there with their invoice and contract numbers."] },
+  { role: "Director", does: "Open Audit.",
+    expect: ["Every action from this round is there with the right person's name: staff made, projects entered, project started, stages ticked, payments, the reversal, the hand-over.", "The refused tries did not add projects or payments."] },
+  { role: "Director", does: "Delete 003A from its folder with the reason. Then open Settings, ARCHIVE.",
+    copy: [["Reason", "Test delete for round 1"]],
+    expect: ["003A is gone from the Ledger and from the money figures (owed drops to 3,000,000).", "It is in the Archive with the reason, who and when."] },
+  { role: "Director", does: "Restore 003A from the Archive.",
+    expect: ["It is back in the Ledger. Owed is 5,000,000 again."] },
+  { role: "Admin", does: "Sign in as the Admin and open Settings.",
+    expect: ["All tabs are there, with DANGER ZONE."] }
+]},
+{ title: "J. File names to prepare", note: "Rename your temp files to these names before you start. Use PDF for the papers and JPG for the receipts. Files ending .docx must be real Word files and the .zip any zip file.", steps: [
+  { role: "You", does: "Project 1 papers.", info: true,
+    copy: [["", "P1-application-form.pdf"], ["", "P1-area-land-committee.pdf"], ["", "P1-physical-planning-consent.pdf"], ["", "P1-board-minute.pdf"], ["", "P1-instruction-to-survey.pdf"], ["", "P1-job-record-jacket.pdf"], ["", "P1-deed-plan.pdf"], ["", "P1-offer-letter.pdf"], ["", "P1-forwarding-letter.pdf"], ["", "P1-copy-of-title.pdf"]] },
+  { role: "You", does: "Receipts.", info: true,
+    copy: [["", "P1-receipt-01.jpg"], ["", "P1-receipt-02.jpg"], ["", "P1-receipt-03.jpg"], ["", "P2-receipt-01.jpg"]] },
+  { role: "You", does: "Project 2 and Project 3 papers, and the wrong-kind file.", info: true,
+    copy: [["", "P2-application-form.pdf"], ["", "P2-invoice.pdf"], ["", "P3-application-form.pdf"], ["", "P2-wrong-kind.zip"]] },
+  { role: "You", does: "For section K (checking the fixes).", info: true,
+    copy: [["", "P2-letter.docx"], ["", "P4-application-form.pdf"], ["", "P5-application-form.pdf"], ["", "P3-receipt-01.jpg"], ["", "P3-area-land-committee.pdf"]] },
+  { role: "You", does: "For section L (Subdivision).", info: true,
+    copy: [["", "S1-application-form.pdf"], ["", "S1-copy-of-mother-title.pdf"], ["", "S1-consent-letter.docx"], ["", "S1-consent-for-subdivision.pdf"], ["", "S1-receipt-01.jpg"], ["", "S1-P1-transfer-form.pdf"]] }
+]},
+{ title: "K. Check each fix (fix199)", note: "One step per note you sent. Most are quick looks.", steps: [
+  { role: "Director", does: "Settings, STAFF tab. Look at the Admin's row and at test.employee's row. Hold the mouse on each small button of test.employee.",
+    expect: ["The Admin's row has no buttons (note 1).", "Each button on test.employee says what it does: change the rank, suspend, new temporary key (note 4)."] },
+  { role: "Director", does: "Press the shield button on test.employee and change the rank to Secretary. Then change it back to Employee.",
+    expect: ["Both changes save (note 3). The person must sign in again after each one.", "Only ranks below Director are offered (when signed in as the Director). The Admin also sees Director.", "The CHANGE and CANCEL buttons have space between them; CANCEL is a plain outline button."] },
+  { role: "Secretary", does: "On the Ledger, hold the mouse on a status word, a tab and a small icon button. On a phone, press and hold instead.",
+    expect: ["A dark explainer bubble with light words appears quickly, the same style on every page, in Light and Dark mode (note 4)."] },
+  { role: "Employee", does: "Enter a quick new project (Fresh Survey) and save it.",
+    copy: [["District", "Jinja"], ["County", "Butembe"], ["Sub-county", "Mafubira"], ["Parish", "Wanyange"], ["Village", "Wanyange Hill"], ["Area (hectares)", "0.300"],
+      ["Client NIN", "CM92070315PWEA"], ["Client full name", "Babirye Ruth Nangobi"], ["Client phone", "0774 816 205"], ["File name", "P4-application-form.pdf"]],
+    expect: ["Saved as PENDING."] },
+  { role: "Secretary", does: "Open the Ledger, tab ALL PROJECTS. Then the Dashboard, card Pending - set prices.",
+    expect: ["The new Pending project is in ALL PROJECTS too, with the word PENDING (note 6).", "The Dashboard card opens the Pending list (note 2)."] },
+  { role: "Secretary", does: "Open that Pending project. Close and open each panel. Type only the invoice number and press SAVE (STAYS PENDING). Refresh the page.",
+    copy: [["Invoice number", "INV-2026-004"]],
+    expect: ["Every panel opens and closes and has the corner marks (note 8).", "A pop-up near the bottom says: Saved. Still Pending: waiting for the contract number, price (notes 7, 9).", "After the refresh the invoice number is still in its box, and the top line says WAITING FOR THE OFFICE: CONTRACT NUMBER AND PRICES."] },
+  { role: "Secretary", does: "Now add the contract number and the price, and press SAVE AND START PROJECT.",
+    copy: [["Contract number", "CTR-2026-004"], ["Total cost", "1800000"]],
+    expect: ["The project starts and opens in its folder, CRITICAL (nothing paid)."] },
+  { role: "Secretary", does: "New Project, Fresh Survey, with NO invoice or contract number and only a Total Cost. Leave Initial Payment at 0. Save Project.",
+    copy: [["District", "Iganga"], ["County", "Kigulu"], ["Sub-county", "Nakalama"], ["Parish", "Bukoona"], ["Village", "Bukoona A"], ["Area (hectares)", "0.510"],
+      ["Client NIN", "CF95120488TRKA"], ["Client full name", "Kagoya Esther Muwanguzi"], ["Client phone", "0702 645 913"], ["Total cost", "2200000"], ["File name", "P5-application-form.pdf"]],
+    expect: ["Under Financials a line says it will be saved as PENDING (note 12).", "Message: Saved as PENDING ... and its Pending page opens with the price already filled."] },
+  { role: "Secretary", does: "Same kind of entry, but type 500000 in Initial Payment, with no numbers. Save Project.",
+    expect: ["Refused: money received is recorded once the project has its numbers and price."] },
+  { role: "Secretary", does: "New Project: type words in the Area (hectares) box and try to save.",
+    copy: [["Area (words)", "Nakalama Roadside"]],
+    expect: ["Refused: Area (hectares) must be a number (note 11).", "Typing a number in Area also fills the Title Details area when a project type has Title Details."] },
+  { role: "Manager", does: "Folder of 003A (001A is locked after the hand-over). EDIT. Look at Area (hectares) under Location.",
+    expect: ["If it still has words from before, saving the edit is refused until you type a number there, for example 0.250 (note 11). Then it saves."] },
+  { role: "Manager", does: "Folder of 003A. RECORD PAYMENT and type an amount with a dot.",
+    copy: [["Amount", "1500.50"], ["Receipt file", "P3-receipt-01.jpg"]],
+    expect: ["The box keeps 1500.50 and a red message says whole shillings only. It is NOT saved as 150,050 (note 23)."] },
+  { role: "Manager", does: "Folder of 002A, Documents. Add the Word file, type Application Forms. Then press View on it.",
+    copy: [["File name", "P2-letter.docx"]],
+    expect: ["The Word file is accepted (note 16).", "View downloads it to open in Word (it cannot be shown inside the app)."] },
+  { role: "Manager", does: "Folder of 003A. Tick Area Land Committee and attach its file.",
+    copy: [["File name", "P3-area-land-committee.pdf"]],
+    expect: ["The upload window already has the type Area Land Committee picked (note 22). You can change it."] },
+  { role: "Secretary", does: "New Project. In Client 1 type the NIN below in lowercase, then click into Full Name.",
+    copy: [["NIN", "cm86021104kjta"]],
+    expect: ["The NIN shows in CAPITALS as you type (note 19).", "Full Name offers KATO SAMUEL WANYAMA first; picking him fills the name and phone (note 20).", "An email typed in the Email box stays in small letters."] },
+  { role: "Secretary", does: "New Project: fill a full entry and press Save + Next Plot (the old Duplicate button).",
+    expect: ["It saves, then the form stays with the same type, clients, owners and place; numbers, money, documents and notes are empty, Date Last Paid is today (note 21)."] },
+  { role: "Director", does: "Folder of 001A. Press the printer button and look at the print preview.",
+    expect: ["A proper document called Project File (new look since fix210, see M8), with a statement of account, totals and signature lines (note 10).", "None of the screen buttons are printed."] },
+  { role: "Secretary", does: "Time how long Save Project takes with two documents attached.",
+    expect: ["Write the seconds in the note box. It should be faster than before (note 17); the free server is still slow when it has been asleep."] }
+]},
+{ title: "L. Subdivision project", note: "One title split into plots. Each plot can then be transferred to a new owner with its own Transfer of Title project.", steps: [
+  { role: "Secretary", does: "New Project. Choose the type Subdivision.",
+    expect: ["The Title Details panel appears (the mother title) and is required.", "A box Number of Subdivisions appears.",
+      "The stage list has 8 stages: Field Measurement, Invoice / Contract Number, Consent for Subdivision, Physical Planning Consent, Instruction to Survey, Job Record Jacket (JRJ), Deed Plan, Titled."] },
+  { role: "Secretary", does: "Fill the Location.",
+    copy: [["District", "Kamuli"], ["County", "Bugabula"], ["Sub-county", "Butansi"], ["Parish", "Kasambira"], ["Village", "Kasambira B"], ["Area (hectares)", "2.000"]] },
+  { role: "Secretary", does: "Fill the Title Details of the mother title. Tenure Freehold.",
+    copy: [["Plot number", "88"], ["Block", "12"], ["Area (hectares)", "2.000"], ["Volume", "4512"], ["Folio", "7"], ["Title date", "14/03/2019"]],
+    expect: ["The Title Details area may already show 2.000 from the Location box."] },
+  { role: "Secretary", does: "Type 0 in Number of Subdivisions and try to save. Then type 4.",
+    copy: [["Number of subdivisions", "4"]],
+    expect: ["0 is refused: enter the number of subdivisions.", "4 is accepted."] },
+  { role: "Secretary", does: "Client 1 (he pays). Owners start as a copy of the clients: ADD a second owner who is not a client.",
+    copy: [["Client NIN", "CM79051208HDQX"], ["Client full name", "Waiswa Robert Mugoya"], ["Client phone", "0703 715 482"],
+      ["Owner 2 NIN", "CF83110945ZXRP"], ["Owner 2 full name", "Mukyala Grace Nabirye"], ["Owner 2 phone", "0758 302 619"]],
+    expect: ["Owners shows 2 people; Clients shows 1."] },
+  { role: "Secretary", does: "Add one neighbour.",
+    copy: [["Neighbour name", "Kisambira Joseph"], ["Side", "East"]] },
+  { role: "Secretary", does: "Financials, then the documents. For the Word file pick the type Consent for Subdivision; for the mother title, Copy of Title. Save Project.",
+    copy: [["Invoice number", "INV-2026-010"], ["Contract number", "CTR-2026-010"], ["Total cost", "6000000"], ["Initial payment", "2000000"],
+      ["File 1", "S1-application-form.pdf"], ["File 2", "S1-copy-of-mother-title.pdf"], ["File 3", "S1-consent-letter.docx"]],
+    expect: ["With one client there is no Paid By box (he paid). Date Last Paid shows today.", "Saved. ACTIVE, not critical (33% paid).",
+      "The folder has a SUBDIVISIONS panel with PLOT 1 to PLOT 4, each with a TRANSFER button.", "The badge says HAS TITLE DETAILS (plot 88)."] },
+  { role: "Manager", does: "In the folder, tick Consent for Subdivision and attach its file.",
+    copy: [["File name", "S1-consent-for-subdivision.pdf"]],
+    expect: ["The type Consent for Subdivision is already picked.", "WAITING FOR moves to PHYSICAL PLANNING CONSENT."] },
+  { role: "Manager", does: "EDIT the project and change Number of Subdivisions to 5. Save.",
+    copy: [["Number of subdivisions", "5"]],
+    expect: ["The SUBDIVISIONS panel now shows PLOT 1 to PLOT 5."] },
+  { role: "Manager", does: "RECORD PAYMENT on the subdivision.",
+    copy: [["Amount", "1000000"], ["Receipt file", "S1-receipt-01.jpg"]],
+    expect: ["Paid 3,000,000. Still owed 3,000,000."] },
+  { role: "Secretary", does: "On PLOT 1 press TRANSFER.",
+    expect: ["New Project opens as Transfer of Title (the other types are greyed out).", "A banner says: Transfer of plot 1 of subdivision #... Owners and Location were copied. Add the new client (the buyer).", "Clients is EMPTY. Owners and the Location (district to village) are filled from the subdivision.", "Title Date is empty. Under it a grey line shows the original title (plot, block, volume, folio and its date)."] },
+  { role: "Secretary", does: "Add the new client (the buyer). Leave the Location as it is (already filled). Fill Title Details (Tenure Freehold, title date today), Financials and the document (type Transfer Form). Save Project.",
+    copy: [["Client name", "Waiswa Brian Kato"], ["Client NIN", "CM88012345TRWB"], ["Client phone", "0772410553"], ["Area (hectares)", "0.500"],
+      ["Plot number", "88-1"], ["Block", "12"], ["Invoice number", "INV-2026-011"], ["Contract number", "CTR-2026-011"], ["Total cost", "1500000"], ["Initial payment", "0"], ["File", "S1-P1-transfer-form.pdf"]],
+    expect: ["You go back to the subdivision folder.", "PLOT 1 now says TRANSFERRED - #... (88-1); plots 2 to 5 still have TRANSFER."] },
+  { role: "Secretary", does: "Open the transfer project (click TRANSFERRED on PLOT 1).",
+    expect: ["Its head has a link FROM #... PLOT 1 back to the subdivision.", "Its stages: Invoice / Contract Number (ticked), Transfer Form, Stamp Duty, Titled.", "Clients: Waiswa Robert Mugoya. Owners: both owners."] },
+  { role: "Manager", does: "Subdivision folder: EDIT and try to set Number of Subdivisions to 0.",
+    expect: ["Refused. The number of subdivisions cannot go below 1, nor below a plot that was already transferred."] }
+]},
+{ title: "M. Check the fixes of 16 Oct (fix210)", note: "Quick looks. Do them any time; they do not change your earlier steps.", steps: [
+  { role: "Secretary", does: "New Project > 7. Financials: type an Initial Payment so the Date Last Paid box shows.",
+    expect: ["Date Last Paid is the same width as the other boxes (not across the whole panel).", "TODAY and CLEAR DATE sit side by side under it."] },
+  { role: "Secretary", does: "New Project > 4. Title Details: click Title Date. In the small box at the top of the calendar type the date and press Enter.",
+    copy: [["Title date", "14/03/2019"]],
+    expect: ["The calendar jumps to March 2019 while you type; Enter puts 14/03/2019 in the box.", "Typing 31/02/2024 says: That month has only 29 days."] },
+  { role: "Secretary", does: "New Project > 4. Title Details: click Tenure, then press the L key on the keyboard. Then upload a file and in its Category list press D, then D again.",
+    expect: ["Tenure jumps to the first item starting with L.", "In the Category list D goes to Deed Plan, the second D to the next item starting with D. Enter picks it."] },
+  { role: "Secretary", does: "New Project > 6. Stages: press the paperclip on Area Land Committee and pick a file.",
+    copy: [["File", "P3-area-land-committee.pdf"]],
+    expect: ["Every stage except the first has a paperclip.", "The upload window opens with the type Area Land Committee already picked."] },
+  { role: "Manager", does: "Folder of the Subdivision (#007A): look at the stage Consent for Subdivision.",
+    expect: ["The file S1-consent-letter.docx (added in Documents with that type) now also shows under the stage, as if it had been attached with the paperclip."] },
+  { role: "Secretary", does: "Leave the app alone for 20 minutes, then open New Project and upload a file.",
+    expect: ["The Category list may say Loading the document types... for a few seconds, then fills by itself. It never stays empty."] },
+  { role: "Secretary", does: "Open the Dashboard. Then sign in as the Manager and open it again.",
+    expect: ["Secretary: one panel TODAY'S WORK with 6 tiles in a row, no empty space beside it.", "Manager: TODAY'S WORK and READY FOR HAND-OVER side by side, same height, then the stages panel full width.", "Hover help is readable in Light mode."] },
+  { role: "Director", does: "Folder of 001A: press the printer button and look at the preview (tick Background graphics under More settings).",
+    expect: ["A navy band on top with GE SOLUTIONS, a big PROJECT FILE title with the details beside it, then pale and white bands in two columns: Overview / Key points, Clients / Owners, Stages with round ticks, Statement of account, Documents / Notes.", "Page numbers at the bottom of each page."] }
+]},
+{ title: "N. Storage fees and receivables (a Legacy Title)", note: "Money that grows every 30 days once a project is in receivables. The receivable buttons in the folder are for the Director; payments are Manager and above. Do the steps in order: each one builds on the last.", steps: [
+  { role: "Secretary", does: "New Project. Type Legacy Titles. Fill Location, Title Details and the client.",
+    copy: [["District", "Iganga"], ["County", "Kigulu"], ["Sub-county", "Nakigo"], ["Parish", "Bulubandi"], ["Village", "Bulubandi B"],
+      ["Tenure", "Mailo"], ["Plot number", "316"], ["Block", "9"], ["Area (hectares)", "0.600"], ["Volume", "3307"], ["Folio", "12"], ["Title date", "05/05/2015"],
+      ["Client NIN", "CM72031408PKWD"], ["Client full name", "Musoke Fred Kirunda"], ["Client phone", "0774 528 163"]],
+    expect: ["Every stage arrives already ticked (the title exists).", "A Storage Fees part appears under Financials (Legacy Titles only)."] },
+  { role: "Secretary", does: "Financials and the storage fees. Leave Monthly Storage Fee empty (the default). Attach the title copy as Copy of Title. Save Project.",
+    copy: [["Invoice number", "INV-2026-020"], ["Contract number", "CTR-2026-020"], ["Total cost", "2000000"], ["Initial payment (title work)", "500000"],
+      ["Date last paid", "20/06/2026"], ["Initial storage fee", "0"], ["In receivables since", "16/07/2026"], ["Storage fees already paid", "50000"], ["File", "N1-copy-of-title.pdf"]],
+    expect: ["Saved. The badge says IN RECEIVABLES (and LEGACY).",
+      "Storage fees: 3 months x 50,000 = 150,000 added; 50,000 paid; 100,000 unpaid.",
+      "Owed now: 1,600,000 (1,500,000 title work + 100,000 fees)."] },
+  { role: "Secretary", does: "Try to save a second Legacy Title where Initial payment equals Total cost and Storage fees already paid is 10000.",
+    copy: [["Total cost", "1000000"], ["Initial payment", "1000000"], ["Storage fees already paid", "10000"]],
+    expect: ["Refused with a plain message: storage fees cannot be added to a title that is already fully paid. Cancel the entry."] },
+  { role: "Director", does: "Folder of the Legacy Title. In the storage fees part type 60000 in MONTHLY STORAGE RATE and press SAVE RATE (pick a quick reason).",
+    copy: [["Monthly storage rate", "60000"]],
+    expect: ["A reason window opens first. After saving, the rate shows 60,000 for the coming months. The 150,000 already added does not change."] },
+  { role: "Director", does: "PAUSE FEES UNTIL A DATE: pick a date about a month away and press PAUSE FEES. Then press RESUME FEES.",
+    expect: ["While paused the folder says the fees are paused until that date.", "RESUME FEES asks for a reason; afterwards fees run again from today and the paused days are not charged."] },
+  { role: "Director", does: "REDUCE FEES: type the agreed lower total.",
+    copy: [["New total storage fees", "120000"]],
+    expect: ["Storage fees now 120,000; 50,000 paid; 70,000 unpaid. Still IN RECEIVABLES.", "A total below the 50,000 already paid is refused."] },
+  { role: "Manager", does: "RECORD PAYMENT, choose STORAGE FEE, attach the receipt.",
+    copy: [["Amount", "20000"], ["Receipt file", "N-receipt-01.jpg"]],
+    expect: ["Fees paid 70,000; unpaid 50,000. Owed now 1,550,000.", "The payment line says Storage fees, paid by Musoke Fred Kirunda."] },
+  { role: "Director", does: "SET ASIDE (pick a quick reason).",
+    expect: ["The project leaves receivables (badge gone) and no new fees are added.",
+      "The 50,000 unpaid shows as SET-ASIDE FEES. The 70,000 already paid toward fees is moved into the total cost (2,070,000).",
+      "HAND OVER TITLE is blocked while set-aside fees are owed."] },
+  { role: "Manager", does: "COLLECT SET-ASIDE FEES and attach the receipt.",
+    copy: [["Amount", "20000"], ["Receipt file", "N-receipt-02.jpg"]],
+    expect: ["Set-aside fees now 30,000. Total cost 2,090,000. Owed 1,530,000."] },
+  { role: "Director", does: "ADD FEES TO COST (pick a quick reason).",
+    expect: ["Set-aside fees 0. Total cost 2,120,000. Owed 1,530,000 (the money owed did not change, only where it is counted).", "HAND OVER TITLE is no longer blocked by fees."] },
+  { role: "Director", does: "Open project 004A (it still owes money). Press MOVE TO RECEIVABLES and pick a quick reason.",
+    expect: ["Badge IN RECEIVABLES. Fees 0 so far: the first 50,000 is added after 30 days by the night job.", "The Ledger RECEIVABLES tab now lists 004A and the Legacy Title."] },
+  { role: "Manager", does: "Open the same Legacy Title folder.",
+    expect: ["The Manager sees the money and can record payments, but no receivable buttons (rate, pause, reduce, set aside, waive, add to cost)."] }
+]},
+{ title: "O. Recovery calls", note: "Recovery lists clients who still owe money. A client who PAID in the last 30 days rests (LOCKED), so this section uses a new client whose last payment is old.", steps: [
+  { role: "Secretary", does: "New Project (Fresh Survey) for the recovery test. Save it.",
+    copy: [["District", "Mayuge"], ["County", "Bunya"], ["Sub-county", "Baitambogwe"], ["Parish", "Bukaleba"], ["Village", "Bukaleba A"], ["Area (hectares)", "0.250"],
+      ["Client NIN", "CF90021507RTYB"], ["Client full name", "Nakato Joyce Babirye"], ["Client phone", "0782 641 905"],
+      ["Invoice number", "INV-2026-021"], ["Contract number", "CTR-2026-021"], ["Total cost", "3000000"], ["Initial payment", "300000"], ["Date last paid", "10/07/2026"],
+      ["File", "R1-application-form.pdf"]],
+    expect: ["Saved. ACTIVE and CRITICAL (only 10% paid)."] },
+  { role: "Secretary", does: "Open Recovery. Look at ALL DUE and LOCKED.",
+    expect: ["NAKATO JOYCE BABIRYE is in ALL DUE as NEW, with a red dot (no payment for 60+ days).", "Clients who paid in the last 30 days (for example KATO SAMUEL WANYAMA) are in LOCKED with Resting until <date>."] },
+  { role: "Secretary", does: "Open Nakato's card, press CALL LOG, pick not picking up, write the note and save.",
+    copy: [["Note", "Rang twice at 10am, no answer."]],
+    expect: ["She moves to the MISSED tab with day 1/30.", "MONTH'S MISS goes up by 1."] },
+  { role: "Secretary", does: "Log a second not picking up on the same day.",
+    copy: [["Note", "Tried again at 3pm, still no answer."]],
+    expect: ["Still day 1/30: missed calls count once per DAY (4 missed days in 30 days send her to SITE VISIT)."] },
+  { role: "Secretary", does: "Log answered call.",
+    copy: [["Note", "Answered. Promised to pay 500,000 next week."]],
+    expect: ["She moves to CONTACTED.", "TODAY'S CALLS shows the calls you logged."] },
+  { role: "Secretary", does: "Log a second answered call.",
+    copy: [["Note", "Answered again. Confirmed payment on Friday."]],
+    expect: ["Two good calls in 30 days: she moves to LOCKED, Resting until a date 30 days after this call. The call buttons are read only."] },
+  { role: "Manager", does: "Recovery > LOCKED > Nakato. Delete the first not picking up note (the bin icon).",
+    expect: ["The Manager can delete a call note (it asks first); the Secretary cannot.", "The audit log keeps a line for it."] },
+  { role: "Manager", does: "Folder of Nakato's project: RECORD PAYMENT.",
+    copy: [["Amount", "500000"], ["Receipt file", "R1-receipt-01.jpg"]],
+    expect: ["Her recovery history shows payment received.", "She stays LOCKED, now resting 30 days from today (paid in the last 30 days)."] },
+  { role: "Employee", does: "Look at the side menu.",
+    expect: ["No Recovery item. Typing /recovery sends the Employee back to New Project."] }
+]},
+{ title: "P. Payments, expenses and reports by rank", note: "Who sees which money. Use the data entered in N and O.", steps: [
+  { role: "Director", does: "Open Payments.",
+    expect: ["Every payment line, the totals, and the books check says it adds up.", "The reversal of 001A shows as a minus line; totals are net."] },
+  { role: "Manager", does: "Open Payments.",
+    expect: ["The payment lines of the last 90 days only. No totals and no books check."] },
+  { role: "Secretary", does: "Type /payments in the address bar.",
+    expect: ["Not allowed: the Secretary is sent away from Payments."] },
+  { role: "Manager", does: "Open Expenses. Add a new tile for a cost you log often, then log it.",
+    copy: [["Tile name", "Generator Fuel"], ["Amount", "85000"], ["Note", "20 litres for the office generator"]],
+    expect: ["The tile is saved and the expense shows in the list with today's date and who logged it."] },
+  { role: "Manager", does: "Expenses: log a one-off cost with no tile.",
+    copy: [["What is this expense for", "Courier fee"], ["Amount", "15000"]],
+    expect: ["Saved and listed."] },
+  { role: "Director", does: "Dashboard: MONEY IN AND OUT, This month.",
+    expect: ["Expenses include the 100,000 just logged; Net = money in minus expenses."] },
+  { role: "Director", does: "Reports: run STORAGE FEES ACCRUED, then TOP DEBTORS, then CLIENTS BY RECOVERY STATE.",
+    expect: ["STORAGE FEES ACCRUED lists 004A (in receivables) and not the Legacy Title (it left receivables in N8).", "TOP DEBTORS puts Nakato and Musoke near the top.", "CLIENTS BY RECOVERY STATE shows Nakato under LOCKED."] },
+  { role: "Manager", does: "Open Reports.",
+    expect: ["Only the work reports (projects by type, by stage, stalled, critical...). No money reports."] }
+]},
+{ title: "Q. Check the fixes of 18-19 Oct (fix211, fix212, fix213)", note: "Quick looks. Do them any time.", steps: [
+  { role: "Secretary", does: "Open any project folder and press the printer button. Look at the last page in the print preview.",
+    expect: ["The last page is white. No orange block at the end."] },
+  { role: "Director", does: "Clients > open Musoke Fred Kirunda > press PRINT (top right).",
+    expect: ["The print preview shows a CLIENT FILE in the same look as the Project File: navy band, big title, client details, Overview and Key points, a Projects table, a Statement of account with totals, the Call log and sign-off lines.", "Nothing of the screen (menus, buttons) is printed."] },
+  { role: "Secretary", does: "Clients > open the same client > press PRINT.",
+    expect: ["The same Client File, but with NO money: no amounts in Overview, no Owed/Paid columns, no Statement of account."] },
+  { role: "Secretary", does: "New Project. Type Legacy Titles. In Location use district Iganga; in Title Details use plot 316 and block 9 (the same as N1). Fill the rest and Save.",
+    copy: [["District", "Iganga"], ["Plot number", "316"], ["Block", "9"]],
+    expect: ["Refused: Plot number 316, Block 9 in IGANGA is already on project #... (no word 'ID').", "The page scrolls to Plot Number; the box has a soft red ring, its label is red and the cursor is in it.", "Change the plot to 316 and the block to 10: now it saves (same plot number, different block is allowed). Then delete this test project (Director) or leave it."] },
+  { role: "Secretary", does: "New Project. Leave District empty, fill everything else, press Save Project.",
+    expect: ["The message says District is required.", "The page scrolls up to District, which has the red ring and the cursor in it.", "The red ring goes away as soon as you type in District."] },
+  { role: "Manager", does: "Open any folder > EDIT > PEOPLE tab: clear the NIN of the first client. Go back to the OVERVIEW tab. Press SAVE.",
+    expect: ["The PEOPLE tab opens by itself and scrolls to that NIN box, which has the red ring and the cursor in it. Press CANCEL afterwards."] }
+]}
+];
+
+var KEY = "round1-fresh-survey-v1";
+var state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+var toastT;
+function toast(msg) { var t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 1600); }
+function copyText(text, onOk, onFail) {
+  try { navigator.clipboard.writeText(text).then(onOk, onFail); } catch (e) { onFail(); }
+}
+
+var all = [];
+var main = document.getElementById("main");
+DATA.forEach(function (sec, si) {
+  var s = el("section");
+  s.appendChild(el("h2", null, sec.title));
+  if (sec.note) s.appendChild(el("p", "secnote", sec.note));
+  sec.steps.forEach(function (st, i) {
+    var id = String.fromCharCode(65 + si) + (i + 1);
+    var box = el("div", "step");
+    var top = el("div", "top");
+    top.appendChild(el("span", "num", id));
+    top.appendChild(el("span", "role", st.role));
+    box.appendChild(top);
+    box.appendChild(el("div", "do", st.does));
+    if (st.copy) {
+      var g = el("div", "copies");
+      st.copy.forEach(function (c) {
+        var b = el("button", "copy"); b.type = "button";
+        if (c[0]) b.appendChild(el("span", "k", c[0]));
+        b.appendChild(el("span", "v", c[1]));
+        b.addEventListener("click", function () {
+          copyText(c[1], function () { b.classList.add("done"); toast("Copied: " + c[1]); },
+            function () { var r = document.createRange(); r.selectNodeContents(b.lastChild); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Selected. Press Ctrl+C to copy."); });
+        });
+        g.appendChild(b);
+      });
+      box.appendChild(g);
+    }
+    if (st.expect) {
+      var ex = el("div", "expect");
+      ex.appendChild(el("div", "lbl", "What should happen"));
+      var ul = el("ul");
+      st.expect.forEach(function (x) { ul.appendChild(el("li", null, x)); });
+      ex.appendChild(ul);
+      box.appendChild(ex);
+    }
+    if (!st.info) {
+      var m = el("div", "mark");
+      var bp = el("button", "bp", "PASS"); bp.type = "button";
+      var bf = el("button", "bf", "FAIL"); bf.type = "button";
+      var note = el("input"); note.type = "text"; note.id = "note-" + id; note.placeholder = "If it failed, type what you saw"; note.setAttribute("aria-label", "Note for step " + id);
+      note.value = (state[id] && state[id].n) || "";
+      function paint() {
+        var r = state[id] && state[id].r;
+        bp.setAttribute("aria-pressed", r === "p" ? "true" : "false");
+        bf.setAttribute("aria-pressed", r === "f" ? "true" : "false");
+        box.classList.toggle("pass", r === "p"); box.classList.toggle("fail", r === "f");
+      }
+      function set(r) { state[id] = state[id] || {}; state[id].r = state[id].r === r ? null : r; save(); paint(); count(); }
+      bp.addEventListener("click", function () { set("p"); });
+      bf.addEventListener("click", function () { set("f"); note.focus(); });
+      note.addEventListener("input", function () { state[id] = state[id] || {}; state[id].n = note.value; save(); });
+      m.appendChild(bp); m.appendChild(bf); m.appendChild(note);
+      box.appendChild(m);
+      all.push({ id: id, role: st.role, does: st.does, paint: paint, note: note });
+      paint();
+    }
+    s.appendChild(box);
+  });
+  main.appendChild(s);
+});
+
+function count() {
+  var p = 0, f = 0;
+  all.forEach(function (a) { var r = state[a.id] && state[a.id].r; if (r === "p") p++; else if (r === "f") f++; });
+  document.getElementById("nPass").textContent = p + " passed";
+  document.getElementById("nFail").textContent = f + " failed";
+  document.getElementById("nLeft").textContent = (all.length - p - f) + " left";
+}
+count();
+
+document.getElementById("copyResults").addEventListener("click", function () {
+  var lines = ["ROUND 1 FRESH SURVEY RESULTS"], p = 0, f = 0, left = [];
+  all.forEach(function (a) {
+    var s = state[a.id] || {};
+    if (s.r === "p") p++;
+    else if (s.r === "f") { f++; lines.push("FAIL " + a.id + " (" + a.role + "): " + a.does + " | SAW: " + (s.n || "(no note)")); }
+    else { left.push(a.id); if (s.n) lines.push("NOTE " + a.id + ": " + s.n); }
+  });
+  lines.splice(1, 0, p + " passed, " + f + " failed, " + left.length + " not done" + (left.length ? " (" + left.join(", ") + ")" : ""));
+  var text = lines.join("\n");
+  copyText(text, function () { toast("Results copied. Paste them to Claude."); }, function () {
+    var o = document.getElementById("outBox"); o.hidden = false; var ta = document.getElementById("out"); ta.value = text; ta.focus(); ta.select();
+  });
+});
+
+var armed = false, armT;
+document.getElementById("resetAll").addEventListener("click", function () {
+  var b = this;
+  if (!armed) { armed = true; b.textContent = "Press again to clear"; clearTimeout(armT); armT = setTimeout(function () { armed = false; b.textContent = "Clear ticks"; }, 3000); return; }
+  armed = false; b.textContent = "Clear ticks"; state = {}; save();
+  all.forEach(function (a) { a.note.value = ""; a.paint(); }); count(); toast("All ticks cleared.");
+});
+</script>
