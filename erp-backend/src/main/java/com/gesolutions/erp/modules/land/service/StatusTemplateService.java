@@ -33,6 +33,7 @@ public class StatusTemplateService {
     private final StatusTemplateRepository templateRepository;
     private final ProjectStatusRepository projectStatusRepository;
     private final AuditService auditService;
+    private final TimelineService timeline;   // fix215
     private final com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepository;
     private final com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository documentRepository;   // fix202
 
@@ -319,6 +320,7 @@ public class StatusTemplateService {
         auditService.logActionAfterCommit("PROJECT_STATUS_CHANGED",
             "Operator [" + getCurrentOperator() + "] marked status \"" + status.getStatusName()
             + "\" as " + (completed ? "COMPLETE" : "NOT COMPLETE") + " on project: " + status.getProjectId());
+        timeline.event(status.getProjectId(), "PROJECT_STATUS_CHANGED", (completed ? "Stage ticked: " : "Stage un-ticked: ") + status.getStatusName(), null, false);
         return saved;
     }
 

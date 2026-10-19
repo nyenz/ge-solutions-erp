@@ -48,6 +48,7 @@ public class DocumentCategoryService {
         {"CONTRACT",                  "Contracts"},
         {"PROGRESS_REPORT",           "Progress Reports"},
         {"HANDOVER_PAPERS",           "Hand-over Papers"},   // fix204: optional papers attached when a title is handed over
+        {"NOTE_ATTACHMENT",           "Note Attachments"},   // fix215: a file attached to a note in the Notes timeline
     };
 
     private final DocumentCategoryRepository repository;

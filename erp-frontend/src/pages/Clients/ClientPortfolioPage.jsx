@@ -30,6 +30,7 @@ import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { LoadingState } from '../../components/common/LoadingState';
 import { errorText } from '../../utils/errorText';   // fix205
 import { methodLine } from '../../utils/paymentMethods';   // fix214
+import NotesTimeline from '../../components/notes/NotesTimeline';   // fix215
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const dayDiff = (iso) => { if (!iso) return null; const d = new Date(iso); if (isNaN(d.getTime())) return null; return Math.floor((Date.now() - d.getTime()) / 86400000); };
@@ -419,22 +420,12 @@ const ClientPortfolioPage = () => {
         </CollapsibleSection>
       )}
 
-      <CollapsibleSection icon={<FiPhoneCall aria-hidden="true" />} title="CALL LOG">
+      {/* fix215 (David): one Notes timeline for this client -- notes, decisions, money, events and calls of all their projects */}
+      <CollapsibleSection icon={<FiPhoneCall aria-hidden="true" />} title="NOTES AND HISTORY">
         <CornerDecor hideTop />
         {/* fix181 (6.4): straight to this client's card in Recovery */}
-        <button type="button" className={styles.coChip} onClick={() => navigate('/recovery?client=' + id)}>OPEN IN RECOVERY</button>
-        {(d.notes || []).length === 0 ? (<div className={styles.noRecords}>NO CALLS LOGGED FOR THIS CLIENT</div>) : (
-          <div className={styles.noteList}>
-            {(d.notes || []).map((n, i) => (
-              <article key={i} className={styles.noteRow}>
-                <span className={`${styles.tag} ${n.tone === 'POSITIVE' ? styles.tagGood : n.tone === 'NEGATIVE' ? styles.tagBad : styles.tagWarn}`}>{n.tag}</span>
-                <span className={styles.noteDate}>{n.createdAt ? String(n.createdAt).slice(0, 10) : '---'}</span>
-                <span className={styles.noteAuthor}>{n.author || 'SYSTEM'}</span>
-                {n.text && <p className={styles.noteText}>{n.text}</p>}
-              </article>
-            ))}
-          </div>
-        )}
+        <button type="button" className={styles.coChip} onClick={() => navigate('/recovery?client=' + id)} title="Open this client's card on the Recovery page">OPEN IN RECOVERY</button>
+        <NotesTimeline scope="client" id={id} refreshKey={d} />
       </CollapsibleSection>
       <BackToTopButton />
     </div>

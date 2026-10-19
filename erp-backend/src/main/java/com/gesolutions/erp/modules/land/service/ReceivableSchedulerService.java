@@ -51,6 +51,7 @@ public class ReceivableSchedulerService {
     private final RecoveryNoteRepository recoveryNoteRepository;
     private final RecoveryStateService recoveryState;
     private final TransactionTemplate itemTx;
+    private final TimelineService timeline;   // fix215
 
     @Value("${ge.solutions.jobs.run-on-start:true}")
     private boolean runOnStart = true;
@@ -58,7 +59,8 @@ public class ReceivableSchedulerService {
     public ReceivableSchedulerService(LandProjectRepository projectRepository, AuditService auditService,
                                       NotificationService notificationService, ClientRepository clientRepo,
                                       RecoveryNoteRepository recoveryNoteRepository, RecoveryStateService recoveryState,
-                                      PlatformTransactionManager txManager) {
+                                      PlatformTransactionManager txManager, TimelineService timeline) {
+        this.timeline = timeline;
         this.projectRepository = projectRepository;
         this.auditService = auditService;
         this.notificationService = notificationService;
@@ -145,6 +147,8 @@ public class ReceivableSchedulerService {
             projectRepository.save(plot);
             auditService.logActionAfterCommit("STORAGE_FEE_RESUMED", "SYSTEM: Storage-fee pause ended on " + ended.toLocalDate()
                     + " for " + ownerLabel(plot) + ". Billing restarts; the paused days are not charged.");
+            timeline.event(plot.getId(), "STORAGE_FEE_RESUMED", "Storage fee pause ended",
+                    "The pause ended on " + ended.toLocalDate() + ". Fees run again; the paused days are not charged.", true);
             notificationService.emitToAudience("STORAGE_FEE_RESUMED", "Storage fees are running again for " + ownerLabel(plot)
                     + ": the pause ended on " + ended.toLocalDate() + ".", "PROJECT", plot.getId());   // fix181 (17.15b)
         }
@@ -178,6 +182,9 @@ public class ReceivableSchedulerService {
             + ownerLabel(plot)
             + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
             + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());
+        timeline.event(plot.getId(), "STORAGE_FEE_APPLIED", "Monthly storage fee added",
+                TimelineService.ugx(toAdd) + " (" + feesMissing + " month(s) x " + TimelineService.ugx(monthlyRate) + "); storage fees now "
+                + TimelineService.ugx(plot.getStorageFeesAccumulated()), true);
         return toAdd;
     }
 
@@ -237,6 +244,8 @@ public class ReceivableSchedulerService {
             "SYSTEM: Plot " + ownerLabel(plot)
             + " auto-flagged as RECEIVABLE after 365 days of no payment. "
             + "Debt frozen at: UGX " + outstanding);
+        timeline.event(plot.getId(), "AUTO_RECEIVABLE", "Moved to receivables by the system",
+                "No payment for 365 days. Owed: " + TimelineService.ugx(outstanding) + ". Storage fees start after 30 days.", true);
         return plot;
     }
 

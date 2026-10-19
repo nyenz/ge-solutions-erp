@@ -44,11 +44,11 @@ import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import CornerDecor from '../../components/ui/CornerDecor';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
-import { parseNote } from './noteTags';
 import { readShillings, MONEY_BAD } from '../../utils/money';   // fix199 (test note 23)
 import { PAY_METHODS, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test note 22)
 import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
+import NotesTimeline from '../../components/notes/NotesTimeline';   // fix215
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
@@ -411,7 +411,6 @@ const FolderPage = () => {
     const [ninMismatch, setNinMismatch] = useState(null);
     const [payments, setPayments] = useState([]);
     const [portfolio, setPortfolio] = useState([]);
-    const [recoveryCalls, setRecoveryCalls] = useState([]);
     const [freezeOpen, setFreezeOpen] = useState(false);
     const [rateFee, setRateFee] = useState(''); const [pauseUntil, setPauseUntil] = useState('');
     const [defaultRate, setDefaultRate] = useState(0);   // fix173: system default monthly fee, from the server
@@ -435,8 +434,6 @@ const FolderPage = () => {
     const [liveStages, setLiveStages] = useState(null);   // fix185: the stage list as the checklist has it now (null = not loaded yet)
     const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
-    const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
-    const [noteErr, setNoteErr] = useState(''); const [noteBusy, setNoteBusy] = useState(false);
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     // fix181 (16.12b): one id per payment; a retry after a slow network sends the same id and the server refuses a second save
@@ -571,18 +568,6 @@ const FolderPage = () => {
         } catch { setLoadError(true); } finally { setLoading(false); }
     }, [id, isEditing, navigate]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
-    // fix167: the Recovery calls are loaded AND shown. fix180: Recovery calls the CLIENTS, so these are the clients' calls.
-    useEffect(() => {
-        if (!binder?.project) return;
-        const owners = (binder.project.clients || []).length ? binder.project.clients : (binder.project.proprietors || []);
-        Promise.all(owners.map(p => recoveryService.getNotes(p.id).then(r => (r && r.data ? r.data : r) || []).catch(() => [])))
-            .then(lists => {
-                const all = [];
-                lists.forEach((list, i) => (Array.isArray(list) ? list : []).forEach(n => all.push({ ...n, ownerName: owners[i].fullName })));
-                setRecoveryCalls(all.filter(n => n.source === 'RECOVERY')
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20));
-            });
-    }, [binder]);
     useEffect(() => {
         if (!binder?.project) return;
         const o = binder.project.storageFeeOverride;
@@ -874,28 +859,6 @@ const FolderPage = () => {
         } catch (err) { setUploadDraft(d => d && ({ ...d, error: errText(err) })); } finally { setCommitting(false); }
     };
     const handleDeleteDoc = async (docId, fileName) => { const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"? The file is removed from storage; the audit log keeps the name.', 'danger', 'DELETE DOCUMENT'); if (!ok) return; try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch (err) { toast('DOCUMENT NOT DELETED: ' + errText(err), 'error'); } };
-    // fix165: the note popup shows its own errors, cannot be thrown away by a stray click, asks before discarding.
-    const noteOriginal = () => (noteModal.id ? ((binder?.notes || []).find(n => n.id === noteModal.id) || {}).notes || '' : '');
-    const closeNoteModal = async () => {
-        if (noteBusy) return;
-        const dirty = noteModal.content.trim() !== '' && noteModal.content !== noteOriginal();
-        if (dirty) { const ok = await confirm('DISCARD NOTE', 'This note is not saved. Close it and lose what you typed?', 'warn', 'DISCARD NOTE'); if (!ok) return; }
-        setNoteErr(''); setNoteModal({ open: false, id: null, content: '' });
-    };
-    const handleNoteSave = async () => {
-        if (noteBusy) return;
-        const text = noteModal.content.trim();
-        if (text.length < 2) { setNoteErr('WRITE THE NOTE FIRST (AT LEAST 2 CHARACTERS).'); return; }
-        if (text.length > NOTE_MAX) { setNoteErr('TOO LONG: ' + text.length + ' CHARACTERS. THE LIMIT IS ' + NOTE_MAX + '.'); return; }
-        setNoteBusy(true); setNoteErr('');
-        try {
-            if (noteModal.id) await landService.editStandaloneNote(noteModal.id, text); else await landService.addStandaloneNote(id, text);
-            setNoteModal({ open: false, id: null, content: '' });
-            await loadFolderData(); toast('Note saved', 'success', 3000);
-        } catch (err) { setNoteErr(errText(err)); }
-        finally { setNoteBusy(false); }
-    };
-    const handleDeleteNote = async (noteId) => { const ok = await confirm('DELETE NOTE', 'Delete this note? The audit log keeps its words.', 'danger', 'DELETE NOTE'); if (!ok) return; try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch (err) { toast('NOTE NOT DELETED: ' + errText(err), 'error'); } };
     // fix165/167: the payment and its receipt travel TOGETHER; the payer (one owner) and what it is for are recorded.
     // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
     const openPayModal = (startType) => {
@@ -1534,41 +1497,14 @@ const FolderPage = () => {
                     </div></div>
                 </section>
                 <div className={styles.tabWrap} data-print-section="NOTES" style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
-                    <section className={styles.hwPanel} aria-label="Notes">
-                        <DrawerHeader label="NOTES" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
+                    {/* fix215 (David): ONE Notes timeline -- notes, decisions, money, events and recovery calls, summary first */}
+                    <section className={styles.hwPanel} aria-label="Notes and history">
+                        <DrawerHeader label="NOTES AND HISTORY" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                             <CornerDecor hideTop />
-                            {!isDeleted && <button type="button" className={styles.addNoteBtn} onClick={() => { setNoteErr(''); setNoteModal({ open: true, id: null, content: '' }); }} title="Write a note on this project (anyone can).">+ ADD NOTE</button>}
-                            {noteCount === 0 ? (<div className={styles.emptyState}><FiInfo className={styles.emptyIcon} aria-hidden="true" /><span>NO NOTES LOGGED YET</span></div>) : (
-                                <div className={styles.notebookTimeline}>{notes.map((log, i) => {
-                                    const { tag, meta, body } = parseNote(log.notes);
-                                    const system = ['PROBLEM', 'PROBLEM CLEARED', 'HANDED OVER', 'HAND-OVER UNDONE'].includes(tag);
-                                    return (<article key={log.id || i} className={styles.ruledNote}>
-                                        <div className={styles.noteMeta}><time className={styles.noteTime} dateTime={log.timestamp} title={fmtDateTime(log.timestamp)}>{fmtDateTime(log.timestamp)}</time><span className={styles.noteAuthor}>by {log.recordedBy}</span>
-                                            {tag && <span className={`${styles.noteChip} ${styles['noteChip_' + (tag === 'PROBLEM CLEARED' || tag === 'HANDED OVER' ? 'ok' : (meta?.tone || 'info'))]}`}>{tag === 'HANDED OVER' || tag === 'PROBLEM CLEARED' || tag === 'HAND-OVER UNDONE' ? tag : (meta?.label || tag)}</span>}
-                                            {canEdit && !system && (<div className={styles.actionBlock}>
-                                                <button type="button" className={styles.iconBtn} onClick={() => { setNoteErr(''); setNoteModal({ open: true, id: log.id, content: log.notes }); }} title="Edit this note" aria-label="Edit note"><FiEdit3 className={styles.editIcon} aria-hidden="true" /></button>
-                                                <button type="button" className={styles.iconBtn} onClick={() => handleDeleteNote(log.id)} title="Delete this note" aria-label="Delete note"><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>
-                                            </div>)}
-                                            {system && <span className={styles.lockTag} title="Written by the system for a PROBLEM flag or a hand-over. Kept as a record.">RECORD</span>}
-                                        </div>
-                                        <p className={styles.noteContent}>{body}</p>
-                                    </article>);
-                                })}</div>)}
-                        </div></div>
-                    </section>
-                    <section className={styles.hwPanel} aria-label="Recovery Calls">
-                        <DrawerHeader label="RECOVERY CALLS" isOpen={drawers.calls} onClick={() => toggleDrawer('calls')} icon={FiPhoneCall} count={recoveryCalls.length} />
-                        <div className={`${styles.panelBody} ${drawers.calls ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-                            <CornerDecor hideTop />
-                            {recoveryCalls.length === 0 ? (<div className={styles.emptyState}><FiPhoneCall className={styles.emptyIcon} aria-hidden="true" /><span>NO CALLS LOGGED FOR THESE OWNERS</span></div>) : (
-                                <div className={styles.callList}>{recoveryCalls.map((c, i) => (<div key={c.id || i} className={styles.callRow}>
-                                    <span className={c.tone === 'POSITIVE' ? styles.callGood : c.tone === 'NEGATIVE' ? styles.callBad : styles.callNone}>{c.tag || 'note'}</span>
-                                    <span className={styles.callWho}>{c.ownerName}</span>
-                                    <span className={styles.callText}>{c.text || ''}</span>
-                                    <span className={styles.callWhen} title={fmtDateTime(c.createdAt)}>{fmtDate(c.createdAt)}{c.author ? ' - ' + c.author : ''}</span>
-                                </div>))}</div>)}
-                            <span className={styles.inputHint}>Calls are logged on the Recovery page (2 calls a month, 14 days apart). Showing the last 20.</span>
+                            <NotesTimeline scope="project" id={id} canWrite={!isDeleted} refreshKey={binder}
+                                onToast={(t, k) => toast(t, k === 'error' ? 'error' : k, 3500)}
+                                onOpenDoc={(docId) => { const d = docsById.get(docId); if (d) handleOpenDoc(d.filePath, d.fileName); else toast('The file is in Documents.', 'info', 3000); }} />
                         </div></div>
                     </section>
                 </div>
@@ -1612,14 +1548,6 @@ const FolderPage = () => {
                         <HardwareButton type="button" onClick={handleUploadConfirm} loading={committing} icon={FiUploadCloud}>UPLOAD</HardwareButton>
                     </div>
                 </>)}
-            </HardwareModal>
-            <HardwareModal isOpen={noteModal.open} lockBackdrop onClose={closeNoteModal} title={noteModal.id ? 'EDIT NOTE' : 'ADD NOTE'}>
-                <div className={modalStyles.modalField}><textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={noteModal.content} autoFocus onChange={e => { setNoteModal({ ...noteModal, content: e.target.value }); if (noteErr) setNoteErr(''); }} placeholder="What happened, what was agreed, what comes next..." aria-label="Note content" />
-                    <span className={`${styles.probCount} ${noteModal.content.trim().length > NOTE_MAX ? styles.probCountOver : ''}`}>{noteModal.content.trim().length}/{NOTE_MAX}</span></div>
-                <ModalError text={noteErr} />
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave} disabled={noteBusy}><FiSave aria-hidden="true" /> {noteBusy ? 'SAVING...' : 'SAVE NOTE'}</button>
-                </div>
             </HardwareModal>
             {/* fix197: Title Details asked for when "Titled" is ticked on a project that has none (a Fresh Survey) */}
             <HardwareModal isOpen={!!titleModal} lockBackdrop onClose={() => { if (!titleSaving) setTitleModal(null); }} title="TITLE DETAILS">

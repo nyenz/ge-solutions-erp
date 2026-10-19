@@ -63,6 +63,7 @@ public class SystemAdminController {
         "payment_records",
         "payment_schedules",      // old versions only; skipped when missing
         "follow_up_logs",
+        "project_timeline",       // fix215: reasons and events of the Notes timeline
         "project_documents",
         "project_statuses",
         "project_proprietors",

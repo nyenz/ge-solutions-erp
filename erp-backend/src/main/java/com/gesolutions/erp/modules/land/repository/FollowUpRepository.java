@@ -31,4 +31,10 @@ public interface FollowUpRepository extends JpaRepository<FollowUpLog, UUID> {
      * Recovery Search: Find logs by specific author (Admin/Manager).
      */
     List<FollowUpLog> findByRecordedByOrderByTimestampDesc(String username);
+
+    /** fix215: the notes of several projects (a client's timeline) */
+    List<FollowUpLog> findByProjectIdInOrderByTimestampDesc(java.util.Collection<UUID> projectIds);
+
+    /** fix215: notes whose follow-up day is this day (the morning reminder) */
+    List<FollowUpLog> findByFollowUpOn(java.time.LocalDate day);
 }

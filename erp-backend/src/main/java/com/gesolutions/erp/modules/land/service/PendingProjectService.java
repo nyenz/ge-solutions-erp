@@ -59,6 +59,7 @@ public class PendingProjectService {
     private final ProjectNeighborRepository neighborRepository;
     private final UserRepository userRepository;
     private final AuditService auditService;
+    private final TimelineService timeline;   // fix215
     private final NotificationService notificationService;
 
     // ── who is calling ──────────────────────────────────────────────────────
@@ -245,6 +246,8 @@ public class PendingProjectService {
         auditService.logActionAfterCommit("PROJECT_GRADUATED", "Operator [" + AuditService.currentOperator() + "] priced and started Pending project #"
                 + saved.getProjectIndex() + " (entered by " + saved.getCreatedBy() + "). Invoice " + saved.getInvoiceNumber() + ", contract " + saved.getContractNumber()
                 + ". Total cost UGX " + money.totalCost().toPlainString() + moneyNote);
+        timeline.event(saved.getId(), "PROJECT_GRADUATED", "Project started: prices set",
+                "Invoice " + saved.getInvoiceNumber() + ", contract " + saved.getContractNumber() + ", total cost " + TimelineService.ugx(money.totalCost()), true);
         notificationService.emitToAudience("PROJECT_GRADUATED", "Project " + saved.getProjectIndex() + " has been priced and started.",
                 "PROJECT", saved.getId());
         return saved;
@@ -308,6 +311,7 @@ public class PendingProjectService {
         projectRepository.save(p);
         auditService.logActionAfterCommit("PROJECT_PENDING_REJECTED", "Operator [" + AuditService.currentOperator() + "] rejected Pending project #"
                 + p.getProjectIndex() + " (entered by " + p.getCreatedBy() + "). Reason: " + why);
+        timeline.reason(p.getId(), "PROJECT_PENDING_REJECTED", "Entry rejected", why, "Entered by " + p.getCreatedBy(), false);
     }
 
     @Transactional(readOnly = true)
