@@ -137,7 +137,7 @@ export default function IntakePage() {
     const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
     const [titlePayerIdx, setTitlePayerIdx] = useState(0);          // fix172: which client (row number) paid; fix199 (note 14): the first client until changed
     const [feesPayerIdx, setFeesPayerIdx] = useState(0);            // fix172: which client paid the storage fees (first client by default)
-    const [payMethod, setPayMethod] = useState('');                 // fix214 (David): how the intake money was paid (no default: staff pick it)
+    const [payMethod, setPayMethod] = useState('OFFICE');           // fix214; fix217 (David): Office until changed
     const [payRef, setPayRef] = useState('');                       // fix214: transaction ID / bank reference; for Other, how it was paid
     // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('');
@@ -610,7 +610,7 @@ export default function IntakePage() {
         setNeighbors([]); setSubdivisionCount('');
         setInvoiceNumber(''); setContractNumber('');   // fix196: every project has its own numbers
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
-        setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0); setPayMethod(''); setPayRef('');   // fix172; fix199: same defaults as a new form
+        setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0); setPayMethod('OFFICE'); setPayRef('');   // fix172; fix199: same defaults as a new form
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         loadTypeStatuses(projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});

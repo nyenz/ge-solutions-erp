@@ -40,7 +40,7 @@ const anchorOf = (node) => {
     const words = (el.textContent || '').trim();
     // an icon-only button (no words) explains itself with its aria-label ("Close", "Sign out" ...)
     const label = el.getAttribute('aria-label') || '';
-    const text = (words.length <= 40 ? explainFor(words) : '') || (words.length <= 2 && label.length > 2 ? label : '');
+    const text = (words.length <= 40 ? explainFor(words) : '') || (label.length > 2 && label.toUpperCase() !== words.toUpperCase() ? label : '');
     if (!text) { el.setAttribute('data-gs-none', ''); return null; }   // looked up once
     el.setAttribute('data-gs-tip', text);
     return el;

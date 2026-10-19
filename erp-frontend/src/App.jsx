@@ -11,6 +11,7 @@ import RouteErrorScreen from './components/common/RouteErrorScreen';
 import { LoadingState } from './components/common/LoadingState';
 import { readPrefsFor } from './context/prefsStore';
 import { useGlobalTips } from './components/common/globalTips';
+import { useGlobalTypeAhead } from './components/common/globalTypeAhead';   // fix217
 
 import LoginPage      from './pages/login/LoginPage';
 
@@ -122,6 +123,7 @@ const AppLayout = () => {
     const { user, token } = useAuth();
     usePrefetchPages(!!(user && token));
     useGlobalTips();   // fix199 (test note 4): every title="..." on every page becomes the styled explainer
+    useGlobalTypeAhead();   // fix217 (David): letters jump to the matching item in EVERY open pick-list
     return (
         <>
             <CircuitBackground />

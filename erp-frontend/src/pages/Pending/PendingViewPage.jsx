@@ -87,7 +87,7 @@ export default function PendingViewPage() {
     const [deposit, setDeposit] = useState('');
     const [payerNin, setPayerNin] = useState('');
     const [paidDate, setPaidDate] = useState(() => localISO());   // fix199 (test note 13): today, until changed
-    const [payMethod, setPayMethod] = useState('');   // fix214 (David): how the money already received was paid
+    const [payMethod, setPayMethod] = useState('OFFICE');   // fix214; fix217 (David): Office until changed
     const [payRef, setPayRef] = useState('');
     const [rejectWhy, setRejectWhy] = useState('');
     const [ninEdit, setNinEdit] = useState({});

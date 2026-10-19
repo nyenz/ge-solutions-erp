@@ -636,3 +636,10 @@
   .reason { margin-left: 0; }
   .chev { margin-left: auto; }
 }
+
+/* fix217 (David, test O7): the delete of a call note is a clear small button, not a faint X */
+.histSection .histDelete { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 8px; border-radius: 5px;
+    border: 1.5px solid rgba(185, 28, 28, 0.45); background: transparent; color: #b91c1c; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: 10px; letter-spacing: 1px; transition: background 0.2s, border-color 0.2s; }
+.histSection .histDelete:hover { border-color: #b91c1c; background: rgba(239, 68, 68, 0.1); }
+.histSection .histDeleteArmed { background: #b91c1c; border-color: #b91c1c; color: #fff; }
