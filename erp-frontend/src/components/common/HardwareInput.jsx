@@ -85,7 +85,8 @@ const HardwareInput = ({
                     {label} {required && <span className={styles.requiredMark}>*</span>}
                 </label>
                 {onTogglePin && (
-                    <button type="button" className={`${styles.pinBtn} ${isPinned ? styles.pinnedActive : ''}`} onClick={onTogglePin} tabIndex="-1">
+                    <button type="button" className={`${styles.pinBtn} ${isPinned ? styles.pinnedActive : ''}`} onClick={onTogglePin} tabIndex="-1"
+                        title={isPinned ? 'Unpin: the next form starts empty here' : 'Pin: keep this value for the next form'} aria-label="Pin this value">
                         <FiMapPin />
                     </button>
                 )}
