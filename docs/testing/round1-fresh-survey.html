@@ -74,6 +74,7 @@ textarea#out { width: 100%; min-height: 140px; font-family: var(--f-mono); font-
   </header>
 
   <div class="how">
+    <p><b>19 Oct, later: fix217.</b> O7 was reworded (the delete is inside CALL LOG): do O7 again. New section U checks the Reports PDF, the Reports explainers and letter jumping in lists.</p>
     <p><b>19 Oct: new sections R (payment method), S (Notes and history) and T (hover explainers).</b> Your ticks are kept. Finish O, P and Q first, then R, S and T. Payments you record from now on ask HOW the money was paid (Office, Mobile Money, Bank or Other): pick any one for the steps in O and P.</p>
     <p><b>16 Oct: new section M checks the fixes of fix210.</b> Your ticks are kept. Carry on from <b>K3</b>, then L, then M. New: <b>N</b> storage fees, <b>O</b> recovery calls, <b>P</b> payments, expenses and reports by rank.</p>
     <p><b>Updated after fix199 (your notes 1 to 25).</b> Nothing was wiped and your ticks are kept. Carry on from <b>G5</b>. Steps changed by the fixes say so. Then do <b>K</b> (check each fix) and <b>L</b> (Subdivision).</p>
@@ -466,8 +467,8 @@ var DATA = [
   { role: "Secretary", does: "Log a second answered call.",
     copy: [["Note", "Answered again. Confirmed payment on Friday."]],
     expect: ["Two good calls in 30 days: she moves to LOCKED, Resting until a date 30 days after this call. The call buttons are read only."] },
-  { role: "Manager", does: "Recovery > LOCKED > Nakato. Delete the first not picking up note (the bin icon).",
-    expect: ["The Manager can delete a call note (it asks first); the Secretary cannot.", "The audit log keeps a line for it."] },
+  { role: "Manager", does: "(Changed by fix217.) Recovery > LOCKED > Nakato > press CALL LOG. In HISTORY at the bottom of the window, press DELETE on the first not picking up line, then PRESS AGAIN.",
+    expect: ["The Manager has a red DELETE button on each call line (the Secretary has none). The first press turns it into PRESS AGAIN; the second deletes.", "The audit log keeps a line for it."] },
   { role: "Manager", does: "Folder of Nakato's project: RECORD PAYMENT.",
     copy: [["Amount", "500000"], ["Receipt file", "R1-receipt-01.jpg"]],
     expect: ["Her recovery history shows payment received.", "She stays LOCKED, now resting 30 days from today (paid in the last 30 days)."] },
@@ -510,15 +511,15 @@ var DATA = [
     expect: ["The PEOPLE tab opens by itself and scrolls to that NIN box, which has the red ring and the cursor in it. Press CANCEL afterwards."] }
 ]},
 { title: "R. How the money was paid (fix214)", note: "Every payment now says HOW it was paid: Office (cash at the office), Mobile Money, Bank or Other. Payments from before show Not recorded.", steps: [
-  { role: "Manager", does: "Folder of 003A (it still owes money). Press RECORD PAYMENT. Fill the amount and attach the receipt but do NOT pick HOW WAS IT PAID. Press SAVE PAYMENT.",
+  { role: "Manager", does: "(Changed by fix217.) Folder of 003A (it still owes money). Press RECORD PAYMENT. Look at HOW WAS IT PAID?, open the list and press the letter M.",
     copy: [["Amount", "100000"], ["Receipt file", "P3-receipt-01.jpg"]],
-    expect: ["Refused: pick how the money was paid. Nothing is saved.", "The HOW WAS IT PAID? list has Office, Mobile Money, Bank and Other, in that order. There is no default."] },
+    expect: ["It already shows Office (the default). The list has Office, Mobile Money, Bank and Other.", "Pressing M jumps to Mobile Money. Close the window without saving."] },
   { role: "Manager", does: "Pick Other and leave the box under it empty. Save. Then pick Mobile Money, type the transaction ID and save.",
     copy: [["Transaction ID", "MP241019.1532.A12345"]],
     expect: ["Other with no words is refused: say how it was paid.", "Mobile Money saves. In PAYMENT HISTORY the line shows Mobile Money - MP241019.1532.A12345 in green.", "Older lines say Not recorded (dimmed)."] },
   { role: "Secretary", does: "New Project, Fresh Survey. Fill everything with an Initial Payment, the numbers and a price. Look under Financials.",
     copy: [["Total cost", "1200000"], ["Initial payment", "200000"]],
-    expect: ["A PAYMENT METHOD list appears (required) once money is typed, with a reference box under it.", "Saving without a method is refused and the page scrolls to PAYMENT METHOD with a red ring.", "The summary at the bottom shows Paid With. Cancel the entry or save it, your choice."] },
+    expect: ["A PAYMENT METHOD list appears once money is typed, already on Office, with a reference box under it.", "The summary at the bottom shows Paid With: Office. Cancel the entry or save it, your choice."] },
   { role: "Director", does: "Open Payments.",
     expect: ["A METHOD column shows how each line was paid (with the reference under it).", "PAID WITH buttons: Office, Mobile Money, Bank, Other (and Not recorded while old lines exist). Each shows its amount.", "Pressing Mobile Money shows only those lines, and the cards change to match. Press it again to see all."] },
   { role: "Manager", does: "Open Payments.",
@@ -554,6 +555,18 @@ var DATA = [
     expect: ["Each shows its explainer. Write in the note any that does not."] },
   { role: "Secretary", does: "Settings > Appearance > Hover explainers > OFF. Hold the mouse on the same tabs and buttons. Then put it back to NORMAL.",
     expect: ["With OFF nothing appears at all, not even the browser's small grey box.", "With NORMAL they come back."] }
+]},
+{ title: "U. Reports PDF, Reports explainers, letters in lists (fix217)", steps: [
+  { role: "Director", does: "Reports > TOP DEBTORS (chart DONUT) > PDF -- THE DOCUMENT. Open the file.",
+    expect: ["Page 1: a navy title band, the scope line, the description, then the donut with a legend beside it (names, amounts and %). Nothing overlaps.", "Page 2 on: the table only, headings in a navy row on every page, names not cut in half, money on the right.", "Every page ends with GOLDEN SEED | TOP DEBTORS | Page x of y."] },
+  { role: "Director", does: "Do the same with PAYMENTS RECEIVED (chart AREA / LINE) and STALLED PROJECTS (chart BAR).",
+    expect: ["The line and the bars are drawn on page 1 (the bar chart used to be missing). The table starts on page 2."] },
+  { role: "Director", does: "Reports: hold the mouse on a data tile (PROJECTS, CLIENTS ...), a report line, USE THIS REPORT, a period chip, COLUMNS, SORT, the sort arrow, CHART, CSV and PDF.",
+    expect: ["Each one shows an explainer."] },
+  { role: "Director", does: "Reports: open the SORT list and press D, then D again, then Enter. Do the same in the CHART list with L.",
+    expect: ["D jumps to the first column starting with D, D again to the next one, Enter picks it.", "In CHART, L jumps to LINE."] },
+  { role: "Secretary", does: "Try letter jumping in any other list you meet (New Project Tenure, document Category, Audit lists, Pending payer list).",
+    expect: ["In every list a letter jumps to the item starting with it. Write in the note any list where it does not."] }
 ]}
 ];
 

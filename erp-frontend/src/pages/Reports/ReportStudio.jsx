@@ -238,7 +238,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       + (isDefault ? ' ' + styles.rowDefault : '');
     return (
       <div key={def.id} className={rowCls}>
-        <button className={styles.rowHead} onClick={() => setReadId(isOpen ? null : def.id)} aria-expanded={isOpen}>
+        <button className={styles.rowHead} onClick={() => setReadId(isOpen ? null : def.id)} aria-expanded={isOpen}
+          title={isOpen ? 'Hide what this report shows' : def.desc + ' Press to read more and use it.'}>
           <span className={styles.rowMain}>
             <span className={styles.name}>{isDefault ? 'DEFAULT VIEW: ' : ''}{def.title}{isApplied && <span className={styles.appliedTag}>APPLIED</span>}</span>
             <span className={styles.desc}>{def.desc}</span>
@@ -252,7 +253,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         {isOpen && (
           <div className={styles.readout}>
             <div className={styles.readoutText}>{readout(def)}</div>
-            <button className={styles.useBtn} onClick={() => applyDef(def)} disabled={isApplied}>{isApplied ? 'Applied \u2713' : 'Use This Report'}</button>
+            <button className={styles.useBtn} onClick={() => applyDef(def)} disabled={isApplied} title={isApplied ? 'This report is on screen below.' : 'Show this report below: its chart, table, CSV and PDF.'}>{isApplied ? 'Applied \u2713' : 'Use This Report'}</button>
           </div>
         )}
       </div>
@@ -374,87 +375,26 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       toCSV(tableCols.map(c => c.label), sortedAll.map(r => tableCols.map(c => c.get(r)))),
     );
   };
-  const pdfTablePages = (doc, cols, list) => {
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    const m = 30;
-    const cw = (pw - m * 2) / Math.max(cols.length, 1);
-    let y = m;
-    const head = () => {
-      doc.setFillColor(26, 46, 48);
-      doc.rect(m, y - 12, pw - m * 2, 16, 'F');
-      doc.setTextColor(238, 140, 58);
-      doc.setFontSize(7);
-      cols.forEach((c, i) => doc.text(String(c.label).toUpperCase().slice(0, 24), m + i * cw + 3, y));
-      y += 10;
-    };
-    head();
-    doc.setTextColor(26, 46, 48);
-    doc.setFontSize(7);
-    list.forEach(r => {
-      if (y > ph - 40) {
-        doc.addPage();
-        y = m;
-        head();
-        doc.setTextColor(26, 46, 48);
-        doc.setFontSize(7);
-      }
-      cols.forEach((c, i) => doc.text(String(formatValue(c.get(r), c.type)).slice(0, 26), m + i * cw + 3, y));
-      doc.setDrawColor(223, 217, 209);
-      doc.line(m, y + 2, pw - m, y + 2);
-      y += 12;
-    });
-  };
+  // fix217 (David): ONE PDF writer (reportPdf.js) -- cover with the chart drawn as shapes, then the table on its own
+  // pages, columns sized to their content, long text wrapped, page numbers. The old one drew the table over the cover.
   const exportPDF = async () => {
     const def = appliedDef;
     if (!def || !tableCols.length) return;
-    // fix182 (speed): the PDF library (~400 KB) is only downloaded when someone actually exports a PDF
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    const pw = doc.internal.pageSize.getWidth();
-    doc.setFillColor(22, 42, 44);
-    doc.rect(0, 0, pw, 70, 'F');
-    doc.setTextColor(238, 140, 58);
-    doc.setFontSize(16);
-    doc.text('GOLDEN SEED -- ' + def.title, 30, 32);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.text((entity ? entity.type + ' ' + entity.value : 'WHOLE SOURCE') + '  |  ' +
-      (def.period ? periodHuman().toUpperCase() : 'AS AT TODAY') + '  |  SORT ' +
-      (sort.col || 'DEFAULT') + ' ' + sort.dir.toUpperCase() + '  |  ' + sortedAll.length + ' ROWS', 30, 50);
-    doc.setTextColor(150, 160, 160);
-    doc.setFontSize(7);
-    doc.text(def.desc + '  Generated ' + new Date().toLocaleString() + '.', 30, 62);
-    const finish = (png) => {
-      let y = 96;
-      if (png) {
-        try { doc.addImage(png, 'PNG', 30, y, 500, 190); } catch { /* chart image best-effort */ }
-        y += 200;
-      }
-      pdfTablePages(doc, tableCols, sortedAll);
-      doc.save('GOLDEN_SEED_' + def.id + '_' + stamp() + '.pdf');
-    };
-    try {
-      const svg = chartMode !== 'NONE' && chartRef.current ? chartRef.current.querySelector('svg') : null;
-      if (svg) {
-        const xml = new XMLSerializer().serializeToString(svg);
-        const img = new Image();
-        img.onload = () => {
-          const c = document.createElement('canvas');
-          c.width = 1360;
-          c.height = Math.max(300, Math.round(1360 * (img.height / (img.width || 1360))));
-          const ctx = c.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, c.width, c.height);
-          ctx.drawImage(img, 0, 0, c.width, c.height);
-          finish(c.toDataURL('image/png'));
-        };
-        img.onerror = () => finish(null);
-        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
-        return;
-      }
-    } catch { /* fall through to text-only PDF */ }
-    finish(null);
+    const { writeReportPdf } = await import('./reportPdf');
+    await writeReportPdf({
+      title: def.title,
+      scopeLine: (entity ? entity.type + ' ' + entity.value : 'WHOLE SOURCE') + '  |  ' +
+        (def.period ? periodHuman().toUpperCase() : 'AS AT TODAY') + '  |  SORT ' +
+        (sort.col || 'DEFAULT') + ' ' + sort.dir.toUpperCase() + '  |  ' + sortedAll.length + ' ROWS',
+      description: def.desc,
+      chartType: chartMode !== 'NONE' && chartRows.length ? (CHART_MAP[chartMode] || 'bars') : null,
+      chartRows,
+      chartFormat: fmtChart,
+      cols: tableCols,
+      rows: sortedAll,
+      format: formatValue,
+      fileName: 'GOLDEN_SEED_' + def.id + '_' + stamp() + '.pdf',
+    });
   };
 
   return (
@@ -463,7 +403,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         <div className={styles.sourcePanel} ref={sourceRailRef}>
           <div className={styles.tileRow}>
             {available.map(ds => (
-              <button key={ds.key} type="button" aria-pressed={ds.key === datasetKey} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
+              <button key={ds.key} type="button" aria-pressed={ds.key === datasetKey} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}
+                title={'Work with the ' + ds.label + ' data. The number is how many rows are in it for your scope.'}>
                 {ds.label}
                 <span className={styles.tileCount}>{ds.key === datasetKey && loading ? '...' : scopedCount(ds.key)}</span>
               </button>
@@ -482,6 +423,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setScopeOpen(o => !o); } }}
           aria-expanded={scopeOpen}
           aria-label="Collapse or expand scope panel"
+          title="Who, when, which columns and sort. Press to open or close."
         >
           <span className={styles.scopeTitle}>SCOPE</span>
           <span className={styles.headToggle}>
@@ -503,7 +445,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                 {entity && (
                   <span className={styles.chipE}>
                     {entity.label}: {entity.value}
-                    <button onClick={() => setEntity(null)} aria-label="Clear entity"><FiX size={11} aria-hidden="true" /></button>
+                    <button onClick={() => setEntity(null)} aria-label="Clear entity" title="Back to the whole company"><FiX size={11} aria-hidden="true" /></button>
                   </span>
                 )}
                 <input
@@ -522,7 +464,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                   aria-label="Search who / what"
                 />
                 {entOpen && (
-                  <div className={styles.pickList}>
+                  <div className={styles.pickList} data-ta-list>
                     <div className={styles.ddScroll}>
                       {!entQuery && <button className={styles.pickOption} onClick={() => { setEntity(null); setEntQuery(''); setEntOpen(false); }}>WHOLE COMPANY</button>}
                       {!entQuery && <div className={styles.ddFootMsg}>TYPE TO SEARCH THIS SOURCE -- ENTER PICKS THE FIRST MATCH</div>}
@@ -541,7 +483,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               <span className={styles.miniLabel}>When</span>
               <div className={(appliedDef && !appliedDef.period ? styles.perChipsDim : '') + ' ' + styles.perChips}>
                 {PERIODS.map(p => (
-                  <button key={p} className={period === p ? styles.pchipOn : styles.pchip} onClick={() => setPeriod(p)}>{p}</button>
+                  <button key={p} className={period === p ? styles.pchipOn : styles.pchip} onClick={() => setPeriod(p)} title={p === 'CUSTOM' ? 'Pick your own From and To days' : 'Only what happened in: ' + p.toLowerCase()}>{p}</button>
                 ))}
               </div>
               {period === 'CUSTOM' && (
@@ -553,14 +495,14 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               )}
               {appliedDef && !appliedDef.period && <span className={styles.snapHint}>snapshot -- as at today, period ignored</span>}
             </div>
-            <div className={styles.scopeField} ref={colRef}>
+            <div className={styles.scopeField} ref={colRef} data-ta-field>
               <span className={styles.miniLabel}>Columns</span>
-              <button className={styles.pickBtn} onClick={() => setColOpen(o => !o)} aria-expanded={colOpen}>
+              <button className={styles.pickBtn} onClick={() => setColOpen(o => !o)} aria-expanded={colOpen} title="Pick the columns of the table, the CSV and the PDF. Type a letter to jump.">
                 <span>{columns.length} OF {fields.length} COLUMNS</span>
                 <FiChevronDown className={colOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
               </button>
               {colOpen && (
-                <div className={styles.pickList}>
+                <div className={styles.pickList} data-ta-list>
                   <div className={styles.ddScroll}>
                     {fields.map(f => (
                       <label key={f.key} className={styles.pickCheck + (columns.indexOf(f.key) >= 0 ? ' ' + styles.pickCheckOn : '')}>
@@ -571,18 +513,18 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                 </div>
               )}
             </div>
-            <div className={styles.scopeField} ref={sortRef}>
+            <div className={styles.scopeField} ref={sortRef} data-ta-field>
               <span className={styles.miniLabel}>Sort</span>
               <div className={styles.sortRow}>
-                <button className={styles.pickBtn} onClick={() => setSortOpen(o => !o)} aria-expanded={sortOpen}>
+                <button className={styles.pickBtn} onClick={() => setSortOpen(o => !o)} aria-expanded={sortOpen} title="Pick the column the rows are sorted by. Type a letter to jump.">
                   <span>{sort.col || 'DEFAULT'}</span>
                   <FiChevronDown className={sortOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
                 </button>
-                <button className={styles.dirBtn} onClick={() => setSort(s => ({ col: s.col, dir: s.dir === 'desc' ? 'asc' : 'desc' }))} aria-label="Flip sort direction">
+                <button className={styles.dirBtn} onClick={() => setSort(s => ({ col: s.col, dir: s.dir === 'desc' ? 'asc' : 'desc' }))} aria-label="Flip sort direction" title={sort.dir === 'desc' ? 'Biggest / newest first. Press for smallest / oldest first.' : 'Smallest / oldest first. Press for biggest / newest first.'}>
                   {sort.dir === 'desc' ? '\u2193' : '\u2191'}
                 </button>
                 {sortOpen && (
-                  <div className={styles.pickList}>
+                  <div className={styles.pickList} data-ta-list>
                     <div className={styles.ddScroll}>
                       <button className={styles.pickOption + (!sort.col ? ' ' + styles.pickOptionActive : '')} onClick={() => { setSort({ col: '', dir: 'asc' }); setSortOpen(false); }}>DEFAULT (report's own)</button>
                       {fields.map(f => (
@@ -609,13 +551,14 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setCatOpen(o => !o); } }}
           aria-expanded={catOpen}
           aria-label="Collapse or expand catalogue panel"
+          title="Every ready-made report. Press to open or close."
         >
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>
           <div className={styles.searchBox} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
             <FiSearch className={styles.searchIcon} aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" style={{ paddingLeft: 40 }} />
-            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
+            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search" title="Clear the search"><FiX size={13} aria-hidden="true" /></button>}
           </div>
           <span className={styles.headToggle}>
             <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
@@ -623,14 +566,14 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
         <div className={catOpen ? styles.catBody : styles.panelClosed}>
           <div className={styles.tabRow}>
-            <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>
+            <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')} title="Every report, in its groups">
               ALL<span className={styles.gcnt}>{searched.length}</span>
             </button>
             {GROUPS.map(g => {
               const n = searched.filter(d => d.group === g).length;
               if (!n && g !== groupTab) return null;
               return (
-                <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>
+                <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)} title={'Only the reports about: ' + g.toLowerCase()}>
                   {g}<span className={styles.gcnt}>{n}</span>
                 </button>
               );
@@ -640,7 +583,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
             <div className={styles.recentRow}>
               <span className={styles.recentLabel}>RECENTLY USED</span>
               {recentDefs.map(d => (
-                <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>
+                <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)} title={'Use again: ' + d.desc}>{d.title}</button>
               ))}
             </div>
           )}
@@ -689,13 +632,13 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               <span className={styles.pvChip}>SORT {sort.col || 'DEFAULT'} {sort.dir.toUpperCase()}</span>
               <span className={styles.pvChip}>{tableCols.length} COLUMNS</span>
               <span className={styles.pvChip}>{sortedAll.length} ROWS MATCH</span>
-              <span className={styles.pvChipDd} ref={chartDdRef}>
+              <span className={styles.pvChipDd} ref={chartDdRef} data-ta-field>
                 CHART
-                <button className={styles.chartDdBtn} onClick={() => setChartOpen(o => !o)} aria-expanded={chartOpen}>
+                <button className={styles.chartDdBtn} onClick={() => setChartOpen(o => !o)} aria-expanded={chartOpen} title="How the chart is drawn: bars, columns, line, donut or none. Type a letter to jump.">
                   {chartMode}<FiChevronDown className={chartOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
                 </button>
                 {chartOpen && (
-                  <div className={styles.pickList}>
+                  <div className={styles.pickList} data-ta-list>
                     <div className={styles.ddScroll}>
                       {CHART_OPTS.map(t => (
                         <button key={t} className={styles.pickOption + (chartMode === t ? ' ' + styles.pickOptionActive : '')} onClick={() => { setChartMode(t); setChartOpen(false); }}>{t}</button>
@@ -706,12 +649,12 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               </span>
             </div>
             <div className={styles.pvBtns}>
-              <button className={styles.useBtn} onClick={exportCSV} disabled={!sortedAll.length || !tableCols.length}>CSV -- THE DATA</button>
-              <button className={styles.useBtnDark} onClick={exportPDF} disabled={!sortedAll.length || !tableCols.length}>PDF -- THE DOCUMENT</button>
+              <button className={styles.useBtn} onClick={exportCSV} disabled={!sortedAll.length || !tableCols.length} title="Download every matching row as a CSV file (opens in Excel).">CSV -- THE DATA</button>
+              <button className={styles.useBtnDark} onClick={exportPDF} disabled={!sortedAll.length || !tableCols.length} title="Download a PDF: a cover page with the chart, then the whole table with page numbers.">PDF -- THE DOCUMENT</button>
             </div>
           </div>
           <div className={styles.approachNote}>
-            CSV = every matching row, flat, for Excel. PDF = one document: cover with scope stamp and the chart, then all table pages in landscape with repeated headers. The screen table stays a sample so the page stays fast.
+            CSV = every matching row, flat, for Excel. PDF = one document: a cover page with the scope and the chart, then the whole table on its own pages (landscape, headings on every page, page numbers). The screen table stays a sample so the page stays fast.
           </div>
           {chartMode !== 'NONE' && chartRows.length > 0 && (
             <div className={styles.chartBox} ref={chartRef}>

@@ -4,7 +4,7 @@ import { roleFlags } from '../../utils/roles';
 import { useSearchParams } from 'react-router-dom';
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import ReactDOM from 'react-dom';
-import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
+import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import { useAuth } from '../../hooks/useAuth';
 import { splitPhones, telHref, prettyPhone, phoneSearchText } from '../../utils/phone';
@@ -273,9 +273,10 @@ export default function RecoveryPortal() {
                 <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtD(n.createdAt)}</span>
                 {n.text && <span className={styles.histText}>{n.text}</span>}
                 {canManage && n.source === 'RECOVERY' && n.tag !== 'payment received' && (
-                  <button type="button" className={styles.histDelete} aria-label="Delete note"
-                    onClick={() => askDelete(n.id)}>{confirmDel === n.id ? (<span style={{ color: '#ef4444', fontWeight: 700, fontSize: 11, marginRight: 4 }}>SURE?</span>) : null}
-                    <FiX aria-hidden="true" />
+                  <button type="button" className={`${styles.histDelete} ${confirmDel === n.id ? styles.histDeleteArmed : ''}`} aria-label="Delete this call note"
+                    title={confirmDel === n.id ? 'Press again to delete this call note. The audit log keeps a line.' : 'Delete this call note (Manager and above). You are asked to press twice.'}
+                    onClick={() => askDelete(n.id)}>
+                    <FiTrash2 aria-hidden="true" /> {confirmDel === n.id ? 'PRESS AGAIN' : 'DELETE'}
                   </button>
                 )}
               </div>

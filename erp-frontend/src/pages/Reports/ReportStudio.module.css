@@ -420,3 +420,7 @@
   .pvBtns { margin-left: 0; }
   .searchBox { margin-left: 0; width: 100%; }
 }
+
+/* fix217: an option reached by typing a letter (global type-ahead) is marked like a hovered one */
+.pickOption:focus, .pickOption:focus-visible { background: #EE8C3A; color: #fff; outline: none; }
+.pickCheck:focus, .pickCheck:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }

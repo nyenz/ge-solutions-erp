@@ -441,7 +441,7 @@ const FolderPage = () => {
     const [payDate, setPayDate] = useState(() => localISO());   // fix181 (16.9): the day the money was received
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
-    const [payMethod, setPayMethod] = useState('');   // fix214 (David): Office, Mobile Money, Bank or Other -- no default, staff pick it
+    const [payMethod, setPayMethod] = useState('OFFICE');   // fix214; fix217 (David): Office until changed
     const [payRef, setPayRef] = useState('');         // fix214: transaction ID / bank reference; for Other, how it was paid
     const [payReceipt, setPayReceipt] = useState(null);
     const [payReceiptNote, setPayReceiptNote] = useState('');   // fix186: "4.8 MB -> 1.2 MB" shown next to the receipt
@@ -862,7 +862,7 @@ const FolderPage = () => {
     // fix165/167: the payment and its receipt travel TOGETHER; the payer (one owner) and what it is for are recorded.
     // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
     const openPayModal = (startType) => {
-        setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null); setPayMethod(''); setPayRef('');
+        setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null); setPayMethod('OFFICE'); setPayRef('');
         setPayDate(localISO()); payRequestId.current = null;   // fix181: a new window = a new one-time id
         setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');
         setPayerId(payers.length === 1 ? payers[0].id : '');
