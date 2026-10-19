@@ -10,6 +10,7 @@
 // Money stays a ruled statement with a totals box, and the page ends with sign-off lines.
 import React from 'react';
 import { statusOf, moneyWordsOf, stagesOf, waitingFor } from '../../utils/projectStatus';
+import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';
 
 const money = (n) => 'UGX ' + Number(n || 0).toLocaleString();
@@ -183,10 +184,10 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                     <H>Statement of account</H>
                     {payments.length ? (
                         <table className={s.table}>
-                            <thead><tr><th>Date paid</th><th>Kind</th><th>For</th><th>Paid by</th><th>Recorded by</th><th className={s.right}>Amount</th></tr></thead>
+                            <thead><tr><th>Date paid</th><th>Kind</th><th>For</th><th>Paid by</th><th>Method</th><th>Recorded by</th><th className={s.right}>Amount</th></tr></thead>
                             <tbody>{payments.map((x, i) => (
                                 <tr key={x.id || i}><td>{dash(day(x.paidOn || x.timestamp))}</td><td>{PAY_WORD[x.paymentType] || x.paymentType}</td>
-                                    <td>{x.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}</td><td>{dash(x.payerName)}</td><td>{dash(x.recordedBy)}</td>
+                                    <td>{x.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}</td><td>{dash(x.payerName)}</td><td>{methodLine(x.paymentMethod, x.paymentReference)}</td><td>{dash(x.recordedBy)}</td>
                                     <td className={`${s.right} ${s.mono}`}>{Number(x.amountPaid || 0).toLocaleString()}</td></tr>
                             ))}</tbody>
                         </table>

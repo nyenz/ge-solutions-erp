@@ -162,6 +162,11 @@ function Period({ p }) {
                 <div className={styles.flowRow}><span>Money in</span><span className={styles.flowTrack}><span className={styles.flowIn} style={{ width: (inn / max) * 100 + '%' }} /></span><strong title={'UGX ' + fmt(inn)}>{short(inn)}</strong></div>
                 <div className={styles.flowRow}><span>Expenses</span><span className={styles.flowTrack}><span className={styles.flowOut} style={{ width: (out / max) * 100 + '%' }} /></span><strong title={'UGX ' + fmt(out)}>{short(out)}</strong></div>
             </div>
+            {(p.byMethod || []).length > 0 && (   /* fix214: money in by how it was paid */
+                <div className={styles.methodLine} title="Money in by how it was paid">
+                    {p.byMethod.map(b => <span key={b.method}>{b.label} <strong title={'UGX ' + fmt(b.net)}>{short(Number(b.net || 0))}</strong></span>)}
+                </div>
+            )}
             <div className={styles.groupFoot}>
                 <span>Net <strong className={net >= 0 ? styles.good : styles.bad}>UGX {fmt(net)}</strong></span>
                 <span>{fmt(p.transactions)} payment{Number(p.transactions) === 1 ? '' : 's'}</span>

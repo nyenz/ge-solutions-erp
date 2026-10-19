@@ -45,6 +45,7 @@ public class PaymentController {
                                     @RequestParam(defaultValue = "ALL") String tab, @RequestParam(required = false) String projectType,
                                     @RequestParam(required = false) String q, @RequestParam(defaultValue = "false") boolean includeDeleted,
                                     @RequestParam(defaultValue = "false") boolean missingReceipt,
+                                    @RequestParam(required = false) String method,
                                     @RequestParam(defaultValue = "date") String sort, @RequestParam(defaultValue = "desc") String dir,
                                     @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
         if (!ownerLevel()) {
@@ -53,7 +54,7 @@ public class PaymentController {
             if (f == null || f.isBefore(floor)) from = floor.toString();
             includeDeleted = false;
         }
-        return queryService.page(filter(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir), page, size);
+        return queryService.page(filter(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir, method), page, size);
     }
 
     /** fix181 (16.7): the card numbers for the same filters, over every row (not one page). */
@@ -61,8 +62,9 @@ public class PaymentController {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public Map<String, Object> totals(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
                                       @RequestParam(defaultValue = "ALL") String tab, @RequestParam(required = false) String projectType,
-                                      @RequestParam(required = false) String q, @RequestParam(defaultValue = "false") boolean missingReceipt) {
-        return queryService.totals(filter(from, to, tab, projectType, q, false, missingReceipt, "date", "desc"));
+                                      @RequestParam(required = false) String q, @RequestParam(defaultValue = "false") boolean missingReceipt,
+                                      @RequestParam(required = false) String method) {
+        return queryService.totals(filter(from, to, tab, projectType, q, false, missingReceipt, "date", "desc", method));
     }
 
     /** fix206: how far back the Manager's payment list goes. */
@@ -74,9 +76,9 @@ public class PaymentController {
     }
 
     private static PaymentQueryService.Filter filter(String from, String to, String tab, String projectType, String q,
-                                                     boolean includeDeleted, boolean missingReceipt, String sort, String dir) {
+                                                     boolean includeDeleted, boolean missingReceipt, String sort, String dir, String method) {
         java.time.LocalDate f = from == null || from.isBlank() ? null : java.time.LocalDate.parse(from);
         java.time.LocalDate t = to == null || to.isBlank() ? null : java.time.LocalDate.parse(to);
-        return new PaymentQueryService.Filter(f, t, tab, projectType, q, includeDeleted, missingReceipt, sort, dir);
+        return new PaymentQueryService.Filter(f, t, tab, projectType, q, includeDeleted, missingReceipt, sort, dir, method);   // fix214
     }
 }

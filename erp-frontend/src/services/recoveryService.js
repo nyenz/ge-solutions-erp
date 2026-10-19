@@ -16,8 +16,10 @@ getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   // fix167: also WHO paid (payerId) and what for (allocation TITLE or STORAGE)
   // fix181: clientRequestId = one id per payment window; a retried send with the same id is refused by the server
   // fix181 (16.9): paidOn (YYYY-MM-DD) only when the money came on an earlier day
-  recordPayment: (projectId, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn) => {
+  recordPayment: (projectId, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn, method, reference) => {
     const fd = new FormData();
+    if (method) fd.append('method', method);          // fix214: Office, Mobile Money, Bank or Other
+    if (reference) fd.append('reference', reference);
     if (paidOn) fd.append('paidOn', paidOn);
     if (clientRequestId) fd.append('clientRequestId', clientRequestId);
     fd.append('amount', String(amount));

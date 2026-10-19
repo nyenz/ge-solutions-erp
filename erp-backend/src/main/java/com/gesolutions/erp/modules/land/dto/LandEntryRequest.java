@@ -91,6 +91,9 @@ public class LandEntryRequest {
     // fix172: WHICH client paid the intake money (fix180: the NIN typed in the Clients section). Needed when there is more than one client.
     private String initialPaymentPayerNin;
     private String initialStorageFeePaidPayerNin;
+    // fix214 (David): HOW the intake money was paid (PaymentMethods code) and its reference. Required when money was paid.
+    private String paymentMethod;
+    private String paymentReference;
 
     // The status checklist picked at intake (fix180: the project type's list). If omitted, no statuses are attached
     // and staff can add them later from the Folder page.

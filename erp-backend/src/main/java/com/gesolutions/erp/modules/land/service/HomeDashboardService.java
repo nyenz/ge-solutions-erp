@@ -230,6 +230,26 @@ public class HomeDashboardService {
         m.put("expenses", out == null ? BigDecimal.ZERO : out);
         m.put("net", in.subtract(out == null ? BigDecimal.ZERO : out));
         m.put("transactions", tx);
+        // fix214 (David): money in split by how it was paid (only the methods that had money in the window)
+        Map<String, BigDecimal> by = new LinkedHashMap<>();
+        for (Object[] row : paymentRepository.sumByMethodSince(from)) {
+            String code = row[0] == null ? "NONE" : String.valueOf(row[0]);
+            BigDecimal sum = row[1] instanceof BigDecimal b ? b : new BigDecimal(String.valueOf(row[1]));
+            by.merge(code, sum, BigDecimal::add);
+        }
+        List<Map<String, Object>> methods = new ArrayList<>();
+        List<String> order = new ArrayList<>(com.gesolutions.erp.modules.land.model.PaymentMethods.LABELS.keySet());
+        order.add("NONE");
+        for (String code : order) {
+            BigDecimal v = by.get(code);
+            if (v == null || v.signum() == 0) continue;
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("method", code);
+            one.put("label", com.gesolutions.erp.modules.land.model.PaymentMethods.label("NONE".equals(code) ? null : code));
+            one.put("net", v);
+            methods.add(one);
+        }
+        m.put("byMethod", methods);
         return m;
     }
 }

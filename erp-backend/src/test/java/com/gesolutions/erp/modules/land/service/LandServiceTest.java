@@ -90,6 +90,7 @@ public class LandServiceTest {
                 .invoiceNumber(n("INV")).contractNumber(n("CTR"))   // fix196: a started project has both numbers
                 .totalCost(new BigDecimal("5000000"))
                 .initialPayment(new BigDecimal("1000000"))
+                .paymentMethod("BANK")   // fix214: intake money says how it was paid
                 .isStartAsReceivable(false)
                 .build();
 

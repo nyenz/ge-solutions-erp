@@ -5,6 +5,7 @@
 // is true (the Client page shows money to the Director and above only).
 import React from 'react';
 import { PROJECT_STATUS } from '../../utils/projectStatus';
+import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';
 
 const money = (n) => 'UGX ' + Number(n || 0).toLocaleString();
@@ -131,13 +132,14 @@ export default function ClientFilePrint({ client: d, plots = [], totals = {}, pr
                     <H>Statement of account</H>
                     {pays.length ? (
                         <table className={s.table}>
-                            <thead><tr><th>Date paid</th><th>Project</th><th>For</th><th>Paid by</th><th className={s.right}>Amount</th></tr></thead>
+                            <thead><tr><th>Date paid</th><th>Project</th><th>For</th><th>Paid by</th><th>Method</th><th className={s.right}>Amount</th></tr></thead>
                             <tbody>{pays.map((x, i) => (
                                 <tr key={x.id || i}>
                                     <td>{x.paidOn ? day(x.paidOn) : '—'}</td>
                                     <td className={s.mono}>#{x.index}</td>
                                     <td>{x.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}{x.reversal ? ' · Reversal' : ''}{x.reversed ? ' · Reversed' : ''}</td>
                                     <td>{dash(x.payerName)}</td>
+                                    <td>{methodLine(x.paymentMethod, x.paymentReference)}</td>
                                     <td className={`${s.right} ${s.mono}`}>{num(x.amount)}</td>
                                 </tr>
                             ))}</tbody>

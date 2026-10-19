@@ -32,6 +32,11 @@ public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, UU
          + "WHERE p.id = r.projectId AND p.deleted = false AND r.paidOn IS NOT NULL AND r.paidOn >= :since")
     BigDecimal sumAllPaymentsSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
 
+    /** fix214: the same money as sumAllPaymentsSince, split by payment method (row = method code or NULL, net sum). */
+    @Query("SELECT r.paymentMethod, COALESCE(SUM(r.amountPaid), 0) FROM PaymentRecord r, LandProject p "
+         + "WHERE p.id = r.projectId AND p.deleted = false AND r.paidOn IS NOT NULL AND r.paidOn >= :since GROUP BY r.paymentMethod")
+    java.util.List<Object[]> sumByMethodSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
+
     @Query(value = "SELECT DATE_TRUNC('month', r.paid_on) as pay_month, SUM(r.amount_paid) as total " +
                    "FROM payment_records r JOIN land_projects p ON p.id = r.project_id " +
                    "WHERE p.deleted = false AND r.paid_on IS NOT NULL AND r.paid_on >= :since " +

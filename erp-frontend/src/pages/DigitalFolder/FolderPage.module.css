@@ -1817,6 +1817,9 @@
 .payAmountNeg { color: var(--tx-red, #f87171) !important; }
 .payStorageChip { font-size: clamp(7px, 0.75vw, 9px); font-weight: 900; letter-spacing: 1px; color: var(--tx-red, #fca5a5); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 4px; padding: 1px 6px; }
 .payPayer { color: var(--tx-cyan, #67e8f9); font-weight: 800; }
+/* fix214: how the money was paid (Office / Mobile Money / Bank / Other); old lines say Not recorded, dimmed */
+.payMethod { color: var(--tx-green, #4ade80); font-weight: 800; }
+.payMethodNone { color: rgba(var(--ink-rgb, 255, 255, 255), 0.45); font-weight: 700; font-style: italic; }
 .payNoteText { margin-top: 4px; font-size: clamp(10px, 1vw, 12px); color: rgba(var(--ink-rgb), 0.6); word-break: break-word; }
 .receiptLink { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 3px 9px; border-radius: 5px; background: transparent; border: 1px solid rgba(6, 182, 212, 0.45); color: var(--tx-cyan, #67e8f9); font-size: 9px; font-weight: 900; letter-spacing: 1px; cursor: pointer; }
 .receiptLink:hover { background: #06b6d4; color: #1a2e30; border-color: #06b6d4; }

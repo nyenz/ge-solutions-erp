@@ -165,6 +165,17 @@ public class LandService {
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
                                        String clientRequestId, java.time.LocalDate paidOnDate) {
+        // fix214: the shorter forms are used by server code and tests only; the web page always sends the method
+        return recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, paidOnDate, PaymentMethods.OFFICE, null);
+    }
+
+    // fix214 (David): every payment says HOW it was paid (PaymentMethods: Office, Mobile Money, Bank, Other) and may carry
+    // a reference (transaction id). OTHER needs a few words saying how.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
+                                       String clientRequestId, java.time.LocalDate paidOnDate, String method, String reference) {
+        PaymentMethods.Checked how = PaymentMethods.check(method, reference, true);
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
         }
@@ -274,6 +285,8 @@ public class LandService {
                 .allocation(kind)
                 .payerClientId(payer != null ? payer.getId() : null)
                 .payerName(payer != null ? payer.getFullName() : null)
+                .paymentMethod(how.method())          // fix214
+                .paymentReference(how.reference())
                 .build();
         record = paymentRecordRepository.save(record);
 
@@ -305,7 +318,8 @@ public class LandService {
         for (Client owner : noteFor) {
             recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
                 .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
-                .text("Paid UGX " + amount + " on " + paidAt.toLocalDate() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
+                .text("Paid UGX " + amount + " on " + paidAt.toLocalDate() + " by " + PaymentMethods.label(how.method())
+                        + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
         }
         auditService.logActionAfterCommit("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
@@ -313,6 +327,7 @@ public class LandService {
             + " | Type: " + paymentType
             + " | For: " + kind + (keptFeesPayment ? " (set-aside fees)" : "")
             + (payer != null ? " | Paid by: " + payer.getFullName() : "")
+            + " | Method: " + PaymentMethods.label(how.method()) + (how.reference() != null ? " (ref " + how.reference() + ")" : "")
             + (paidAt.toLocalDate().equals(today) ? "" : " | paid on " + paidAt.toLocalDate())
             + " | Amount owed after: UGX " + balanceAfter);
         return record;
@@ -334,6 +349,16 @@ public class LandService {
     public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
                                          UUID payerId, String allocation, String clientRequestId,
                                          java.time.LocalDate paidOnDate) throws Exception {
+        recordPaymentWithReceipt(projectId, amount, notes, receipt, payerId, allocation, clientRequestId, paidOnDate, PaymentMethods.OFFICE, null);
+    }
+
+    /** fix214: the form the payment window uses -- with HOW it was paid. */
+    @Transactional(rollbackFor = Exception.class)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
+                                         UUID payerId, String allocation, String clientRequestId,
+                                         java.time.LocalDate paidOnDate, String method, String reference) throws Exception {
+        PaymentMethods.check(method, reference, true);   // fix214: refused before the receipt is looked at
         if (receipt == null || receipt.isEmpty()) {
             throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
         }
@@ -341,7 +366,7 @@ public class LandService {
             throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
         }
         requireScanFiles(new MultipartFile[] { receipt });
-        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, paidOnDate);
+        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, paidOnDate, method, reference);
         List<ProjectDocument> filed = addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
         if (!filed.isEmpty()) {
             record.setReceiptDocumentId(filed.get(0).getId());
@@ -454,12 +479,14 @@ public class LandService {
         boolean officeDraft = !pendingEntry && officeEntryIncomplete(request);
         if (officeDraft) {
             List<String> moneySent = new java.util.ArrayList<>(PendingProjectService.pricingFieldsSent(request));
-            moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs"));
+            moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs", "paymentMethod", "paymentReference"));
             if (!moneySent.isEmpty()) {
                 throw new BusinessException("MONEY_NEEDS_START: Money received is recorded once the project has its invoice number, "
                         + "contract number and price. Fill in all three, or clear: " + String.join(", ", moneySent) + ".");
             }
             request.setLastPaidDate(null);
+            request.setPaymentMethod(null);      // fix214: no money, so no method
+            request.setPaymentReference(null);
         }
         boolean savePending = pendingEntry || officeDraft;
         String[] numbers = pendingEntry ? null : officeDraft
@@ -638,7 +665,7 @@ public class LandService {
     record IntakeMoney(BigDecimal totalCost, BigDecimal initialPayment, BigDecimal outstanding, boolean startAsReceivable,
                        BigDecimal initialFees, BigDecimal initialFeesPaid, LocalDate receivablesSince, int backlogMonths,
                        BigDecimal backlogFees, LocalDateTime receivableClock, LocalDate lastPaidDate, LocalDateTime paidAt,
-                       BigDecimal monthlyFeeOverride) {}
+                       BigDecimal monthlyFeeOverride, String method, String reference) {}
 
     IntakeMoney checkIntakeMoney(LandEntryRequest request) {
         BigDecimal initialPayment = request.getInitialPayment() != null
@@ -709,8 +736,13 @@ public class LandService {
         }
         BigDecimal override = request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0
                 ? request.getMonthlyStorageFee() : null;
+        // fix214 (David): money received at intake says HOW it was paid (one method for the intake money)
+        boolean moneyIn = initialPayment.signum() > 0 || initialFeesPaid.signum() > 0;
+        PaymentMethods.Checked how = moneyIn
+                ? PaymentMethods.check(request.getPaymentMethod(), request.getPaymentReference(), true)
+                : new PaymentMethods.Checked(null, null);
         return new IntakeMoney(totalCost, initialPayment, outstanding, startAsReceivable, initialFees, initialFeesPaid,
-                receivablesSince, backlogMonths, backlogFees, receivableClock, lastPaidDate, paidAt, override);
+                receivablesSince, backlogMonths, backlogFees, receivableClock, lastPaidDate, paidAt, override, how.method(), how.reference());
     }
 
     /** Puts the checked money on the project (cost, amount paid, status, receivable fields). */
@@ -745,6 +777,8 @@ public class LandService {
         if (titlePayer != null) note.append(" | Initial payment paid by ").append(titlePayer.getFullName());
         if (feesPayer != null) note.append(" | Storage fees paid by ").append(feesPayer.getFullName());
         if (lastPaidDate != null) note.append(" | Date last paid ").append(lastPaidDate);
+        if (m.method() != null) note.append(" | Paid by ").append(PaymentMethods.label(m.method()))
+                .append(m.reference() != null ? " (ref " + m.reference() + ")" : "");
         if (m.receivablesSince() != null) note.append(" | In receivables since ").append(m.receivablesSince())
                 .append(" (").append(m.backlogMonths()).append(" month(s) of fees billed at intake)");
 
@@ -760,6 +794,8 @@ public class LandService {
                     .allocation("TITLE")
                     .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which client paid
                     .payerName(titlePayer != null ? titlePayer.getFullName() : null)
+                    .paymentMethod(m.method())                // fix214
+                    .paymentReference(m.reference())
                     .timestamp(LocalDateTime.now())   // fix181 (16.0b): always the real entry time
                     .paidOn(paidAt)                   // fix181 (11.6): the day paid; NULL when the operator gave no date
                     .build());
@@ -783,6 +819,8 @@ public class LandService {
                     .allocation("STORAGE")
                     .payerClientId(feesPayer != null ? feesPayer.getId() : null)
                     .payerName(feesPayer != null ? feesPayer.getFullName() : null)
+                    .paymentMethod(m.method())                // fix214
+                    .paymentReference(m.reference())
                     .timestamp(LocalDateTime.now())
                     .paidOn(paidAt)
                     .build());
@@ -1679,6 +1717,8 @@ public class LandService {
                 .allocation(original.getAllocation())
                 .payerClientId(original.getPayerClientId())
                 .payerName(original.getPayerName())
+                .paymentMethod(original.getPaymentMethod())        // fix214: the money goes back the way it came
+                .paymentReference(original.getPaymentReference())
                 .build();
         paymentRecordRepository.save(reversal);
 

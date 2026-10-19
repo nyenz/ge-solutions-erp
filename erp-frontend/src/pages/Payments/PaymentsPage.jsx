@@ -22,6 +22,7 @@ import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
 import { roleFlags } from '../../utils/roles';
+import { PAY_METHODS, methodLabel } from '../../utils/paymentMethods';   // fix214
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -39,6 +40,8 @@ const TABS = [
 const KIND_LABEL = { OPENING_DEPOSIT: 'OPENING DEPOSIT', IN_RECEIVABLES: 'PAYMENT IN RECEIVABLES', REVERSAL: 'REVERSAL', PAYMENT: '' };
 const PURPOSE_COLOR = { TITLE: '#22c55e', STORAGE: '#eab308' };
 const PAGE = 50;
+// fix214 (David): the method buttons -- every method, then "Not recorded" for payments saved before methods were asked for
+const METHOD_FILTERS = PAY_METHODS.map(m => ({ key: m.value, label: m.label })).concat([{ key: 'NONE', label: 'Not recorded' }]);
 
 const PaymentsPage = () => {
     const navigate = useNavigate();
@@ -53,6 +56,7 @@ const PaymentsPage = () => {
     const to = params.get('to') || '';
     const includeDeleted = params.get('deleted') === '1';
     const missingReceipt = params.get('noreceipt') === '1';
+    const method = params.get('method') || '';   // fix214
     const page = Math.max(0, Number(params.get('page') || 0));
     const highlight = params.get('row') || '';
 
@@ -77,23 +81,23 @@ const PaymentsPage = () => {
 
     const load = useCallback(() => {
         setBusy(true); setError('');
-        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, page, size: PAGE };
+        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, page, size: PAGE };
         return Promise.all([
             api.get('/recovery/payments/list', { params: p }).then(r => setData(r.data)),
-            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt } }).then(r => setTotals(r.data)) : Promise.resolve(),
+            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined } }).then(r => setTotals(r.data)) : Promise.resolve(),
         ]).catch(e => setError(errorText(e))).finally(() => setBusy(false));
-    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, page, fullView]);
+    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, page, fullView]);
 
     useEffect(() => {
         let alive = true;
-        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, page, size: PAGE };
+        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, page, size: PAGE };
         Promise.all([
             api.get('/recovery/payments/list', { params: p }),
-            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt } }) : Promise.resolve({ data: null }),
+            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined } }) : Promise.resolve({ data: null }),
         ]).then(([l, t]) => { if (alive) { setData(l.data); setTotals(t.data); setError(''); } })
           .catch(e => { if (alive) setError(errorText(e)); });
         return () => { alive = false; };
-    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, page, fullView]);
+    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, page, fullView]);
 
     // search waits a moment after typing
     useEffect(() => {
@@ -192,7 +196,7 @@ const PaymentsPage = () => {
                     <div className={styles.searchBlock}>
                         <div className={styles.searchWrap}>
                             <input type="search" className={styles.searchInput}
-                                placeholder="Search project, plot, client, phone, amount, recorded by, notes..."
+                                placeholder="Search project, plot, client, phone, amount, reference, recorded by, notes..."
                                 aria-label="Search payment records" autoComplete="off"
                                 value={searchText} onChange={e => setSearchText(e.target.value)} />
                             <FiSearch className={styles.searchIcon} aria-hidden="true" />
@@ -217,6 +221,22 @@ const PaymentsPage = () => {
                     {fullView && <label className={`${styles.checkToggle} ${includeDeleted ? styles.checkToggleOn : ''}`}>
                         <input type="checkbox" checked={includeDeleted} onChange={e => set({ deleted: e.target.checked })} /> Include deleted projects
                     </label>}
+                </div>
+                {/* fix214: filter by HOW the money was paid; the Director also sees the net amount of each method */}
+                <div className={styles.methodRow} role="group" aria-label="Payment method">
+                    <span className={styles.methodLabel}>PAID WITH</span>
+                    {METHOD_FILTERS.filter(m => m.key !== 'NONE' || !totals || (totals.byMethod || []).some(b => b.method === 'NONE')).map(m => {
+                        const on = method === m.key;
+                        const sum = totals && (totals.byMethod || []).find(b => b.method === m.key);
+                        return (
+                            <button key={m.key} type="button" aria-pressed={on} className={`${styles.methodChip} ${on ? styles.methodChipOn : ''} ${m.key === 'NONE' ? styles.methodChipNone : ''}`}
+                                title={on ? 'Show every method again' : 'Show only payments made with ' + m.label}
+                                onClick={() => set({ method: on ? '' : m.key })}>
+                                <span>{m.label}</span>
+                                {fullView && sum && <strong>UGX {fmt(sum.net)}</strong>}
+                            </button>
+                        );
+                    })}
                 </div>
                 <div className={styles.legendRow}>
                     <span className={styles.legendItem}>Deleted projects are never in the totals. A line can be in two tabs (for example an opening deposit that paid the title).</span>
@@ -243,6 +263,7 @@ const PaymentsPage = () => {
                                         <th className={`${styles.thSortable} gsStickyCol`} onClick={() => handleSort('project')} aria-sort={sort === 'project' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>PROJECT {sortIcon('project')}</th>
                                         <th className={styles.thSortable} onClick={() => handleSort('client')} aria-sort={sort === 'client' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>CLIENT WHO PAID {sortIcon('client')}</th>
                                         <th>FOR</th>
+                                        <th>METHOD</th>
                                         <th className={styles.thSortable} onClick={() => handleSort('amount')} aria-sort={sort === 'amount' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>AMOUNT {sortIcon('amount')}</th>
                                         <th>RECEIPT</th>
                                         <th>RECORDED BY</th>
@@ -251,7 +272,7 @@ const PaymentsPage = () => {
                                 </thead>
                                 <tbody>
                                     {rows.length === 0 ? (
-                                        <tr><td colSpan="8" className={styles.noRecords}><div className={styles.noRecordsInner}><FiLayers className={styles.noRecordsIcon} />
+                                        <tr><td colSpan="9" className={styles.noRecords}><div className={styles.noRecordsInner}><FiLayers className={styles.noRecordsIcon} />
                                             <span>{q ? `No payment matches "${q}"` : 'No payment lines for these filters'}</span></div></td></tr>
                                     ) : rows.map((pay) => {
                                         const day = fmtDay(pay.paidOn);
@@ -285,6 +306,10 @@ const PaymentsPage = () => {
                                                         <button type="button" className={styles.linkBtn} onClick={e => { e.stopPropagation(); const el = document.getElementById('pay-' + pay.reversalOf); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>
                                                             reverses payment of {fmtDay(pay.reversalOfDate) || 'an earlier day'}</button>
                                                     )}
+                                                </td>
+                                                <td>
+                                                    <span className={pay.paymentMethod ? styles.methodCell : styles.methodCellNone}>{methodLabel(pay.paymentMethod)}</span>
+                                                    {pay.paymentReference && <div className={styles.time}>{pay.paymentReference}</div>}
                                                 </td>
                                                 <td>
                                                     <strong className={styles.amount} style={{ color: Number(pay.amountPaid) < 0 ? '#ef4444' : color, textDecoration: pay.reversed ? 'line-through' : 'none' }}>

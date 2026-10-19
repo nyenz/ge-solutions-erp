@@ -117,6 +117,7 @@ export const FIELD_FOR_CODE = {
     PRICE_REQUIRED: ['Total Cost', 'Financ'], STORAGE_PAID_INVALID: ['Storage Fees Already Paid', 'Financ'],
     SUBDIVISIONS_REQUIRED: ['Number of Subdivisions'], NIN_TAKEN: ['NIN of Client 1', 'Client'], NIN_CONFLICT: ['NIN of Client 1', 'Client'],
     NIN_REQUIRED: ['NIN of Client 1', 'Client'], PHONE_INVALID: ['Phone of Client 1', 'Client'], EMAIL_INVALID: ['Email of Client 1', 'Client'],
+    PAYMENT_METHOD_REQUIRED: ['Payment Method', 'Financ'], PAYMENT_METHOD_INVALID: ['Payment Method', 'Financ'],   // fix214
 };
 
 /** Marks the box a server refusal is about (when the code points at one). */

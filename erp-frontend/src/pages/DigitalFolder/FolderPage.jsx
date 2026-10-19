@@ -46,6 +46,7 @@ import CornerDecor from '../../components/ui/CornerDecor';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { parseNote } from './noteTags';
 import { readShillings, MONEY_BAD } from '../../utils/money';   // fix199 (test note 23)
+import { PAY_METHODS, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test note 22)
 import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
 import styles from './FolderPage.module.css';
@@ -443,6 +444,8 @@ const FolderPage = () => {
     const [payDate, setPayDate] = useState(() => localISO());   // fix181 (16.9): the day the money was received
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
+    const [payMethod, setPayMethod] = useState('');   // fix214 (David): Office, Mobile Money, Bank or Other -- no default, staff pick it
+    const [payRef, setPayRef] = useState('');         // fix214: transaction ID / bank reference; for Other, how it was paid
     const [payReceipt, setPayReceipt] = useState(null);
     const [payReceiptNote, setPayReceiptNote] = useState('');   // fix186: "4.8 MB -> 1.2 MB" shown next to the receipt
     const payReceiptRef = useRef(null);
@@ -896,7 +899,7 @@ const FolderPage = () => {
     // fix165/167: the payment and its receipt travel TOGETHER; the payer (one owner) and what it is for are recorded.
     // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
     const openPayModal = (startType) => {
-        setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);
+        setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null); setPayMethod(''); setPayRef('');
         setPayDate(localISO()); payRequestId.current = null;   // fix181: a new window = a new one-time id
         setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');
         setPayerId(payers.length === 1 ? payers[0].id : '');
@@ -913,6 +916,8 @@ const FolderPage = () => {
         if (!Number.isInteger(amt)) { setPayErr('ENTER WHOLE SHILLINGS ONLY (NO DECIMALS).'); return; }
         if (amt > limit) { setPayErr('TOO MUCH: ONLY UGX ' + fmt(limit) + (payType === 'STORAGE' ? ' OF STORAGE FEES IS UNPAID.' : ' IS OWED ON THE TITLE WORK.') + ' YOU TYPED UGX ' + fmt(amt) + '.'); return; }
         if (payers.length > 1 && !payerId) { setPayErr('PICK WHICH CLIENT PAID.'); return; }
+        const methodBad = checkMethod(payMethod, payRef);   // fix214
+        if (methodBad) { setPayErr(methodBad.toUpperCase()); return; }
         if (!payReceipt) { setPayErr('ATTACH THE PAYMENT RECEIPT. A PAYMENT CANNOT BE SAVED WITHOUT IT.'); return; }
         if (!SCAN_EXT.includes(fileExt(payReceipt.name))) { setPayErr('THE RECEIPT MUST BE A PDF, JPG, PNG OR WEBP FILE.'); return; }
         if (!payReceipt.size) { setPayErr('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
@@ -925,7 +930,7 @@ const FolderPage = () => {
         try {
             const stamp = todayISO();
             const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + amt + ' - ' + stamp + '.' + fileExt(payReceipt.name);
-            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType, payRequestId.current, payDate === localISO() ? null : payDate);
+            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType, payRequestId.current, payDate === localISO() ? null : payDate, payMethod, payRef.trim());
             payRequestId.current = null;
             setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE'); setPayReceipt(null);
             await loadFolderData();
@@ -1280,8 +1285,8 @@ const FolderPage = () => {
                 <div className={styles.financialsStack} data-print-section="FINANCIALS" style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
                     <div className={styles.printStatement} aria-hidden="true">
                 <h3>PAYMENT STATEMENT - PROJECT #{project.projectIndex}</h3>
-                <table><thead><tr><th>DATE</th><th>TYPE</th><th>FOR</th><th>PAID BY</th><th>AMOUNT (UGX)</th><th>RECORDED BY</th></tr></thead>
-                    <tbody>{payments.map((p, i) => (<tr key={p.id || i}><td>{fmtDate(p.timestamp)}</td><td>{TYPE_LABELS[p.paymentType] || p.paymentType}</td><td>{p.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}</td><td>{p.payerName || '---'}</td><td>{fmt(p.amountPaid)}</td><td>{p.recordedBy}</td></tr>))}</tbody></table>
+                <table><thead><tr><th>DATE</th><th>TYPE</th><th>FOR</th><th>PAID BY</th><th>METHOD</th><th>AMOUNT (UGX)</th><th>RECORDED BY</th></tr></thead>
+                    <tbody>{payments.map((p, i) => (<tr key={p.id || i}><td>{fmtDate(p.timestamp)}</td><td>{TYPE_LABELS[p.paymentType] || p.paymentType}</td><td>{p.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}</td><td>{p.payerName || '---'}</td><td>{methodLine(p.paymentMethod, p.paymentReference)}</td><td>{fmt(p.amountPaid)}</td><td>{p.recordedBy}</td></tr>))}</tbody></table>
                 <p>TOTAL PAID: UGX {fmt(amountPaid)} | STORAGE FEES: UGX {fmt(storageFees)} | BALANCE OWED: UGX {fmt(amountOwed)}</p>
             </div>
 
@@ -1399,6 +1404,7 @@ const FolderPage = () => {
                                                 <span className={styles.payType}>{TYPE_LABELS[pay.paymentType] || pay.paymentType}</span>
                                                 {isStorage && <span className={styles.payStorageChip} title="Paid toward storage fees">STORAGE FEES</span>}
                                                 {pay.payerName && <span className={styles.payPayer} title="The owner who paid">paid by {pay.payerName}</span>}
+                                                <span className={`${styles.payMethod} ${pay.paymentMethod ? '' : styles.payMethodNone}`} title={pay.paymentMethod ? 'How the money was paid' + (pay.paymentReference ? '. Reference: ' + pay.paymentReference : '') : 'Recorded before the payment method was asked for.'}>{methodLine(pay.paymentMethod, pay.paymentReference)}</span>
                                                 <span className={styles.payBy} title="The staff member who recorded it">recorded by {pay.recordedBy}</span>
                                                 {reversedIds.has(pay.id) && <span className={styles.payReversed} title="This payment was cancelled by a REVERSAL line.">REVERSED</span>}
                                             </div>
@@ -1690,6 +1696,13 @@ const FolderPage = () => {
                 <div className={modalStyles.modalInfoBox}>{payType === 'STORAGE' ? 'Storage fees unpaid: UGX ' + fmt(feesUnpaid) : 'Owed on the title work: UGX ' + fmt(workOwed)}</div>
                 {payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHICH CLIENT PAID? (REQUIRED)</label>
                     <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the client" ariaLabel="Client who paid" /></div>)}
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>HOW WAS IT PAID? (REQUIRED)</label>
+                    <HardwareModalSelect value={payMethod} options={PAY_METHODS.map(m => ({ value: m.value, label: m.label }))} onChange={v => { setPayMethod(v); setPayErr(''); }} placeholder="Choose the method" ariaLabel="How was it paid?" />
+                    {payMethod && <small className={modalStyles.modalHint}>{PAY_METHODS.find(m => m.value === payMethod).hint}</small>}</div>
+                {payMethod && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{referenceLabel(payMethod).toUpperCase()}</label>
+                    <input type="text" className={modalStyles.modalInput} value={payRef} maxLength={80} aria-label={referenceLabel(payMethod)}
+                        placeholder={payMethod === 'OTHER' ? 'e.g. Cheque no. 1042' : payMethod === 'MOBILE_MONEY' ? 'e.g. MP241019.1532.A12345' : ''}
+                        onChange={e => { setPayRef(e.target.value); if (payErr) setPayErr(''); }} /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount} onChange={e => { const v = e.target.value; setPayAmount(v); setPayErr(readShillings(v).ok ? '' : MONEY_BAD.toUpperCase()); }} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="pay-date">DATE PAID</label>
@@ -1697,7 +1710,7 @@ const FolderPage = () => {
                         min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={v => { setPayDate(v); if (payErr) setPayErr(''); }} />
                     <small className={modalStyles.modalHint}>Leave as today if the money came today.</small></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
-                    <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Mobile money, ref 5521..." /></div>
+                    <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Paid by the client's son at the office." /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT (REQUIRED)</label>
                     <input ref={payReceiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; pickReceipt(f); }} />
                     {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}{payReceiptNote && <small className={styles.upFileNote}>{payReceiptNote}</small>}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt" title="Remove this file"><FiX aria-hidden="true" /></button></div>)

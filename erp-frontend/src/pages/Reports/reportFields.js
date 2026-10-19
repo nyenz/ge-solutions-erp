@@ -10,6 +10,7 @@
 * offered as a column.
 */
 import { projectTypeOf } from '../../constants/projectTypes.js';
+import { methodLabel } from '../../utils/paymentMethods.js';   // fix214
 
 /* ── value helpers ───────────────────────────────────────────────── */
 export const num = (v) => {
@@ -161,6 +162,8 @@ export const paymentFields = [
   f('client', 'Client', 'text', p => p.clientName || ''),   // the person who paid (current name), from the server
   f('kind', 'Kind', 'text', p => KIND_LABELS[p.kind] || p.kind || ''),
   f('allocation', 'Allocation', 'text', p => p.allocation || 'TITLE'),
+  f('method', 'Payment Method', 'text', p => methodLabel(p.paymentMethod)),   // fix214: Office, Mobile Money, Bank, Other, Not recorded
+  f('reference', 'Payment Reference', 'text', p => p.paymentReference || ''),
   f('reversed', 'Reversed', 'bool', p => !!p.reversed),
   f('reverses', 'Reverses Payment', 'text', p => (p.reversalOf ? String(p.reversalOf) : '')),
   f('hasReceipt', 'Has Receipt', 'bool', p => !!p.hasReceipt),
@@ -210,7 +213,7 @@ export const DATASET_META = {
   PAYMENTS: {
     key: 'PAYMENTS', label: 'Payments', restricted: true, dateField: 'Date Paid', fields: paymentFields,
     blurb: 'Every payment line (reversals as minus lines, so sums are net), with who paid and who recorded it.',
-    defaultColumns: ['date', 'project', 'client', 'kind', 'amount', 'recordedBy'],
+    defaultColumns: ['date', 'project', 'client', 'kind', 'method', 'amount', 'recordedBy'],   // fix214: method
   },
   EXPENSES: {
     key: 'EXPENSES', label: 'Expenses', restricted: true, dateField: 'Date', fields: expenseFields,

@@ -254,6 +254,9 @@ public class ClientViewService {
                 pm.put("enteredAt", r.getTimestamp());
                 pm.put("allocation", r.getAllocation());
                 pm.put("type", r.getPaymentType());
+                pm.put("paymentMethod", r.getPaymentMethod());                                      // fix214
+                pm.put("paymentMethodLabel", com.gesolutions.erp.modules.land.model.PaymentMethods.label(r.getPaymentMethod()));
+                pm.put("paymentReference", r.getPaymentReference());
                 pm.put("payerClientId", r.getPayerClientId());
                 Client payer = r.getPayerClientId() == null ? null : people.computeIfAbsent(r.getPayerClientId(), k -> clientRepo.findById(k).orElse(null));
                 pm.put("payerName", payer != null ? payer.getFullName() : (r.getPayerName() != null ? r.getPayerName() : "payer not recorded"));
