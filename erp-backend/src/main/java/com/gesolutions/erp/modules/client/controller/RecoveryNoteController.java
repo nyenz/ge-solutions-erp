@@ -239,7 +239,11 @@ public class RecoveryNoteController {
     }
     @GetMapping("/locked")
     public List<Map<String, Object>> lockedList() { return queue("LOCKED"); }
+    // fix220 (David, test O7): the call history came back EMPTY whenever a call had been logged by a person. The note's
+    // author is loaded lazily and open-in-view is off, so reading it outside a transaction failed and the page showed
+    // nothing. The read now runs in one read-only transaction.
     @GetMapping("/clients/{id}/notes")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Map<String, Object>> notes(@PathVariable UUID id) {
         Map<UUID, List<LandProject>> pm = projMap();
         return clientRepo.findById(id).map(c -> {
