@@ -227,7 +227,8 @@ export default function RecoveryPortal() {
                       {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
                     </span>
                     <span className={styles.rowActions}>
-                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED' || tab === 'LOCKED' || syncing}><FiPhone aria-hidden="true" /> CALL LOG</button>
+                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={syncing}
+                        title={c.state === 'LOCKED' ? 'Resting: see the call history (read only). A Manager can delete a wrong call note there.' : 'Log a call and see the call history'}><FiPhone aria-hidden="true" /> CALL LOG</button>
                       {(c.projectIds || []).length > 0 && (<button type="button" className={styles.cardBtn2} onClick={() => { window.location.href = '/folder/' + c.projectIds[0]; }}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</button>)}
                     </span>
                   </div>
@@ -246,18 +247,18 @@ export default function RecoveryPortal() {
       <HardwareModal isOpen={!!sel} onClose={() => setSel(null)} title={sel ? 'CALL LOG - ' + sel.name : 'CALL LOG'} lockBackdrop>
         {sel && (<>
           <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span>{splitPhones(sel.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span></div>
-          {sel.unlock && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}
+          {(sel.unlock || sel.state === 'LOCKED') && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}
           <div className={styles.tagwall}>
             <label className={styles.wallLabel}>CALL (WE SPOKE)</label>
             <div className={styles.wallRow}>
               {tags.filter((t) => t.tone === 'POSITIVE').map((t) => (
-                <button type="button" key={t.tag} className={styles.tagPos + (picked && picked.tag === t.tag ? ' ' + styles.tagOn : '')} disabled={!!sel.unlock} onClick={() => setPicked(t)}>{t.tag}</button>
+                <button type="button" key={t.tag} className={styles.tagPos + (picked && picked.tag === t.tag ? ' ' + styles.tagOn : '')} disabled={(!!sel.unlock || sel.state === 'LOCKED')} onClick={() => setPicked(t)}>{t.tag}</button>
               ))}
             </div>
             <label className={styles.wallLabel}>MISSED (NO CONTACT)</label>
             <div className={styles.wallRow}>
               {tags.filter((t) => t.tone === 'NEGATIVE').map((t) => (
-                <button type="button" key={t.tag} className={styles.tagNeg + (picked && picked.tag === t.tag ? ' ' + styles.tagOn : '')} disabled={!!sel.unlock} onClick={() => setPicked(t)}>{t.tag}</button>
+                <button type="button" key={t.tag} className={styles.tagNeg + (picked && picked.tag === t.tag ? ' ' + styles.tagOn : '')} disabled={(!!sel.unlock || sel.state === 'LOCKED')} onClick={() => setPicked(t)}>{t.tag}</button>
               ))}
             </div>
           </div>
@@ -284,7 +285,7 @@ export default function RecoveryPortal() {
             {notes.length === 0 && (<div className={styles.trayEmpty}>NO CALLS LOGGED YET.</div>)}
           </div>
           <div className={modalStyles.modalFooter}>
-            <HardwareButton type="button" onClick={save} loading={busy} icon={FiPhone} disabled={!picked || !!sel.unlock}>LOG OUTCOME</HardwareButton>
+            <HardwareButton type="button" onClick={save} loading={busy} icon={FiPhone} disabled={!picked || (!!sel.unlock || sel.state === 'LOCKED')}>LOG OUTCOME</HardwareButton>
           </div>
         </>)}
       </HardwareModal>
