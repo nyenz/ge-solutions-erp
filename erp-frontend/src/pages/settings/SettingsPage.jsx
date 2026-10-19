@@ -38,7 +38,7 @@ const PREF_GROUPS = [
     options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },
   { key: 'statSize', group: 'Display', label: 'Summary box size', hint: 'The figures at the top of Recovery, Client Portfolio, Payments, Expenses and Audit.',
     options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },
-  { key: 'tips', group: 'Interaction', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',
+  { key: 'tips', group: 'Interaction', label: 'Hover explainers', hint: 'The small boxes that explain a button, tab or column when you hold the mouse on it. NORMAL, SLOW, or OFF (hides them all).',
     options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },
   { key: 'motion', group: 'Interaction', label: 'Animation', hint: 'Turn off movement and fades across the app.',
     options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },

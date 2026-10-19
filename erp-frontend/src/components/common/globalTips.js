@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import styles from './Tooltip.module.css';
 import { portalRoot, uiScale } from './portalRoot';
+import { explainFor } from '../../utils/explainers';   // fix216
 
 /**
  * fix199 (David, test note 4): "the hover explainers should work throughout".
@@ -14,7 +15,9 @@ import { portalRoot, uiScale } from './portalRoot';
  *  - phone: press and hold for about half a second (a normal tap still works as before);
  *  - a DISABLED button explains itself too (that is where the "why can I not press this" text usually is).
  * The title is moved to data-gs-tip the first time it is used, so the browser's own tip does not show as well.
- * Appearance > explainers OFF leaves the plain browser titles alone. New code can keep writing title="...".
+ * fix216 (David): a tab, filter pill, table heading or small button WITHOUT a title gets its words from the one
+ * fallback list (utils/explainers.js). Appearance > Hover explainers OFF now hides everything: the browser's own grey
+ * title box is taken away too (before, OFF still let it show). New code can keep writing title="...".
  */
 const MODES = { normal: { delay: 120, life: 6000 }, slow: { delay: 500, life: 9000 }, off: { off: true } };
 const mode = () => MODES[document.documentElement.getAttribute('data-tips')] || MODES.normal;
@@ -26,7 +29,22 @@ function tipOf(el) {
     return el.getAttribute('data-gs-tip') || '';
 }
 
-const anchorOf = (node) => (node && node.closest ? node.closest('[title],[data-gs-tip]') : null);
+// fix216: the element with its own explainer, else a tab / pill / heading / short button whose words are in the list
+const FALLBACK = 'th, button, [role="tab"], [role="button"], a';
+const anchorOf = (node) => {
+    if (!node || !node.closest) return null;
+    const own = node.closest('[title],[data-gs-tip]');
+    if (own) return own;
+    const el = node.closest(FALLBACK);
+    if (!el || el.hasAttribute('data-gs-none')) return null;
+    const words = (el.textContent || '').trim();
+    // an icon-only button (no words) explains itself with its aria-label ("Close", "Sign out" ...)
+    const label = el.getAttribute('aria-label') || '';
+    const text = (words.length <= 40 ? explainFor(words) : '') || (words.length <= 2 && label.length > 2 ? label : '');
+    if (!text) { el.setAttribute('data-gs-none', ''); return null; }   // looked up once
+    el.setAttribute('data-gs-tip', text);
+    return el;
+};
 
 export function installGlobalTips() {
     if (typeof document === 'undefined') return () => {};
@@ -55,7 +73,7 @@ export function installGlobalTips() {
 
     const show = (el, wait) => {
         const m = mode();
-        if (m.off) return;
+        if (m.off) { tipOf(el); return; }   // fix216: OFF = no bubble AND no browser title box
         const text = tipOf(el);
         if (!text) return;
         hide();

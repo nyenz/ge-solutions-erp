@@ -74,6 +74,7 @@ textarea#out { width: 100%; min-height: 140px; font-family: var(--f-mono); font-
   </header>
 
   <div class="how">
+    <p><b>19 Oct: new sections R (payment method), S (Notes and history) and T (hover explainers).</b> Your ticks are kept. Finish O, P and Q first, then R, S and T. Payments you record from now on ask HOW the money was paid (Office, Mobile Money, Bank or Other): pick any one for the steps in O and P.</p>
     <p><b>16 Oct: new section M checks the fixes of fix210.</b> Your ticks are kept. Carry on from <b>K3</b>, then L, then M. New: <b>N</b> storage fees, <b>O</b> recovery calls, <b>P</b> payments, expenses and reports by rank.</p>
     <p><b>Updated after fix199 (your notes 1 to 25).</b> Nothing was wiped and your ticks are kept. Carry on from <b>G5</b>. Steps changed by the fixes say so. Then do <b>K</b> (check each fix) and <b>L</b> (Subdivision).</p>
     <p><b>How to use this page.</b> Do the steps from top to bottom. Tap a grey box to copy its value, then paste it in the app.</p>
@@ -88,6 +89,7 @@ textarea#out { width: 100%; min-height: 140px; font-family: var(--f-mono); font-
     <div class="fgroup"><div class="lbl">Projects 2 to 5</div><ul><li>P2-application-form.pdf</li><li>P2-invoice.pdf</li><li>P2-receipt-01.jpg</li><li>P2-letter.docx</li><li>P2-wrong-kind.zip</li><li>P3-application-form.pdf</li><li>P3-area-land-committee.pdf</li><li>P3-receipt-01.jpg</li><li>P4-application-form.pdf</li><li>P5-application-form.pdf</li></ul></div>
     <div class="fgroup"><div class="lbl">Subdivision (section L)</div><ul><li>S1-application-form.pdf</li><li>S1-copy-of-mother-title.pdf</li><li>S1-consent-letter.docx</li><li>S1-consent-for-subdivision.pdf</li><li>S1-receipt-01.jpg</li><li>S1-P1-transfer-form.pdf</li></ul></div>
     <div class="fgroup"><div class="lbl">Money and recovery (sections N and O)</div><ul><li>N1-copy-of-title.pdf</li><li>N-receipt-01.jpg</li><li>N-receipt-02.jpg</li><li>R1-application-form.pdf</li><li>R1-receipt-01.jpg</li></ul></div>
+    <div class="fgroup"><div class="lbl">Sections R and S (reuse these)</div><ul><li>P3-receipt-01.jpg</li><li>P2-letter.docx</li></ul></div>
   </section>
 
   <div class="bar" role="status">
@@ -506,6 +508,52 @@ var DATA = [
     expect: ["The message says District is required.", "The page scrolls up to District, which has the red ring and the cursor in it.", "The red ring goes away as soon as you type in District."] },
   { role: "Manager", does: "Open any folder > EDIT > PEOPLE tab: clear the NIN of the first client. Go back to the OVERVIEW tab. Press SAVE.",
     expect: ["The PEOPLE tab opens by itself and scrolls to that NIN box, which has the red ring and the cursor in it. Press CANCEL afterwards."] }
+]},
+{ title: "R. How the money was paid (fix214)", note: "Every payment now says HOW it was paid: Office (cash at the office), Mobile Money, Bank or Other. Payments from before show Not recorded.", steps: [
+  { role: "Manager", does: "Folder of 003A (it still owes money). Press RECORD PAYMENT. Fill the amount and attach the receipt but do NOT pick HOW WAS IT PAID. Press SAVE PAYMENT.",
+    copy: [["Amount", "100000"], ["Receipt file", "P3-receipt-01.jpg"]],
+    expect: ["Refused: pick how the money was paid. Nothing is saved.", "The HOW WAS IT PAID? list has Office, Mobile Money, Bank and Other, in that order. There is no default."] },
+  { role: "Manager", does: "Pick Other and leave the box under it empty. Save. Then pick Mobile Money, type the transaction ID and save.",
+    copy: [["Transaction ID", "MP241019.1532.A12345"]],
+    expect: ["Other with no words is refused: say how it was paid.", "Mobile Money saves. In PAYMENT HISTORY the line shows Mobile Money - MP241019.1532.A12345 in green.", "Older lines say Not recorded (dimmed)."] },
+  { role: "Secretary", does: "New Project, Fresh Survey. Fill everything with an Initial Payment, the numbers and a price. Look under Financials.",
+    copy: [["Total cost", "1200000"], ["Initial payment", "200000"]],
+    expect: ["A PAYMENT METHOD list appears (required) once money is typed, with a reference box under it.", "Saving without a method is refused and the page scrolls to PAYMENT METHOD with a red ring.", "The summary at the bottom shows Paid With. Cancel the entry or save it, your choice."] },
+  { role: "Director", does: "Open Payments.",
+    expect: ["A METHOD column shows how each line was paid (with the reference under it).", "PAID WITH buttons: Office, Mobile Money, Bank, Other (and Not recorded while old lines exist). Each shows its amount.", "Pressing Mobile Money shows only those lines, and the cards change to match. Press it again to see all."] },
+  { role: "Manager", does: "Open Payments.",
+    expect: ["The METHOD column and the PAID WITH buttons are there, but no amounts on the buttons (amounts are for the Director)."] },
+  { role: "Director", does: "Reports: run PAYMENTS BY METHOD. Then open the Dashboard.",
+    expect: ["The report groups the money by Office, Mobile Money, Bank, Other and Not recorded.", "On the Dashboard, under Money in for the last 7 / 30 days, a small line splits the money by method."] },
+  { role: "Director", does: "Folder of 003A: press the printer button. Then Clients > Kato Samuel Wanyama > PRINT.",
+    expect: ["Both statements of account have a Method column."] }
+]},
+{ title: "S. Notes and history (fix215)", note: "One list per project and per client: notes, decisions (every reason you typed), money, events and calls. Summary first: press a line to open it.", steps: [
+  { role: "Manager", does: "Open the Legacy Title of section N (plot 316). Tab NOTES.",
+    expect: ["One panel NOTES AND HISTORY (the separate Recovery Calls panel is gone; nothing touches).", "Pills ALL, NOTES, MONEY, DECISIONS, EVENTS, CALLS with counts.", "DECISIONS has the steps of N: Monthly storage rate changed, Storage fees paused / resumed, Storage fees reduced, Set aside, Storage fees added to the cost, each with your reason.", "MONEY has the storage fee payments with how they were paid."] },
+  { role: "Manager", does: "Press one DECISIONS line, then press it again.",
+    expect: ["It opens below like a dropdown: Reason, the amounts before -> after, the day and who did it, and 'kept as a record'.", "Pressing it again closes it."] },
+  { role: "Secretary", does: "Same folder, ADD NOTE. Pick the topic Promise to pay, type the note, press TOMORROW under FOLLOW UP ON, attach the Word file, tick Pin to the top. Save.",
+    copy: [["Note", "Client called. Will pay 100,000 at the office tomorrow."], ["File", "P2-letter.docx"]],
+    expect: ["The note shows at the top under PINNED, with FOLLOW UP and a paperclip.", "The file is also in Documents under Note Attachments."] },
+  { role: "Secretary", does: "Look at the pills and the list as the Secretary.",
+    expect: ["No MONEY pill and no money decisions (a line says payments are for the Manager and above).", "Notes, events and calls are there."] },
+  { role: "Manager", does: "Sign in as another rank than the writer. Open the note: try EDIT. Then sign in as the Secretary who wrote it and change the words.",
+    expect: ["The Manager can edit or delete anyone's note; another Secretary cannot (only the writer).", "Record lines (problem, hand-over, decisions, money) never have EDIT or DELETE."] },
+  { role: "Secretary", does: "Type a word in the search box, for example: promise.",
+    expect: ["Only the lines with that word stay. The X clears the search."] },
+  { role: "Director", does: "Clients > open Musoke Fred Kirunda. Look at NOTES AND HISTORY at the bottom.",
+    expect: ["The same kind of list for all his projects, each line with its project number (#...).", "OPEN IN RECOVERY is still there."] },
+  { role: "Director", does: "Tomorrow morning (the follow-up day), look at the bell.",
+    expect: ["An alert: Follow-up today on project #... It does not show the words of the note.", "The note shows FOLLOW UP NOW in orange."] }
+]},
+{ title: "T. Hover explainers (fix216)", steps: [
+  { role: "Secretary", does: "Ledger: hold the mouse on each tab (ALL PROJECTS ... PENDING) and on each column heading (INDEX, CLIENT(S), PHONE, PARISH, VILLAGE, STATUS, STAGE, PROGRESS).",
+    expect: ["Every one shows a short explainer bubble."] },
+  { role: "Secretary", does: "Do the same on Clients, Recovery and Payments, and on small icon buttons (close X, sign out, pin).",
+    expect: ["Each shows its explainer. Write in the note any that does not."] },
+  { role: "Secretary", does: "Settings > Appearance > Hover explainers > OFF. Hold the mouse on the same tabs and buttons. Then put it back to NORMAL.",
+    expect: ["With OFF nothing appears at all, not even the browser's small grey box.", "With NORMAL they come back."] }
 ]}
 ];
 
