@@ -32,6 +32,7 @@ public class TitledStageService {
 
     private final LandProjectRepository projectRepository;
     private final LandTitleRepository titleRepository;
+    private final PlotNumberGuard plotGuard;   // fix213
     private final ProjectStatusRepository statusRepository;
     private final AuditService auditService;
     private final LandService landService;                                                                         // fix202
@@ -87,9 +88,7 @@ public class TitledStageService {
             }
             if (r.getTitleIssueDate() == null) throw new BusinessException("TITLE_DATE_REQUIRED: Pick the Title Date.");
             if (r.getTitleIssueDate().isAfter(LocalDate.now())) throw new BusinessException("TITLE_DATE_INVALID: The Title Date cannot be in the future.");
-            if (titleRepository.existsByPlotNumber(plot)) {
-                throw new BusinessException("PLOT_TAKEN: Plot number \"" + plot + "\" is already on another project.");
-            }
+            plotGuard.assertFree(plot, block, p.getDistrict(), p.getId());   // fix213: same plot + block + district only
             title = LandTitle.builder()
                     .tenure(text(r.getTenure()) != null ? text(r.getTenure()) : "FREEHOLD")
                     .plotNumber(plot)

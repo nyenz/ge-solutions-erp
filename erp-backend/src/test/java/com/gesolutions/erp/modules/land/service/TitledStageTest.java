@@ -143,6 +143,14 @@ public class TitledStageTest {
         titleScan(other.getId());
         BusinessException e = assertThrows(BusinessException.class, () -> titled.completeTitled(other.getId(), otherLast.getId(), details(plot)));
         assertTrue(e.getMessage().startsWith("PLOT_TAKEN"), e.getMessage());
+
+        // fix213 (David, N2): the same plot number in ANOTHER district (or another block) is a different piece of land
+        LandProject elsewhere = projects.save(LandProject.builder().projectIndex("T" + tag().substring(0, 6)).projectType("FRESH_SURVEY")
+                .district("KAMULI").totalCost(new BigDecimal("1000000")).amountPaid(BigDecimal.ZERO).pending(false).build());
+        ProjectStatus elsewhereLast = stage(elsewhere.getId(), "Titled", 5);
+        titleScan(elsewhere.getId());
+        assertTrue(titled.completeTitled(elsewhere.getId(), elsewhereLast.getId(), details(plot)) != null);
+        assertEquals(plot, projects.findById(elsewhere.getId()).orElseThrow().getLandTitle().getPlotNumber());
     }
 
     @Test

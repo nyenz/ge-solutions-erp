@@ -133,9 +133,9 @@ public class GlobalExceptionHandler {
         System.err.println(">>> [DB_CONFLICT]: " + msg);
         if (msg.contains("unique") || msg.contains("duplicate")) {
             if (msg.contains("plot_number") || msg.contains("plot number") || msg.contains("plotnumber")) {
-                return buildResponse(HttpStatus.CONFLICT, "REGISTRY_CONFLICT", "A plot with this ID already exists in the system.");
+                return buildResponse(HttpStatus.CONFLICT, "REGISTRY_CONFLICT", "That plot number is already used in the same block and district.");
             }
-            return buildResponse(HttpStatus.CONFLICT, "REGISTRY_CONFLICT", "A record with this ID already exists.");
+            return buildResponse(HttpStatus.CONFLICT, "REGISTRY_CONFLICT", "This record already exists.");
         }
         return buildResponse(HttpStatus.CONFLICT, "INTEGRITY_VIOLATION", "Cannot modify record: Active data links found.");
     }
