@@ -6,6 +6,7 @@ import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/P
 import ReactDOM from 'react-dom';
 import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
+import { errorText } from '../../utils/errorText';   // fix221
 import { useAuth } from '../../hooks/useAuth';
 import { splitPhones, telHref, prettyPhone, phoneSearchText } from '../../utils/phone';
 import HardwareModal from '../../components/common/HardwareModal';
@@ -139,12 +140,18 @@ export default function RecoveryPortal() {
       .then((r) => { setBusy(false); setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(true); })
       .catch((e) => { setBusy(false); toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error'); });
   };
+  // fix221 (David): press DELETE, then PRESS AGAIN within 4 seconds. While it is deleting the button says DELETING...
+  // and cannot be pressed again; the history and the queue reload; a refusal shows the server's plain sentence.
+  const [deleting, setDeleting] = useState(null);
   const askDelete = (noteId) => {
-    if (confirmDel !== noteId) { setConfirmDel(noteId); setTimeout(() => setConfirmDel((cur) => (cur === noteId ? null : cur)), 3000); return; }
+    if (deleting) return;
+    if (confirmDel !== noteId) { setConfirmDel(noteId); setTimeout(() => setConfirmDel((cur) => (cur === noteId ? null : cur)), 4000); return; }
     setConfirmDel(null);
+    setDeleting(noteId);
     recoveryService.deleteNote(noteId)
-      .then(() => { toast('Note deleted.', 'warn'); loadNotes(sel.id); load(true); })
-      .catch(() => toast('Could not delete the note.', 'error'));
+      .then(() => { toast('Call note deleted. The audit log keeps a line.', 'warn'); loadNotes(sel.id); load(true); })
+      .catch((e) => { toast(errorText(e), 'error'); loadNotes(sel.id); })
+      .finally(() => setDeleting(null));
   };
   const term = search.toLowerCase().replace(/\s+/g, '');
   const rowsF = (rowsTab !== tab ? [] : rows).filter((c) => !term || [c.name, c.nin, c.phone, phoneSearchText(c.phone), c.lastTag, c.district, c.subCounty, c.village, c.placeText, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
@@ -281,11 +288,11 @@ export default function RecoveryPortal() {
                 <span className={n.tone === 'POSITIVE' ? styles.chipPos : n.tone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{n.tag}</span>
                 <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtD(n.createdAt)}</span>
                 {n.text && <span className={styles.histText}>{n.text}</span>}
-                {canManage && n.source === 'RECOVERY' && n.tag !== 'payment received' && (
-                  <button type="button" className={`${styles.histDelete} ${confirmDel === n.id ? styles.histDeleteArmed : ''}`} aria-label="Delete this call note"
+                {canManage && n.source === 'RECOVERY' && n.countsAsAttempt && n.author && (
+                  <button type="button" disabled={!!deleting} className={`${styles.histDelete} ${confirmDel === n.id || deleting === n.id ? styles.histDeleteArmed : ''}`} aria-label="Delete this call note"
                     title={confirmDel === n.id ? 'Press again to delete this call note. The audit log keeps a line.' : 'Delete this call note (Manager and above). You are asked to press twice.'}
                     onClick={() => askDelete(n.id)}>
-                    <FiTrash2 aria-hidden="true" /> {confirmDel === n.id ? 'PRESS AGAIN' : 'DELETE'}
+                    <FiTrash2 aria-hidden="true" /> {deleting === n.id ? 'DELETING...' : confirmDel === n.id ? 'PRESS AGAIN' : 'DELETE'}
                   </button>
                 )}
               </div>
