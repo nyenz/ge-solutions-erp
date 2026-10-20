@@ -317,7 +317,14 @@ public class RecoveryNoteController {
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> deleteNote(@PathVariable UUID id, Authentication auth) {
         RecoveryNote n = noteRepo.findById(id).orElse(null);
-        if (n == null) return ResponseEntity.ok(Map.of("ok", true));
+        if (n == null) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("NOTE_NOT_FOUND: This call note no longer exists (someone may have deleted it). Close the window and open it again.");
+        }
+        // fix221 (David): only a CALL a person logged can be deleted. The lines the app writes itself (payment received,
+        // payment reversed ...) are records of money and stay.
+        if (!n.isCountsAsAttempt() || n.getAuthor() == null) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("NOTE_LOCKED: This line was written by the app (for example a payment). Only call notes can be deleted.");
+        }
         Client c = n.getClient();
         String delWho = n.getAuthor() == null ? "unknown" : n.getAuthor().getUsername();
         String delWhen = n.getCreatedAt() == null ? "?" : n.getCreatedAt().toLocalDate().toString();

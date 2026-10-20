@@ -70,4 +70,24 @@ public class CallHistoryTest {
         assertEquals(2, history.size(), history.toString());
         assertTrue(history.stream().anyMatch(m -> ("sec." + tag).equals(m.get("author"))), "the person who logged the call is named");
     }
+
+    @Test
+    public void aManagerDeletesACallNoteButNeverAPaymentLine() {
+        String tag = UUID.randomUUID().toString().substring(0, 8);
+        User sec = users.save(User.builder().username("sec2." + tag).email("sec2." + tag + "@gesolutions.com").password("x")
+                .role(Role.ROLE_SECRETARY).isRoot(false).isActive(true).mustChangePassword(false).build());
+        Client c = clients.save(Client.builder().fullName("Client " + tag).phoneNumber("0712" + tag.substring(0, 6)).nationalId("NJN" + tag).build());
+        RecoveryNote call = notes.save(RecoveryNote.builder().client(c).author(sec).tag("not picking up").tone("NEGATIVE").countsAsAttempt(true).text("No answer").build());
+        RecoveryNote paid = notes.save(RecoveryNote.builder().client(c).author(null).tag("payment received").tone("INFO").countsAsAttempt(false).text("Paid").build());
+        var auth = new UsernamePasswordAuthenticationToken("boss", "x", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertThrows(com.gesolutions.erp.common.exception.BusinessException.class, () -> controller.deleteNote(paid.getId(), auth));
+        controller.deleteNote(call.getId(), auth);
+        List<Map<String, Object>> left = controller.notes(c.getId());
+        assertEquals(1, left.size(), left.toString());
+        assertEquals("payment received", left.get(0).get("tag"));
+        assertThrows(com.gesolutions.erp.common.exception.BusinessException.class, () -> controller.deleteNote(call.getId(), auth),
+                "deleting twice says the note is gone");
+    }
 }
