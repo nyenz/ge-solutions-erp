@@ -137,8 +137,10 @@
         margin-left: calc(3px + var(--sb-pad) + var(--sb-icon) / 2 - 13px - 7px);
         gap: calc(var(--sb-pad) + var(--sb-icon) / 2 - 13px);
     }
-    .logoSmallPulse { width: 26px; height: 26px; }
-    .logoSmallPulse .pulseInner { font-size: 21px; }
+    .brandToggle .logoSmallPulse { width: 26px; height: 26px; }
+    .brandToggle .logoSmallPulse .pulseInner { font-size: 21px; }
+    /* the name must END inside the open side bar (200px wide), so the logo reads as the top of the side bar */
+    .brandToggle .brandName { font-size: clamp(12px, 1.2vw, 16.5px); letter-spacing: 1.6px; }
 }
 @media (max-width: 768px) {
     .brandToggle.brandToggle { padding-left: 4px; }
