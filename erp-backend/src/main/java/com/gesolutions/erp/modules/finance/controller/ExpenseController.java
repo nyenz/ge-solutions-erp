@@ -84,8 +84,8 @@ public class ExpenseController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> deleteExpense(@PathVariable UUID id) {
-        expenseService.deleteExpense(id);
+    public ResponseEntity<Void> deleteExpense(@PathVariable UUID id, @RequestParam(required = false) String reason) {
+        expenseService.deleteExpense(id, com.gesolutions.erp.common.util.DeleteReason.require(reason));   // fix223
         return ResponseEntity.noContent().build();
     }
 

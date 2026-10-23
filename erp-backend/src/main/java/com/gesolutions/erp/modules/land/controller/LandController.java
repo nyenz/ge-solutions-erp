@@ -136,8 +136,8 @@ public class LandController {
     }
 
     @DeleteMapping("/documents/{docId}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable UUID docId) {
-        landService.removeDocument(docId);
+    public ResponseEntity<Void> deleteDocument(@PathVariable UUID docId, @RequestParam(required = false) String reason) {
+        landService.removeDocument(docId, com.gesolutions.erp.common.util.DeleteReason.require(reason));   // fix223
         return ResponseEntity.ok().build();
     }
 

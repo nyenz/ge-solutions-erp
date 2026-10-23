@@ -16,6 +16,8 @@ import timelineService from '../../services/timelineService';
 import { errorText } from '../../utils/errorText';
 import { prepareUploads, DOC_ACCEPT } from '../../utils/imageShrink';
 import { KINDS, TOPICS, kindWord, todayISO, followUpState, visibleRows, countKinds, summaryOf, fmtWhen } from '../../utils/timeline';
+import ReasonPrompt from '../common/ReasonPrompt';   // fix223
+import { useReasonPrompt, DELETE_PICKS } from '../common/useReasonPrompt';
 import styles from './NotesTimeline.module.css';
 
 const NOTE_MAX = 2000;
@@ -44,7 +46,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
     const [form, setForm] = useState(null);           // the add / edit window
     const [formErr, setFormErr] = useState('');
     const [busy, setBusy] = useState(false);
-    const [askDelete, setAskDelete] = useState(null);
+    const { reasonState, askReason, closeReason } = useReasonPrompt();   // fix223: deleting a note asks WHY
     const fileRef = useRef(null);
     const toast = useCallback((t, k) => { if (onToast) onToast(t, k); }, [onToast]);
 
@@ -101,13 +103,11 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
         try { await timelineService.pin(r.id, !r.pinned); await load(); toast(r.pinned ? 'Note unpinned' : 'Note pinned to the top', 'success'); }
         catch (e) { toast(errorText(e), 'error'); }
     };
-    const remove = async () => {
-        const r = askDelete; if (!r) return;
-        setBusy(true);
-        try { await timelineService.remove(r.id); setAskDelete(null); await load(); toast('Note deleted', 'warn'); }
-        catch (e) { toast(errorText(e), 'error'); }
-        finally { setBusy(false); }
-    };
+    const askDelete = (r) => askReason({
+        title: 'DELETE NOTE', okLabel: 'DELETE NOTE', picks: DELETE_PICKS.NOTE, noteKept: true,
+        message: 'Delete this note? The audit trail keeps its words.',
+        run: async (reason) => { await timelineService.remove(r.id, reason); await load(); toast('Note deleted', 'warn'); },
+    });
 
     // ── one line ────────────────────────────────────────────────────────────
     const renderRow = (r) => {
@@ -154,7 +154,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                                     <FiStar aria-hidden="true" /> {r.pinned ? 'UNPIN' : 'PIN TO TOP'}</button>)}
                             {r.kind === 'NOTE' && r.editable && canWrite && (<>
                                 <button type="button" className={styles.act} onClick={() => startEdit(r)} title="Change the words, topic or follow-up day"><FiEdit3 aria-hidden="true" /> EDIT</button>
-                                <button type="button" className={`${styles.act} ${styles.actDanger}`} onClick={() => setAskDelete(r)} title="Delete this note. The audit trail keeps its words."><FiTrash2 aria-hidden="true" /> DELETE</button>
+                                <button type="button" className={`${styles.act} ${styles.actDanger}`} onClick={() => askDelete(r)} title="Delete this note. The audit trail keeps its words."><FiTrash2 aria-hidden="true" /> DELETE</button>
                             </>)}
                         </div>
                     </div>
@@ -261,12 +261,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                 </>)}
             </HardwareModal>
 
-            <HardwareModal isOpen={!!askDelete} stacked onClose={() => { if (!busy) setAskDelete(null); }} title="DELETE NOTE">
-                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>Delete this note? The audit trail keeps its words.</div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={remove} disabled={busy}>{busy ? 'DELETING...' : 'DELETE NOTE'}</button>
-                </div>
-            </HardwareModal>
+            <ReasonPrompt state={reasonState} onClose={closeReason} />
         </div>
     );
 };

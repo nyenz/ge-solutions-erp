@@ -6,7 +6,6 @@ import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/P
 import ReactDOM from 'react-dom';
 import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
-import { errorText } from '../../utils/errorText';   // fix221
 import { useAuth } from '../../hooks/useAuth';
 import { splitPhones, telHref, prettyPhone, phoneSearchText } from '../../utils/phone';
 import HardwareModal from '../../components/common/HardwareModal';
@@ -16,6 +15,8 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './RecoveryPortal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import modalStyles from '../../components/common/HardwareModal.module.css';
+import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
+import { useReasonPrompt, DELETE_PICKS } from '../../components/common/useReasonPrompt';
 import TabDock, { accentOf } from '../../components/common/TabDock';
 import { useSwapMotion } from '../../hooks/useTabMotion';
 const TABS = [
@@ -46,7 +47,6 @@ export default function RecoveryPortal() {
   const [text, setText] = useState('');
   const [coWarn, setCoWarn] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [confirmDel, setConfirmDel] = useState(null);
   const [toasts, setToasts] = useState([]);
   const loadedOnce = useRef(false);
   const searchRef = useRef('');
@@ -140,18 +140,21 @@ export default function RecoveryPortal() {
       .then((r) => { setBusy(false); setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(true); })
       .catch((e) => { setBusy(false); toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error'); });
   };
-  // fix221 (David): press DELETE, then PRESS AGAIN within 4 seconds. While it is deleting the button says DELETING...
-  // and cannot be pressed again; the history and the queue reload; a refusal shows the server's plain sentence.
+  // fix223 (David): DELETE opens the shared "why?" window; the reason goes to the audit log. While it is deleting the
+  // button says DELETING... and cannot be pressed again; the history and the queue reload afterwards.
   const [deleting, setDeleting] = useState(null);
+  const { reasonState, askReason, closeReason } = useReasonPrompt();
   const askDelete = (noteId) => {
     if (deleting) return;
-    if (confirmDel !== noteId) { setConfirmDel(noteId); setTimeout(() => setConfirmDel((cur) => (cur === noteId ? null : cur)), 4000); return; }
-    setConfirmDel(null);
-    setDeleting(noteId);
-    recoveryService.deleteNote(noteId)
-      .then(() => { toast('Call note deleted. The audit log keeps a line.', 'warn'); loadNotes(sel.id); load(true); })
-      .catch((e) => { toast(errorText(e), 'error'); loadNotes(sel.id); })
-      .finally(() => setDeleting(null));
+    askReason({
+      title: 'DELETE CALL NOTE', okLabel: 'DELETE CALL NOTE', picks: DELETE_PICKS.CALL,
+      message: 'Delete this call note? The client\u2019s last-contact date and score are put back.',
+      run: async (reason) => {
+        setDeleting(noteId);
+        try { await recoveryService.deleteNote(noteId, reason); toast('Call note deleted.', 'warn'); }
+        finally { setDeleting(null); loadNotes(sel.id); load(true); }
+      },
+    });
   };
   const term = search.toLowerCase().replace(/\s+/g, '');
   const rowsF = (rowsTab !== tab ? [] : rows).filter((c) => !term || [c.name, c.nin, c.phone, phoneSearchText(c.phone), c.lastTag, c.district, c.subCounty, c.village, c.placeText, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
@@ -289,10 +292,10 @@ export default function RecoveryPortal() {
                 <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtD(n.createdAt)}</span>
                 {n.text && <span className={styles.histText}>{n.text}</span>}
                 {canManage && n.source === 'RECOVERY' && n.countsAsAttempt && n.author && (
-                  <button type="button" disabled={!!deleting} className={`${styles.histDelete} ${confirmDel === n.id || deleting === n.id ? styles.histDeleteArmed : ''}`} aria-label="Delete this call note"
-                    title={confirmDel === n.id ? 'Press again to delete this call note. The audit log keeps a line.' : 'Delete this call note (Manager and above). You are asked to press twice.'}
+                  <button type="button" disabled={!!deleting} className={`${styles.histDelete} ${deleting === n.id ? styles.histDeleteArmed : ''}`} aria-label="Delete this call note"
+                    title="Delete this call note (Manager and above). You are asked why; the audit log keeps the reason."
                     onClick={() => askDelete(n.id)}>
-                    <FiTrash2 aria-hidden="true" /> {deleting === n.id ? 'DELETING...' : confirmDel === n.id ? 'PRESS AGAIN' : 'DELETE'}
+                    <FiTrash2 aria-hidden="true" /> {deleting === n.id ? 'DELETING...' : 'DELETE'}
                   </button>
                 )}
               </div>
@@ -313,6 +316,7 @@ export default function RecoveryPortal() {
         </div>
       )}
       <BackToTopButton />
+      <ReasonPrompt state={reasonState} onClose={closeReason} />
       {typeof document !== 'undefined' && ReactDOM.createPortal(
         <div className={styles.toastStack} role="region" aria-label="Notifications" aria-live="polite">
           {toasts.map((t) => (<div key={t.id} className={`${styles.toast} ${styles['toast_' + t.type]}`}>{t.msg}</div>))}

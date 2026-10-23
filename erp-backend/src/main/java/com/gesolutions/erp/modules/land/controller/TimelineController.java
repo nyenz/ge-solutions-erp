@@ -63,8 +63,8 @@ public class TimelineController {
     }
 
     @DeleteMapping("/notes/{noteId}")
-    public ResponseEntity<Void> delete(@PathVariable UUID noteId) {
-        notes.delete(noteId);
+    public ResponseEntity<Void> delete(@PathVariable UUID noteId, @RequestParam(required = false) String reason) {
+        notes.delete(noteId, com.gesolutions.erp.common.util.DeleteReason.require(reason));   // fix223
         return ResponseEntity.noContent().build();
     }
 }

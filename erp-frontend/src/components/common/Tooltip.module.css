@@ -27,7 +27,7 @@
    CONTRAST RULE: cream 90% over #121f22 at 86% opacity = 11.1:1. */
 .bubble {
     position: fixed;
-    z-index: 100000;
+    z-index: 200200;
     max-width: min(300px, 78vw);
     padding: 7px 11px;
     border-radius: 7px;

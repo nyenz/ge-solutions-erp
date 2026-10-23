@@ -48,6 +48,8 @@ import styles from './Header.module.css';
 import { IS_LOCAL_API } from '../../api/axios';
 import { anyDirty, allowLeave } from '../../utils/dirtyRegistry';
 import HardwareModal from '../common/HardwareModal';
+import { ConfirmDialog } from '../common/Feedback';   // fix223: no browser confirm box
+import { useConfirm } from '../common/useFeedback';
 
 const STEP = 40;
 const GROUP_KEYS = Object.values(GROUPS);
@@ -69,6 +71,7 @@ const ageText = (n) => {
 };
 
 const Header = ({ onToggle }) => {
+    const { confirmState, confirm, handleAnswer } = useConfirm();
     const { user, logout } = useAuth();
     // fix181 (21.9): sign out asks first when a form on this page has unsaved changes
     const [confirmOut, setConfirmOut] = useState(false);
@@ -205,7 +208,7 @@ const Header = ({ onToggle }) => {
         const unreadInScope = summary ? (filter === 'ALL' ? summary.unread : (summary.unreadByGroup || {})[filter] || 0) : 0;
         if (unreadInScope === 0) return;
         const onScreen = shown.filter(n => !n.read).length;
-        if (unreadInScope > onScreen && !window.confirm('Mark ' + unreadInScope + ' unread ' + (filter === 'ALL' ? '' : filter + ' ') + 'alerts as read? ' + onScreen + ' are shown.')) return;
+        if (unreadInScope > onScreen && !(await confirm('MARK AS READ', 'Mark ' + unreadInScope + ' unread ' + (filter === 'ALL' ? '' : filter.toLowerCase() + ' ') + 'alerts as read? Only ' + onScreen + ' are shown here.'))) return;
         const upTo = (notifs[0] && notifs[0].createdAt) || (summary && summary.serverTime);
         setKeep(k => [...k, ...shown.filter(n => !n.read).map(n => n.id)]);
         setNotifs(list => list.map(x => ((filter === 'ALL' || groupOf(x) === filter) && x.createdAt <= upTo ? { ...x, read: true } : x)));
@@ -426,6 +429,7 @@ const Header = ({ onToggle }) => {
                     <button type="button" className={styles.signOutNo} onClick={() => setConfirmOut(false)}>STAY</button>
                 </div>
             </HardwareModal>
+            <ConfirmDialog state={confirmState} onAnswer={handleAnswer} />
         </header>
     );
 };

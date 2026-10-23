@@ -340,7 +340,12 @@ public class StatusTemplateService {
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void removeProjectStatus(UUID statusId) {
+    public void removeProjectStatus(UUID statusId) { removeProjectStatus(statusId, null); }
+
+    /** fix223: the reason goes into the audit line and the project's Notes. */
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void removeProjectStatus(UUID statusId, String reason) {
         ProjectStatus status = projectStatusRepository.findById(statusId)
                 .orElseThrow(() -> new BusinessException("PROJECT_STATUS_NOT_FOUND"));
         // fix196 (David, Q9): the Invoice / Contract stage can never be removed from a project
@@ -350,7 +355,8 @@ public class StatusTemplateService {
         projectStatusRepository.delete(status);
         auditService.logActionAfterCommit("PROJECT_STATUS_REMOVED",
             "Operator [" + getCurrentOperator() + "] removed status \"" + status.getStatusName()
-            + "\" from project: " + status.getProjectId());
+            + "\" from project: " + status.getProjectId() + com.gesolutions.erp.common.util.DeleteReason.tail(reason));
+        if (reason != null) timeline.reason(status.getProjectId(), "PROJECT_STATUS_REMOVED", "Stage removed: " + status.getStatusName(), reason, null, false);
     }
 
     @Transactional

@@ -37,6 +37,7 @@ public class NoteService {
     private final LandProjectRepository projectRepository;
     private final LandService landService;
     private final AuditService auditService;
+    private final TimelineService timeline;   // fix223
 
     @Transactional(rollbackFor = Exception.class)
     public FollowUpLog add(UUID projectId, String content, String topic, LocalDate followUpOn, boolean pinned, MultipartFile file) throws Exception {
@@ -92,10 +93,16 @@ public class NoteService {
     }
 
     @Transactional
-    public void delete(UUID noteId) {
+    public void delete(UUID noteId) { delete(noteId, null); }
+
+    /** fix223: the reason goes into the audit line and stays in the project's Notes as a record. */
+    @Transactional
+    public void delete(UUID noteId, String reason) {
         FollowUpLog n = mine(noteId);
         noteRepository.delete(n);
-        auditService.logActionAfterCommit("NOTE_DELETED", "Operator [" + AuditService.currentOperator() + "] deleted a note: " + shortText(n.getNotes()));
+        auditService.logActionAfterCommit("NOTE_DELETED", "Operator [" + AuditService.currentOperator() + "] deleted a note: "
+                + shortText(n.getNotes()) + com.gesolutions.erp.common.util.DeleteReason.tail(reason));
+        if (reason != null) timeline.reason(n.getProjectId(), "NOTE_DELETED", "Note deleted", reason, shortText(n.getNotes()), false);
     }
 
     /** The note, when the caller may change it. */

@@ -1584,7 +1584,11 @@ public class LandService {
     }
 
     @Transactional
-    public void removeDocument(UUID docId) {
+    public void removeDocument(UUID docId) { removeDocument(docId, null); }
+
+    /** fix223: the reason goes into the audit line and the project's Notes. */
+    @Transactional
+    public void removeDocument(UUID docId, String reason) {
         ProjectDocument doc = documentRepository.findById(docId)
                 .orElseThrow(() -> new BusinessException("DOCUMENT_NOT_FOUND: This document no longer exists."));
         // fix165: a payment receipt is evidence of money received. It can never be deleted (reverse the payment instead).
@@ -1604,7 +1608,12 @@ public class LandService {
         auditService.logActionAfterCommit("DOCUMENT_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName()
             + (doc.getCategory() != null ? " (" + doc.getCategory() + ")" : "")
-            + (docProject != null ? " from " + plotLabel(docProject) : ""));
+            + (docProject != null ? " from " + plotLabel(docProject) : "")
+            + com.gesolutions.erp.common.util.DeleteReason.tail(reason));
+        if (reason != null && docProject != null) {
+            timeline.reason(docProject.getId(), "DOCUMENT_DELETED", "Document deleted: " + doc.getFileName(), reason,
+                    doc.getCategory() == null ? null : doc.getCategory().replace('_', ' ').toLowerCase(), false);
+        }
     }
 
     // ─── STATUS / RELEASE ──────────────────────────────────────────────────────

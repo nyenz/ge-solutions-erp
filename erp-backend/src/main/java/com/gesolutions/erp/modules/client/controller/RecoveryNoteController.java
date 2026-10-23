@@ -312,10 +312,19 @@ public class RecoveryNoteController {
         if (warning != null) resp.put("coOwnerWarning", warning);
         return ResponseEntity.ok(resp);
     }
+    /** For the server tests: the same delete with no reason. The web address below always needs one. */
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> deleteNote(UUID id, Authentication auth) { return removeCallNote(id, null, auth); }
+
     @DeleteMapping("/notes/{id}")
     @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
     @org.springframework.transaction.annotation.Transactional
-    public ResponseEntity<?> deleteNote(@PathVariable UUID id, Authentication auth) {
+    public ResponseEntity<?> deleteNote(@PathVariable UUID id, @RequestParam(required = false) String reason, Authentication auth) {
+        return removeCallNote(id, com.gesolutions.erp.common.util.DeleteReason.require(reason), auth);   // fix223
+    }
+
+    private ResponseEntity<?> removeCallNote(UUID id, String reason, Authentication auth) {
         RecoveryNote n = noteRepo.findById(id).orElse(null);
         if (n == null) {
             throw new com.gesolutions.erp.common.exception.BusinessException("NOTE_NOT_FOUND: This call note no longer exists (someone may have deleted it). Close the window and open it again.");
@@ -343,7 +352,7 @@ public class RecoveryNoteController {
             clientRepo.save(c);
         }
         auditService.logActionAfterCommit("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag()
-            + " for " + delFor + ", written by " + delWho + " on " + delWhen);
+            + " for " + delFor + ", written by " + delWho + " on " + delWhen + com.gesolutions.erp.common.util.DeleteReason.tail(reason));
         return ResponseEntity.ok(Map.of("ok", true));
     }
 // fix181 (Sections 5, 6, 11): both pages are built by ClientViewService (shared rules, one pass, money only for

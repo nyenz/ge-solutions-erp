@@ -9,7 +9,7 @@
     position: fixed;
     bottom: clamp(24px, 3vh, 40px);
     right: clamp(16px, 2.5vw, 28px);
-    z-index: 99999;
+    z-index: 200100; /* fix223: one layer order for the whole app -- popups 99999, stacked popups 100001, confirm 200000, messages 200100, tips 200200 */
     display: flex;
     flex-direction: column-reverse;
     gap: 10px;
@@ -48,7 +48,7 @@
 
 /* -- CONFIRM DIALOG -- */
 .confirmOverlay {
-    position: fixed; inset: 0; z-index: 99998;
+    position: fixed; inset: 0; z-index: 200000;
     background: rgba(10, 20, 22, 0.75);
     backdrop-filter: blur(4px);
     display: flex; align-items: center; justify-content: center;

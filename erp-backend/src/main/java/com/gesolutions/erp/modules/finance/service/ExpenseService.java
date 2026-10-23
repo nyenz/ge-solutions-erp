@@ -198,18 +198,23 @@ public class ExpenseService {
     // -- DELETE (DIRECTOR/ADMIN ONLY, ENFORCED AT CONTROLLER LEVEL) --
 
     @Transactional
-    public void deleteExpense(UUID id) {
+    public void deleteExpense(UUID id) { deleteExpense(id, null); }
+
+    /** fix223: the reason goes into the audit line and the bell alert. */
+    @Transactional
+    public void deleteExpense(UUID id, String reason) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));
         expenseRepository.delete(expense);
 
         auditService.logActionAfterCommit("EXPENSE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted expense: " + expense.getCategory()
-            + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")");
+            + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")"
+            + com.gesolutions.erp.common.util.DeleteReason.tail(reason));
 
         notificationService.emitToAudience("EXPENSE_DELETED",
             "Expense " + expense.getCategory() + " UGX " + expense.getAmount()
-            + " deleted by " + getCurrentOperator() + ".",
+            + " deleted by " + getCurrentOperator() + "." + com.gesolutions.erp.common.util.DeleteReason.tail(reason),
             "EXPENSE", expense.getId());
     }
 

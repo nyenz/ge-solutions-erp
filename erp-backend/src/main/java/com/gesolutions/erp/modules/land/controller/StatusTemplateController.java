@@ -143,9 +143,11 @@ public class StatusTemplateController {
     // fix167: removing a status is director-only on the server too
     @DeleteMapping("/land/projects/{projectId}/statuses/{statusId}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> removeStatus(@PathVariable UUID projectId, @PathVariable UUID statusId) {
+    public ResponseEntity<Void> removeStatus(@PathVariable UUID projectId, @PathVariable UUID statusId,
+                                             @RequestParam(required = false) String reason) {
+        String why = com.gesolutions.erp.common.util.DeleteReason.require(reason);   // fix223
         statusTemplateService.requireStatusEditable(projectId, statusId);
-        statusTemplateService.removeProjectStatus(statusId);
+        statusTemplateService.removeProjectStatus(statusId, why);
         return ResponseEntity.noContent().build();
     }
 }

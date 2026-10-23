@@ -49,6 +49,8 @@ import { PAY_METHODS, methodLine, checkMethod, referenceLabel } from '../../util
 import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test note 22)
 import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
 import NotesTimeline from '../../components/notes/NotesTimeline';   // fix215
+import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
+import { useReasonPrompt, DELETE_PICKS } from '../../components/common/useReasonPrompt';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
@@ -210,7 +212,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
 // fix193: canTick = may tick / untick (Secretary and above); canEdit = may also add stages (Manager and above, in EDIT)
 // fix196: needsNumbers = the project has no invoice / contract number yet; onNumbers(stage) opens the numbers popup;
 // reloadKey changes when the numbers were saved (the server ticks the Invoice / Contract stage by itself)
-const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, needsTitle = false, onTitled, reloadKey = 0, canRemove, toast, confirm, docsByStatus, docsByCategory, docCats = [], canAttach, onAttach, onViewDoc, onStages }) => {
+const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumbers = false, onNumbers, needsTitle = false, onTitled, reloadKey = 0, canRemove, toast, confirm, askReason, docsByStatus, docsByCategory, docCats = [], canAttach, onAttach, onViewDoc, onStages }) => {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
@@ -272,11 +274,17 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumb
         } catch (err) { await loadStatuses(); toast && toast('STAGE NOT UPDATED: ' + errText(err), 'error'); }
         finally { setToggling(false); }
     };
-    const handleRemove = async (status) => {
-        const ok = confirm ? await confirm('REMOVE STAGE', 'Remove "' + status.statusName + '" from this project? Its tick goes with it (its documents stay in Documents). The audit log keeps a record.', 'danger', 'REMOVE STAGE') : true;
-        if (!ok) return;
-        try { await statusTemplateService.removeStatus(projectId, status.id); await loadStatuses(); toast && toast('Stage removed.', 'warn'); }
-        catch (err) { toast && toast('STAGE NOT REMOVED: ' + errText(err), 'error'); }
+    // fix223: removing a stage asks WHY; the reason goes to the audit log and the project's Notes
+    const handleRemove = (status) => {
+        askReason({
+            title: 'REMOVE STAGE', okLabel: 'REMOVE STAGE', picks: DELETE_PICKS.STAGE, noteKept: true,
+            message: 'Remove "' + status.statusName + '" from this project? Its tick goes with it (its documents stay in Documents).',
+            run: async (reason) => {
+                await statusTemplateService.removeStatus(projectId, status.id, reason);
+                await loadStatuses();
+                toast && toast('Stage removed.', 'warn');
+            },
+        });
     };
     const handleRestoreDefaults = async () => {
         if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace this project\'s stage list with the master list of its project type? Every current tick and every custom stage is removed; only the first stage stays ticked. The old list is written to the audit log.', 'danger', 'RESTORE DEFAULTS'); if (!ok) return; }
@@ -456,6 +464,7 @@ const FolderPage = () => {
     const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, calls: true, clients: true, owners: true, neighbors: true, subdivisions: true, related: true, docs: true, statusesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
+    const { reasonState, askReason, closeReason } = useReasonPrompt();   // fix223
     const firstInputRef = useRef(null);
     const fileInputRef = useRef(null);
     // fix136: document categories + the UPLOAD DOCUMENTS window
@@ -858,7 +867,12 @@ const FolderPage = () => {
             toast(count + ' document(s) uploaded', 'success', 3000);
         } catch (err) { setUploadDraft(d => d && ({ ...d, error: errText(err) })); } finally { setCommitting(false); }
     };
-    const handleDeleteDoc = async (docId, fileName) => { const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"? The file is removed from storage; the audit log keeps the name.', 'danger', 'DELETE DOCUMENT'); if (!ok) return; try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch (err) { toast('DOCUMENT NOT DELETED: ' + errText(err), 'error'); } };
+    // fix223: deleting a document asks WHY; the reason goes to the audit log and the project's Notes
+    const handleDeleteDoc = (docId, fileName) => askReason({
+        title: 'DELETE DOCUMENT', okLabel: 'DELETE DOCUMENT', picks: DELETE_PICKS.DOCUMENT, noteKept: true,
+        message: 'Delete "' + fileName + '"? The file is removed from storage.',
+        run: async (reason) => { await landService.deleteDocument(docId, reason); await loadFolderData(); toast('Document removed', 'warn', 3000); },
+    });
     // fix165/167: the payment and its receipt travel TOGETHER; the payer (one owner) and what it is for are recorded.
     // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
     const openPayModal = (startType) => {
@@ -1220,7 +1234,7 @@ const FolderPage = () => {
                             needsNumbers={!hasNumbers(project)} onNumbers={openNumbers} reloadKey={stagesReload}
                             needsTitle={!project.landTitle || !(binder.documents || []).some(d => d.category === 'COPY_OF_TITLE')} onTitled={openTitled}
                             canRemove={isDirector && !isDeleted && isEditing && !isReleased}
-                            toast={toast} confirm={confirm}
+                            toast={toast} confirm={confirm} askReason={askReason}
                             docsByStatus={docsByStatus} docsByCategory={docsByCategory} docCats={docCats} canAttach={canUploadDocs && !isDeleted && !isReleased}
                             onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} onStages={setLiveStages} />
                         {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick stages. The paperclip attaches documents to a stage.</span>}
@@ -1698,6 +1712,7 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
+            <ReasonPrompt state={reasonState} onClose={closeReason} />
             {showTopBtn && (<button type="button" className={styles.scrollTopBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top" title="Back to the top (EDIT, SAVE and the other buttons)"><FiArrowUp aria-hidden="true" /></button>)}
         </div>
     );
