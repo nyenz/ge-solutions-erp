@@ -109,14 +109,26 @@
 
 /* Desktop: the button sits right above the collapsed sidebar column (52px wide,
    2px border, so the icon centre is 25px from the left edge) and is centred on it. */
+/* fix234: the top-left corner lines up with the side bar under it, for the open AND the closed side bar:
+   the button is centred on the side bar's icon column, and the seedling starts exactly where the menu words start.
+   --sb-pad / --sb-icon are the side bar's own row padding and icon width (Sidebar.module.css .navItem / .navIcon),
+   and 3px is its left bar. */
 @media (min-width: 769px) {
-    .header { padding-left: 0; }
-    .sidebarToggle {
-        width: 40px;
-        height: 40px;
-        margin-left: 5px;
-        margin-right: 6px;
+    .header {
+        --sb-pad: clamp(9px, 1.1vw, 13px);
+        --sb-icon: clamp(19px, 2vw, 23px);
+        padding-left: 0;
     }
+    .headerLeft { gap: 0; }
+    .sidebarToggle {
+        width: 36px;
+        height: 36px;
+        margin-left: calc(3px + var(--sb-pad) + var(--sb-icon) / 2 - 18px);
+        margin-right: max(5px, calc(var(--sb-icon) / 2 + var(--sb-pad) - 18px - 3px));
+    }
+    .logoSmallPulse { width: 26px; height: 26px; margin-left: -1px; }
+    .logoSmallPulse .pulseInner { font-size: 22px; }
+    .logoSection { gap: 10px; }
 }
 
 /* ── LOGO SECTION ───────────────────────────────────────────────── */
@@ -668,4 +680,30 @@
 @container topbar (max-width: 340px) {
     .userMeta { display: none; }
     .userCard { padding: 3px; border-color: transparent; background: transparent; }
+}
+
+
+/* fix234: GES DAY -- the top bar is Prussian navy like the side bar (the website's own navy bar), so the two read as
+   one frame around the light page. It puts the dark-panel values back for itself and the menus inside it. */
+:global(:root[data-theme="ges"]) .header {
+    --sf-1: #0b2545;
+    --sf-2: #0d2a4e;
+    --sf-head: #071a33;
+    --sf-deep: #071a33;
+    --sf-navy: #0b2545;
+    --sf-raise-1: #1b3a63;
+    --sf-raise-2: #13355e;
+    --sf-navy-rgb: 11, 37, 69;
+    --well: 0, 0, 0;
+    --ink-rgb: 255, 255, 255;
+    --ink-solid: #ffffff;
+    --tx-accent: #fb923c;
+    --tx-orange: #fdba74;
+    --text-on-dark: rgba(244, 242, 239, 0.82);
+    --text-on-dark-soft: rgba(244, 242, 239, 0.72);
+    --text-light: #f4f2ef;
+    --text-on-light: #f4f2ef;
+    background: linear-gradient(90deg, #071a33 0%, #0b2545 45%, #0d2a4e 100%);
+    box-shadow: 0 4px 14px rgba(11, 37, 69, 0.18);
+    color: #f4f2ef;
 }
