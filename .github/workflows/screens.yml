@@ -49,9 +49,10 @@ jobs:
       - name: Take the pictures
         working-directory: erp-frontend
         run: |
-          npm i --no-save playwright@1.48.2
+          npm i --no-save playwright@1.52.0
           npx playwright install --with-deps chromium
           WEB=http://localhost:5173 node e2e/screens.mjs
+          WEB=http://localhost:5173 node e2e/guide.mjs
       - name: Keep the server log with the pictures
         if: always()
         run: cp erp-backend/server.log erp-frontend/screens/ 2>/dev/null || true

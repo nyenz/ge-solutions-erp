@@ -39,6 +39,7 @@ function lazyPage(load) {
 const Dashboard           = lazyPage(() => import('./pages/Dashboard/Dashboard'));
 const IntakePage          = lazyPage(() => import('./pages/Intake/IntakePage'));
 const LedgerPage          = lazyPage(() => import('./pages/Ledger/LedgerPage'));
+const GuidePage           = lazyPage(() => import('./pages/Guide/GuidePage'));   // fix231
 const FolderPage          = lazyPage(() => import('./pages/DigitalFolder/FolderPage'));
 const RecoveryPortal      = lazyPage(() => import('./pages/Recovery/RecoveryPortal'));
 const ClientLedgerPage    = lazyPage(() => import('./pages/Clients/ClientLedgerPage'));
@@ -157,6 +158,7 @@ const router = createBrowserRouter([
                     { path: "financials", element: <ProtectedRoute managerPlus><ExpensesPage /></ProtectedRoute> },
                     { path: "reports", element: <ProtectedRoute managerPlus><ReportHub /></ProtectedRoute> },   // fix206: Manager sees the work reports only
                     { path: "audit", element: <ProtectedRoute adminOnly><AuditPage /></ProtectedRoute> },
+                    { path: "guide", element: <ProtectedRoute employeeOk><GuidePage /></ProtectedRoute> },   // fix231: everyone
                     { path: "settings", element: <ProtectedRoute isSettings><SettingsPage /></ProtectedRoute> },
                 ]
             },

@@ -4,8 +4,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
 FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
-    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers, FiInbox
-} from 'react-icons/fi';
+    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers, FiInbox, FiHelpCircle } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { Tooltip } from '../common/Tooltip';
 import styles from './Sidebar.module.css';
@@ -33,6 +32,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         { path: '/financials',    label: 'EXPENSES',    icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess,    hint: "The company's own costs -- not project costs" },
         { path: '/reports',       label: 'REPORTS',     icon: <FiBarChart2    aria-hidden="true" />, access: hasManagerAccess,   hint: flags.isOwnerLevel ? 'Exportable reports across the whole company' : 'Work reports (projects, stages, clients, recovery); money reports are for the Director' },
         { path: '/audit',         label: 'AUDIT',       icon: <FiShield       aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Who did what, and when' },
+        { path: '/guide',         label: 'GUIDE',       icon: <FiHelpCircle   aria-hidden="true" />, access: true,                hint: 'How to use the system: short playing guides for your work' },
         { path: '/settings',      label: 'SETTINGS',    icon: <FiSettings     aria-hidden="true" />, access: true,                hint: 'Your password, staff accounts, deleted plots' },
     ];
 
