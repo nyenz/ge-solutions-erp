@@ -1,0 +1,61 @@
+# fix229: PICTURES OF EVERY PAGE. Run by hand (Actions > screens > Run workflow) or by Claude through the GitHub API.
+# It starts the real server with its in-memory DEMO data (never the live database), builds the pages, signs in as each
+# rank and takes a picture of every page at computer and phone size. The pictures and report.txt are attached to the
+# run as "screens". Used for the phone pass and the user guide.
+name: screens
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: erp-frontend/package-lock.json
+      - name: Build the server
+        working-directory: erp-backend
+        run: mvn -B -ntp -DskipTests package
+      - name: Start the server (in-memory demo data)
+        working-directory: erp-backend
+        run: |
+          nohup java -jar target/*.jar --spring.profiles.active=test --ge.solutions.seed-demo-data=true > server.log 2>&1 &
+          for i in $(seq 1 90); do curl -s -o /dev/null http://localhost:8080/api/v1/auth/login -X POST -H 'Content-Type: application/json' -d '{}' && break; sleep 2; done
+          tail -5 server.log
+      - name: Build and serve the pages
+        working-directory: erp-frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8080/api/v1
+        run: |
+          npm ci
+          npm run build
+          nohup npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:4173/ && break; sleep 1; done
+      - name: Take the pictures
+        working-directory: erp-frontend
+        run: |
+          npm i --no-save playwright@1.48.2
+          npx playwright install --with-deps chromium
+          node e2e/screens.mjs
+      - name: Keep the server log with the pictures
+        if: always()
+        run: cp erp-backend/server.log erp-frontend/screens/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens
+          path: erp-frontend/screens
+          retention-days: 14
