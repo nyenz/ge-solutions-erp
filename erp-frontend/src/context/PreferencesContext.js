@@ -2,7 +2,8 @@
 import { createContext } from 'react';
 
 export const DEFAULT_PREFS = {
-    theme: 'light',      // light (CREAM) | dark (SLATE) -- background and chrome | bright (LIGHT) -- light panels too
+    theme: 'ges',        // fix233: ges (B GES DAYLIGHT, default) | gesnavy (C GES NAVY) | classic (A, the old CREAM) | dark (SLATE) | bright (LIGHT)
+                         // the old value 'light' (CREAM) is no longer allowed, so it falls back to the new default once
     uiScale: '100',      // 90 | 100 | 110 | 125
     statSize: 'standard',// small | standard | large
     motion: 'full',      // full | reduced
@@ -14,7 +15,7 @@ export const DEFAULT_PREFS = {
 
 // fix181 (15.1j): the only values each setting may hold; a damaged or hand-edited value falls back to the default.
 export const PREF_ALLOWED = {
-    theme: ['light', 'dark', 'bright'],
+    theme: ['ges', 'gesnavy', 'classic', 'dark', 'bright'],
     uiScale: ['90', '100', '110', '125'],
     statSize: ['small', 'standard', 'large'],
     motion: ['full', 'reduced'],

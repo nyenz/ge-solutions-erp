@@ -76,19 +76,14 @@ export function plain(text) {
 
 // ── chart drawing ──────────────────────────────────────────────────────
 
-/** fix227: the GE Solutions compass mark (website icon.svg): navy disc, orange ring, orange needle. */
-function logo(doc, cx, cy, r) {
-    const k = r / 15;
-    doc.setFillColor(...NAVY); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6);
-    doc.circle(cx, cy, r, 'FD');
-    doc.setDrawColor(...ORANGE); doc.setLineWidth(2 * k);
-    doc.circle(cx, cy, 11 * k, 'S');
-    doc.setFillColor(...ORANGE);
-    const P = (px, py) => [cx + (px - 16) * k, cy + (py - 16) * k];
-    const [ax, ay] = P(20.5, 11.5), [bx, by] = P(17.8, 17.8), [qx, qy] = P(11.5, 20.5), [dx, dy] = P(14.2, 14.2);
-    doc.triangle(ax, ay, bx, by, dx, dy, 'F');
-    doc.triangle(bx, by, qx, qy, dx, dy, 'F');
-    doc.setLineWidth(1);
+/** fix233: the REAL GES globe logo (website logo-globe.png, passed in as opts.logoImage) on a white disc, so its navy
+ *  letters show on the navy band. No image (tests) = just the white disc. */
+function logo(doc, cx, cy, r, img) {
+    doc.setFillColor(255, 255, 255);
+    doc.circle(cx, cy, r, 'F');
+    if (!img) return;
+    const s = r * 1.78;
+    try { doc.addImage(img, 'PNG', cx - s / 2, cy - s / 2, s, s); } catch { /* the band still prints without it */ }
 }
 
 function drawBars(doc, rows, fmt, x, y, w, h) {
@@ -214,9 +209,9 @@ export async function writeReportPdf(opts) {
         doc.rect(0, 0, pw, small ? 34 : 78, 'F');
         doc.setFillColor(...ORANGE);
         doc.rect(0, small ? 34 : 78, pw, 2.5, 'F');
-        // fix227: the GE Solutions compass logo (the website's mark), drawn as shapes
+        // fix233: the GES globe logo (the website's logo)
         const lx = m + (small ? 9 : 16), ly = small ? 17 : 36, lr = small ? 9 : 16;
-        logo(doc, lx, ly, lr);
+        logo(doc, lx, ly, lr, opts.logoImage);
         const tx = lx + lr + (small ? 8 : 12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(255, 255, 255);

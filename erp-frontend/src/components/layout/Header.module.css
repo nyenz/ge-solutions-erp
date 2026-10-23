@@ -27,8 +27,8 @@
     /* Header sits outside every page's .container, so it can't inherit
        their page-scoped tokens -- these are the same literal values the
        rest of the app already uses. */
-    --panel-bg: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
-    --panel-header: var(--sf-head, #162a2c);
+    --panel-bg: linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+    --panel-header: var(--sf-head, var(--brand-head, #162a2c));
     --panel-edge: rgba(var(--ink-rgb), 0.10);
     --accent: var(--orange);
     --accent-ink: var(--text-on-light, #1a2e30);
@@ -56,8 +56,8 @@
     gap: 12px;
     min-height: 64px;
     padding: 8px 18px;
-    background: linear-gradient(115deg, var(--sf-head, #14262a) 0%, var(--sf-1, #1c3335) 42%, var(--sf-2, #24454a) 78%, var(--sf-raise-2, #2b5157) 100%);
-    border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);
+    background: linear-gradient(115deg, var(--sf-head, #14262a) 0%, var(--sf-1, var(--brand-1, #1c3335)) 42%, var(--sf-2, #24454a) 78%, var(--sf-raise-2, #2b5157) 100%);
+    border-bottom: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58), 0.35);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
 
@@ -69,7 +69,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, #EE8C3A, transparent);
+    background: linear-gradient(90deg, transparent, var(--acc, #EE8C3A), transparent);
     opacity: 0.6;
 }
 
@@ -98,12 +98,12 @@
     flex-shrink: 0;
 }
 .sidebarToggle:hover {
-    border-color: #EE8C3A;
-    background: rgba(238, 140, 58, 0.1);
-    color: var(--tx-accent, #EE8C3A);
+    border-color: var(--acc, #EE8C3A);
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.1);
+    color: var(--tx-accent, var(--acc, #EE8C3A));
 }
 .sidebarToggle:focus-visible {
-    outline: 2px solid #EE8C3A;
+    outline: 2px solid var(--acc, #EE8C3A);
     outline-offset: 2px;
 }
 
@@ -146,7 +146,7 @@
 .pulseRing {
     position: absolute;
     inset: 0;
-    border: 1.5px solid #EE8C3A;
+    border: 1.5px solid var(--acc, #EE8C3A);
     border-radius: 50%;
     animation: hardwarePulse 2.5s infinite ease-out;
 }
@@ -158,13 +158,13 @@
 
 /* Cinzel 700 — brand name, per typography standard */
 .brandName {
-    font-family: 'Cinzel', serif;
-    color: var(--tx-accent, #EE8C3A);
+    font-family: var(--font-head, 'Cinzel'), serif;
+    color: var(--tx-accent, var(--acc, #EE8C3A));
     font-size: clamp(13px, 1.4vw, 20px);
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
-    text-shadow: 0 0 10px rgba(238, 140, 58, 0.3);
+    text-shadow: 0 0 10px rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     white-space: nowrap;
 }
 
@@ -189,28 +189,28 @@
     flex-shrink: 0;
 }
 .notificationGroup:hover {
-    border-color: #EE8C3A;
-    background: rgba(238, 140, 58, 0.08);
+    border-color: var(--acc, #EE8C3A);
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.08);
 }
 .notificationGroup:focus-visible {
-    outline: 2px solid #EE8C3A;
+    outline: 2px solid var(--acc, #EE8C3A);
     outline-offset: 2px;
 }
 
 /* activeSensor — orange glow when signals are pending */
 .activeSensor {
-    border-color: rgba(238, 140, 58, 0.4);
-    box-shadow: 0 0 12px rgba(238, 140, 58, 0.2);
+    border-color: rgba(var(--acc-rgb, 238, 140, 58), 0.4);
+    box-shadow: 0 0 12px rgba(var(--acc-rgb, 238, 140, 58), 0.2);
     animation: sensorPulse 2s ease-in-out infinite;
 }
 @keyframes sensorPulse {
-    0%, 100% { box-shadow: 0 0 12px rgba(238, 140, 58, 0.2); }
-    50%       { box-shadow: 0 0 20px rgba(238, 140, 58, 0.45); }
+    0%, 100% { box-shadow: 0 0 12px rgba(var(--acc-rgb, 238, 140, 58), 0.2); }
+    50%       { box-shadow: 0 0 20px rgba(var(--acc-rgb, 238, 140, 58), 0.45); }
 }
 
 .bellIcon {
     font-size: clamp(16px, 1.9vw, 20px);
-    color: var(--tx-accent, #EE8C3A);
+    color: var(--tx-accent, var(--acc, #EE8C3A));
     opacity: 0.85;
     flex-shrink: 0;
 }
@@ -230,7 +230,7 @@
     margin-left: -5px;
     padding: 0 3px;
     border-radius: 9px;
-    border: 2px solid var(--sf-head, #162a2c);
+    border: 2px solid var(--sf-head, var(--brand-head, #162a2c));
     color: #0f1f20;
     font-family: 'Space Mono', monospace;
     font-size: 8.5px;
@@ -257,16 +257,16 @@
 .avatar {
     width:  clamp(24px, 2.8vw, 32px);
     height: clamp(24px, 2.8vw, 32px);
-    background: #EE8C3A;
-    color: #1a2e30;
+    background: var(--acc, #EE8C3A);
+    color: var(--brand-ink, #1a2e30);
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: clamp(11px, 1.2vw, 15px);
-    box-shadow: 0 0 10px rgba(238, 140, 58, 0.3);
+    box-shadow: 0 0 10px rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     flex-shrink: 0;
 }
 
@@ -278,7 +278,7 @@
 
 /* DM Sans 800 — UI label per standard */
 .userName {
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     color: var(--ink-solid);
     font-size: clamp(10px, 1.1vw, 13px);
     font-weight: 800;
@@ -304,11 +304,11 @@
    other role gets. */
 .roleTagRoot {
     color: var(--accent-ink);
-    background: linear-gradient(135deg, #EE8C3A, #f5a35c);
+    background: linear-gradient(135deg, var(--acc, #EE8C3A), #f5a35c);
     padding: 1px clamp(5px, 0.6vw, 7px);
     border-radius: 4px;
     gap: 3px;
-    box-shadow: 0 0 8px rgba(238, 140, 58, 0.35);
+    box-shadow: 0 0 8px rgba(var(--acc-rgb, 238, 140, 58), 0.35);
 }
 .roleTagRoot svg { font-size: 9px; }
 
@@ -360,7 +360,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 .notifDrop {
-    --a: #EE8C3A;
+    --a: var(--acc, #EE8C3A);
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
@@ -387,7 +387,7 @@
 .notifHero {
     flex-shrink: 0;
     padding: clamp(8px, 1vw, 10px);
-    background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-1, #1c3335) 65%, var(--sf-deep, #16292b) 100%);
+    background: linear-gradient(135deg, var(--sf-raise-1, var(--brand-raise-1, #3a5a5c)) 0%, var(--sf-1, var(--brand-1, #1c3335)) 65%, var(--sf-deep, var(--brand-deep, #16292b)) 100%);
     border-bottom: 2px solid var(--a);
     transition: border-color 0.2s ease;
 }
@@ -415,7 +415,7 @@
     -webkit-appearance: none; appearance: none;
     border: 0; border-radius: 4px;
     padding: 6px clamp(6px, 0.8vw, 8px);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(8px, 0.85vw, 9px);
     font-weight: 900;
     letter-spacing: 1px;
@@ -423,8 +423,8 @@
     transition: color 0.2s ease, background 0.2s ease;
 }
 .notifModeBtn { background: transparent; color: rgba(var(--ink-rgb), 0.7); }
-.notifModeBtn:hover { color: var(--tx-accent, #EE8C3A); }
-.notifModeOn { background: #EE8C3A; color: #1a2e30; }
+.notifModeBtn:hover { color: var(--tx-accent, var(--acc, #EE8C3A)); }
+.notifModeOn { background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
 
 .notifTool {
     -webkit-appearance: none; appearance: none;
@@ -432,21 +432,21 @@
     width: 28px; height: 28px; padding: 0;
     display: inline-flex; align-items: center; justify-content: center;
     background: transparent;
-    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58), 0.6);
     border-radius: 6px;
-    color: var(--tx-accent, #EE8C3A);
+    color: var(--tx-accent, var(--acc, #EE8C3A));
     font-size: 14px;
     cursor: pointer;
     transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
-.notifTool:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.notifTool:hover { background: var(--acc, #EE8C3A); border-color: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
 .notifSpin svg { animation: notifSpin 0.8s linear infinite; }
 @keyframes notifSpin { to { transform: rotate(360deg); } }
 
 .notifModeBtn:focus-visible, .notifModeOn:focus-visible, .notifTool:focus-visible,
 .notifChip:focus-visible, .notifChipOn:focus-visible, .notifRow:focus-visible,
 .notifFoot:focus-visible, .notifLink:focus-visible {
-    outline: 2px solid #EE8C3A;
+    outline: 2px solid var(--acc, #EE8C3A);
     outline-offset: -2px;
 }
 
@@ -467,7 +467,7 @@
     gap: 5px;
     border: 0; border-radius: 5px;
     padding: 6px clamp(5px, 0.7vw, 8px);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(8px, 0.85vw, 9.5px);
     font-weight: 900;
     letter-spacing: 1px;
@@ -478,7 +478,7 @@
 .notifChip { flex: 0 1 auto; background: transparent; color: var(--ink-solid); }
 .notifChip:hover { background: rgba(var(--ink-rgb), 0.1); }
 .notifChip[data-empty='true'] { opacity: 0.5; }
-.notifChipOn { flex: 1 1 0; background: var(--a); color: #1a2e30; }
+.notifChipOn { flex: 1 1 0; background: var(--a); color: var(--brand-ink, #1a2e30); }
 .notifChipDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--a); }
 .notifChipOn .notifChipDot { display: none; }
 .notifChipLabel { display: none; overflow: hidden; text-overflow: ellipsis; }
@@ -501,11 +501,11 @@
     overflow-x: hidden;
     background: #f3f6f6;
     scrollbar-width: thin;
-    scrollbar-color: var(--orange, #EE8C3A) transparent;
+    scrollbar-color: var(--orange, var(--acc, #EE8C3A)) transparent;
 }
 .notifList::-webkit-scrollbar { width: 6px; }
 .notifList::-webkit-scrollbar-track { background: transparent; }
-.notifList::-webkit-scrollbar-thumb { background: var(--orange, #EE8C3A); border-radius: 10px; }
+.notifList::-webkit-scrollbar-thumb { background: var(--orange, var(--acc, #EE8C3A)); border-radius: 10px; }
 .notifList::-webkit-scrollbar-thumb:hover { background: #f59a4a; }
 
 .notifDay {
@@ -537,12 +537,12 @@
 .notifUnread { background: #ffffff; background: color-mix(in srgb, var(--t) 9%, #ffffff); }
 .notifUnread:hover { background: #e3ede9; background: color-mix(in srgb, var(--t) 30%, #ffffff); }
 .notifRead { border-left-color: transparent; background: #e4eaea; }
-.notifRead:hover { background: #cbd8d8; border-left-color: var(--t, #EE8C3A); }
+.notifRead:hover { background: #cbd8d8; border-left-color: var(--t, var(--acc, #EE8C3A)); }
 
 .notifBody { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .notifType {
     display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(8.5px, 0.9vw, 10px);
     font-weight: 900;
     letter-spacing: 1.1px;
@@ -561,10 +561,10 @@
     color: #5b6b69;
 }
 .notifMsg {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(11px, 1.1vw, 13px);
     font-weight: 600;
-    color: #1a2e30;
+    color: var(--brand-ink, #1a2e30);
     line-height: 1.35;
     word-break: break-word;
 }
@@ -573,9 +573,9 @@
     flex-shrink: 0;
     width: 8px; height: 8px;
     border-radius: 50%;
-    background: var(--t, #EE8C3A);
-    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.22);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--t, #EE8C3A) 24%, transparent);
+    background: var(--t, var(--acc, #EE8C3A));
+    box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58), 0.22);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--t, var(--acc, #EE8C3A)) 24%, transparent);
 }
 
 /* fix133: the recovery queue row reuses .notifRow / .notifUnread -- no
@@ -588,7 +588,7 @@
     font-size: clamp(8px, 0.9vw, 10px);
     font-weight: 900;
     letter-spacing: 2px;
-    color: rgba(26, 46, 48, 0.5);
+    color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.5);
 }
 .notifLink {
     -webkit-appearance: none; appearance: none;
@@ -596,17 +596,17 @@
     margin: 8px auto 0;
     padding: 6px 10px;
     background: transparent;
-    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58), 0.6);
     border-radius: 5px;
     color: #bf6413;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: 9px;
     font-weight: 900;
     letter-spacing: 1.2px;
     cursor: pointer;
     transition: color 0.2s ease, background 0.2s ease;
 }
-.notifLink:hover { background: #EE8C3A; color: #1a2e30; }
+.notifLink:hover { background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
 
 .notifFoot {
     -webkit-appearance: none; appearance: none;
@@ -615,7 +615,7 @@
     padding: 9px;
     border: 0;
     border-top: 2px solid var(--a);
-    background: var(--sf-head, #162a2c);
+    background: var(--sf-head, var(--brand-head, #162a2c));
     color: var(--ink-solid);
     font-family: 'Space Mono', monospace;
     font-size: clamp(8px, 0.9vw, 10px);
@@ -625,7 +625,7 @@
     cursor: pointer;
     transition: color 0.2s ease, border-color 0.2s ease;
 }
-.notifFoot:hover { color: var(--tx-accent, #EE8C3A); }
+.notifFoot:hover { color: var(--tx-accent, var(--acc, #EE8C3A)); }
 
 @media (max-width: 480px) {
     .notifDrop {

@@ -7,12 +7,12 @@
    (background:#f5f6fa, .card, .grid, .btnEdit ...) matched none of the
    classNames the JSX actually renders and is gone. */
 .container {
-  --orange: #EE8C3A; --orange-dim: rgba(238,140,58,0.18); --orange-border: rgba(238,140,58,0.28);
-  --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --green: #10b981; --violet: #a78bfa;
+  --orange: var(--acc, #EE8C3A); --orange-dim: rgba(var(--acc-rgb, 238, 140, 58),0.18); --orange-border: rgba(var(--acc-rgb, 238, 140, 58),0.28);
+  --navy: var(--brand-2, #213E40); --navy-deep: var(--brand-ink, #1a2e30); --red: #ef4444; --green: #10b981; --violet: #a78bfa;
   --radius: 10px;
   max-width: 1400px; width: 100%; margin: 0 auto;
   padding: clamp(12px,2vh,22px) clamp(12px,2vw,24px) 28px;
-  font-family: 'Inter', sans-serif; color: var(--ink-solid);
+  font-family: var(--font-body, 'Inter'), sans-serif; color: var(--ink-solid);
   display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
   box-sizing: border-box;
 }
@@ -26,20 +26,20 @@
   backdrop-filter: blur(15px); box-shadow: 0 4px 15px rgba(0,0,0,0.07);
 }
 .headerLeft { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
-.title { font-family: 'Cinzel', serif; color: var(--navy-deep); font-size: clamp(18px,2.5vw,24px); font-weight: 700; text-transform: uppercase; letter-spacing: 2px; line-height: 1.1; margin: 0; }
+.title { font-family: var(--font-head, 'Cinzel'), serif; color: var(--navy-deep); font-size: clamp(18px,2.5vw,24px); font-weight: 700; text-transform: uppercase; letter-spacing: 2px; line-height: 1.1; margin: 0; }
 .subtitle { color: #64748b; font-size: clamp(9px,0.9vw,11px); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
 .headerActions { display: flex; align-items: center; gap: clamp(6px,0.9vw,10px); flex-wrap: wrap; }
 .editGroup { display: flex; gap: clamp(6px,0.9vw,10px); }
 
 .backBtn, .editBtn, .cancelBtn, .saveBtn {
-  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px;
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px;
   padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: 6px;
   border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--sf-navy-rgb), 0.75); color: rgba(var(--ink-rgb), 0.85);
   cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
-.backBtn:hover, .editBtn:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
-.saveBtn { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
-.saveBtn:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; }
+.backBtn:hover, .editBtn:hover:not(:disabled) { background: rgba(var(--acc-rgb, 238, 140, 58),0.12); color: var(--orange); border-color: var(--orange); }
+.saveBtn { background: var(--orange); color: var(--brand-ink, #1a2e30); border-color: var(--orange); }
+.saveBtn:hover:not(:disabled) { background: var(--acc-dk, #d97a2b); border-color: var(--acc-dk, #d97a2b); }
 .cancelBtn { color: rgba(239,68,68,0.85); border-color: rgba(239,68,68,0.35); }
 .cancelBtn:hover:not(:disabled) { background: rgba(239,68,68,0.14); border-color: var(--red); color: var(--red); }
 .saveBtn:disabled, .cancelBtn:disabled { opacity: 0.5; cursor: wait; }
@@ -55,7 +55,7 @@
    (kept on the bottom) the same way Intake's own section bodies do.
    Only the small corner badge this page adds stays local. -- */
 .panelCornerBadge {
-  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
   color: rgba(var(--ink-rgb), 0.55); background: rgba(var(--ink-rgb), 0.06); border: 1px solid rgba(var(--ink-rgb), 0.14);
   border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
 }
@@ -68,20 +68,20 @@
 .specMono { font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: var(--orange); }
 .specPhone { font-size: clamp(14px,1.6vw,18px); font-weight: 800; letter-spacing: 0.5px; }
 .editInput {
-  font-family: 'Inter', sans-serif; font-weight: 600; font-size: clamp(11px,1.05vw,13px);
-  border: 1.5px solid rgba(238,140,58,0.3); border-radius: 6px; background: #ffffff; color: var(--navy);
+  font-family: var(--font-body, 'Inter'), sans-serif; font-weight: 600; font-size: clamp(11px,1.05vw,13px);
+  border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58),0.3); border-radius: 6px; background: #ffffff; color: var(--navy);
   padding: clamp(9px,1.2vw,13px); width: 100%; box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .editInputPhone { font-size: clamp(14px,1.5vw,17px); font-weight: 700; }
 .editInput:hover { border-color: var(--orange); }
-.editInput:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(238,140,58,0.18); }
+.editInput:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(var(--acc-rgb, 238, 140, 58),0.18); }
 .inputError { border-color: var(--red); box-shadow: 0 0 0 2px rgba(239,68,68,0.15); }
 
 /* -- MONEY STRIP -- these are the Payment Records summary cards, lifted
    verbatim: same navy gradient, same 1.5px orange hairline, same 10px
    radius, same Space Mono figure, same muted third line. The old build
-   used the lighter #3a5a5c panel gradient and a white 10% border, which
+   used the lighter var(--brand-raise-1, #3a5a5c) panel gradient and a white 10% border, which
    made the dossier read as a different product to /payments. Colour
    variants follow the Payments idiom too -- the accent colour lands on
    the border, the label AND the figure, rather than a pastel value on a
@@ -92,7 +92,7 @@
   gap: clamp(10px, 1.4vw, 16px);
 }
 .statCard {
-  background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
+  background: linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
   border: 1.5px solid var(--orange-border);
   border-radius: var(--radius);
   padding: clamp(12px, 1.5vw, 18px);
@@ -101,10 +101,10 @@
   gap: 4px;
 }
 .statClickable { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.statClickable:hover { border-color: var(--orange); box-shadow: 0 0 0 1px rgba(238,140,58,0.18); }
+.statClickable:hover { border-color: var(--orange); box-shadow: 0 0 0 1px rgba(var(--acc-rgb, 238, 140, 58),0.18); }
 .statClickable:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .statCard label {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body, 'Inter'), sans-serif;
   font-size: var(--stat-label);
   font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
   color: rgba(var(--ink-rgb), 0.5);
@@ -117,7 +117,7 @@
 .statTextValue { font-size: var(--stat-value-sm); }
 /* fix149: every card rests on orange; hover swaps the border to the card's font colour.
    These sit AFTER .statClickable:hover so they win at equal specificity. */
-.statCard { border-color: #EE8C3A; transition: border-color 0.2s ease; }
+.statCard { border-color: var(--acc, #EE8C3A); transition: border-color 0.2s ease; }
 .statCard.statClickable:hover { box-shadow: none; }
 .statRed:hover   { border-color: #ef4444; }
 .statRed   label, .statRed   strong { color: #ef4444; }
@@ -125,12 +125,12 @@
 .statGreen label, .statGreen strong { color: #22c55e; }
 .statCyan:hover  { border-color: #06b6d4; }
 .statCyan  label, .statCyan  strong { color: #06b6d4; }
-.statAmber:hover { border-color: #EE8C3A; }
-.statAmber label, .statAmber strong { color: var(--tx-accent, #EE8C3A); }
+.statAmber:hover { border-color: var(--acc, #EE8C3A); }
+.statAmber label, .statAmber strong { color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .statWhite:hover { border-color: #fff; }
 .statWhite label, .statWhite strong { color: var(--ink-solid); }
 .statNote {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body, 'Inter'), sans-serif;
   font-size: var(--stat-note);
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
   color: rgba(var(--ink-rgb), 0.35);
@@ -141,14 +141,14 @@
 .tableScroll::-webkit-scrollbar { display: none; }
 .ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 680px; }
 .ledgerTable thead th {
-  background: var(--sf-head, #162a2c); color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  background: var(--sf-head, var(--brand-head, #162a2c)); color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
   letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
   border-bottom: 3px solid var(--orange); white-space: nowrap;
 }
 .ledgerTable thead th:first-child { border-radius: 6px 0 0 0; }
 .ledgerTable thead th:last-child { border-radius: 0 6px 0 0; }
 .sortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
-.sortable:hover { background: linear-gradient(rgba(238,140,58,0.12), rgba(238,140,58,0.12)), var(--sf-head, #162a2c); color: var(--ink-solid); }
+.sortable:hover { background: linear-gradient(rgba(var(--acc-rgb, 238, 140, 58),0.12), rgba(var(--acc-rgb, 238, 140, 58),0.12)), var(--sf-head, var(--brand-head, #162a2c)); color: var(--ink-solid); }
 .ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(var(--ink-rgb), 0.06); vertical-align: middle; color: var(--ink-solid); font-size: clamp(10px,1.05vw,12px); }
 .ledgerTable tbody tr.row { cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
 .ledgerTable tbody tr.row:hover { background: rgba(var(--ink-rgb), 0.04); border-left-color: var(--orange); }
@@ -160,7 +160,7 @@
 .row:hover .openLink { color: var(--orange); }
 
 .groupRow td {
-  background: rgba(var(--well), 0.22); border-bottom: 1px solid rgba(238,140,58,0.28);
+  background: rgba(var(--well), 0.22); border-bottom: 1px solid rgba(var(--acc-rgb, 238, 140, 58),0.28);
   font-size: clamp(8px,0.9vw,10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--orange);
   padding: clamp(6px,0.9vw,9px) clamp(10px,1.5vw,16px);
 }
@@ -208,7 +208,7 @@
    card, and their text must be cream, never white-on-cream. */
 .noRecordsBig {
   padding: 60px 20px; text-align: center; font-weight: 800; letter-spacing: 1px;
-  background: linear-gradient(160deg,var(--sf-1, #1c3335) 0%,var(--sf-2, #213E40) 100%);
+  background: linear-gradient(160deg,var(--sf-1, var(--brand-1, #1c3335)) 0%,var(--sf-2, var(--brand-2, #213E40)) 100%);
   border: 1.5px solid var(--orange-border); border-radius: var(--radius);
   color: rgba(var(--ink-rgb), 0.72);
 }
@@ -218,7 +218,7 @@
 .errorState {
   display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
   padding: 60px 20px; text-align: center; font-weight: 800; letter-spacing: 1px;
-  background: linear-gradient(160deg,var(--sf-1, #1c3335) 0%,var(--sf-2, #213E40) 100%);
+  background: linear-gradient(160deg,var(--sf-1, var(--brand-1, #1c3335)) 0%,var(--sf-2, var(--brand-2, #213E40)) 100%);
   border: 1.5px solid rgba(239,68,68,0.35); border-radius: var(--radius);
   color: var(--tx-red, #fca5a5); /* 7.4:1 once it is on navy instead of cream */
 }
@@ -254,7 +254,7 @@
 /* fix183 (phone pass): the index column stays in place while the table is pulled sideways (index.css gsStickyCol);
    status words on one row keep a gap ("FOLDER CRITICAL", not "FOLDERCRITICAL"); the who-paid list uses the page's
    small text size instead of the browser's default list size. */
-.tableScroll { --sticky-bg: var(--sf-raise-2, #2a4a4c); }
+.tableScroll { --sticky-bg: var(--sf-raise-2, var(--brand-raise-2, #2a4a4c)); }
 .tag { display: inline-block; margin-right: 8px; }
 .payList { margin: 6px 0 0; padding-left: 18px; flex: 1 1 100%; font-size: clamp(11px, 1.1vw, 13px); line-height: 1.6; color: rgba(var(--ink-rgb), 0.85); }
 .payList li { overflow-wrap: anywhere; }

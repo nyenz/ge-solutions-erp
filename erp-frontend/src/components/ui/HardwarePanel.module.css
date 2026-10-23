@@ -6,7 +6,7 @@
     border-radius: 12px;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     margin-bottom: 0;
-    border: 1px solid rgba(238, 140, 58, 0.2);
+    border: 1px solid rgba(var(--acc-rgb, 238, 140, 58), 0.2);
     overflow: visible;
     display: flex;
     flex-direction: column;
@@ -20,7 +20,7 @@
 
 /* --- DARK VARIANT (LITERAL PROTOTYPE GRADIENT) --- */
 .dark {
-    background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-raise-2, #2a4a4c) 50%, var(--navy) 100%);
+    background: linear-gradient(135deg, var(--sf-raise-1, var(--brand-raise-1, #3a5a5c)) 0%, var(--sf-raise-2, var(--brand-raise-2, #2a4a4c)) 50%, var(--navy) 100%);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
@@ -28,8 +28,8 @@
 .light {
     background: #ffffff;
     background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-    border-color: rgba(33, 62, 64, 0.1);
-    box-shadow: 0 4px 16px rgba(33, 62, 64, 0.1);
+    border-color: rgba(var(--brand-2-rgb, 33, 62, 64), 0.1);
+    box-shadow: 0 4px 16px rgba(var(--brand-2-rgb, 33, 62, 64), 0.1);
 }
 
 /* --- PANEL HEADER MODULE --- */
@@ -39,17 +39,17 @@
     gap: 12px;
     margin-bottom: 25px;
     padding-bottom: 12px;
-    border-bottom: 2px solid rgba(238, 140, 58, 0.4);
+    border-bottom: 2px solid rgba(var(--acc-rgb, 238, 140, 58), 0.4);
 }
 
 .icon {
     color: var(--orange);
     font-size: 20px;
-    filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
+    filter: drop-shadow(0 0 5px rgba(var(--acc-rgb, 238, 140, 58), 0.4));
 }
 
 .title {
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-head, 'Cinzel'), serif;
     color: var(--orange);
     font-size: 15px;
     font-weight: 600;

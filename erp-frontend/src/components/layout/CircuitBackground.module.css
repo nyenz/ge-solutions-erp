@@ -12,9 +12,9 @@
     background:
       linear-gradient(135deg, transparent 0%, rgba(var(--bg-rgb),0.6) 50%, transparent 100%),
       linear-gradient(45deg, transparent 0%, rgba(var(--bg-rgb),0.6) 50%, transparent 100%),
-      linear-gradient(to right, rgba(var(--bg-rgb),0.9) 0%, rgba(238,140,58,1) 20%, rgba(238,140,58,1) 80%, rgba(var(--bg-rgb),0.9) 100%),
-      linear-gradient(to bottom, rgba(var(--bg-rgb),0.9) 0%, rgba(238,140,58,1) 20%, rgba(238,140,58,1) 80%, rgba(var(--bg-rgb),0.9) 100%),
-      #EE8C3A;
+      linear-gradient(to right, rgba(var(--bg-rgb),0.9) 0%, rgba(var(--acc-rgb, 238, 140, 58),1) 20%, rgba(var(--acc-rgb, 238, 140, 58),1) 80%, rgba(var(--bg-rgb),0.9) 100%),
+      linear-gradient(to bottom, rgba(var(--bg-rgb),0.9) 0%, rgba(var(--acc-rgb, 238, 140, 58),1) 20%, rgba(var(--acc-rgb, 238, 140, 58),1) 80%, rgba(var(--bg-rgb),0.9) 100%),
+      var(--acc, #EE8C3A);
     overflow: hidden;
 }
 
@@ -51,7 +51,7 @@
 /* --- GLOW STYLING --- */
 .lineGlow {
     fill: none;
-    stroke: var(--tx-accent, #EE8C3A); /* Literal Orange Glow */
+    stroke: var(--tx-accent, var(--acc, #EE8C3A)); /* Literal Orange Glow */
     stroke-linecap: round;
     stroke-linejoin: round;
     pointer-events: none;
@@ -78,9 +78,9 @@
     position: fixed;
     width: 2px;
     height: 2px;
-    background: #EE8C3A;
+    background: var(--acc, #EE8C3A);
     border-radius: 50%;
-    box-shadow: 0 0 4px rgba(238,140,58,.6);
+    box-shadow: 0 0 4px rgba(var(--acc-rgb, 238, 140, 58),.6);
     pointer-events: none;
     z-index: 1;
 }
@@ -113,3 +113,22 @@
 @media print {
     .wrapper, .bgSvg, .particle { display: none !important; }
 }
+
+/* fix233: the GES themes calm the page: no orange wash, just the cream (or night navy) of the website with a soft
+   orange glow in one corner; the circuit lines stay faint. */
+:global(:root[data-theme="ges"]) .wrapper {
+    background:
+      radial-gradient(1100px 700px at 100% 100%, rgba(234, 88, 12, 0.10), transparent 60%),
+      radial-gradient(900px 600px at 0% 0%, rgba(11, 37, 69, 0.07), transparent 60%),
+      #f7f2e8;
+}
+:global(:root[data-theme="gesnavy"]) .wrapper {
+    background:
+      radial-gradient(1100px 700px at 100% 100%, rgba(234, 88, 12, 0.12), transparent 60%),
+      linear-gradient(160deg, #0b1d36 0%, #0f141c 70%);
+}
+:global(:root[data-theme="ges"]) .lineBase { stroke: #0b2545; }
+:global(:root[data-theme="ges"]) .L1 .lineBase { opacity: 0.08; }
+:global(:root[data-theme="ges"]) .L2 .lineBase { opacity: 0.11; }
+:global(:root[data-theme="ges"]) .L3 .lineBase { opacity: 0.14; }
+:global(:root[data-theme="gesnavy"]) .lineBase { stroke: #1b3a63; }

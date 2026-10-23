@@ -1,10 +1,10 @@
 /* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
 .section {
-    --orange: #EE8C3A;
-    --orange-dim: rgba(238, 140, 58, 0.18);
+    --orange: var(--acc, #EE8C3A);
+    --orange-dim: rgba(var(--acc-rgb, 238, 140, 58), 0.18);
     position: relative;
-    background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-raise-2, #2a4a4c) 50%, var(--sf-2, #213E40) 100%);
-    border: 1px solid rgba(238, 140, 58, 0.2);
+    background: linear-gradient(135deg, var(--sf-raise-1, var(--brand-raise-1, #3a5a5c)) 0%, var(--sf-raise-2, var(--brand-raise-2, #2a4a4c)) 50%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+    border: 1px solid rgba(var(--acc-rgb, 238, 140, 58), 0.2);
     border-radius: 10px;
     overflow: visible;
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
@@ -23,7 +23,7 @@
     justify-content: space-between;
     gap: clamp(6px, 1vw, 12px);
     padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);
-    background: var(--sf-head, #162a2c);
+    background: var(--sf-head, var(--brand-head, #162a2c));
     border: none;
     border-bottom: 1.5px solid transparent; /* thin separator, hidden when closed */
     border-radius: 9px;
@@ -47,11 +47,11 @@
     min-width: 0;
     color: var(--orange);
     font-size: clamp(12px, 1.4vw, 16px);
-    filter: drop-shadow(0 0 4px rgba(238, 140, 58, 0.4));
+    filter: drop-shadow(0 0 4px rgba(var(--acc-rgb, 238, 140, 58), 0.4));
 }
 
 .title {
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-head, 'Cinzel'), serif;
     font-size: clamp(10px, 1.3vw, 13px);
     font-weight: 700;
     color: var(--orange);

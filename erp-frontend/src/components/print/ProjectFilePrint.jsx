@@ -9,7 +9,7 @@
 //  - the stages are a two-column checklist with filled (done) and hollow (open) circles.
 // Money stays a ruled statement with a totals box, and the page ends with sign-off lines.
 import React from 'react';
-import GesMark from './GesMark';   // fix227: the website's compass logo
+import GesMark from './GesMark';   // fix233: the real GES globe logo
 import { statusOf, moneyWordsOf, stagesOf, waitingFor } from '../../utils/projectStatus';
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';

@@ -1,11 +1,11 @@
 /* PATH: erp-frontend/src/pages/Payments/PaymentsPage.module.css */
 .container {
-    --orange:        #EE8C3A;
-    --orange-dim:    rgba(238, 140, 58, 0.18);
-    --orange-border: rgba(238, 140, 58, 0.28);
-    --navy:          #1a2e30;
-    --navy-mid:      #213E40;
-    --panel-bg:      linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
+    --orange:        var(--acc, #EE8C3A);
+    --orange-dim:    rgba(var(--acc-rgb, 238, 140, 58), 0.18);
+    --orange-border: rgba(var(--acc-rgb, 238, 140, 58), 0.28);
+    --navy:          var(--brand-ink, #1a2e30);
+    --navy-mid:      var(--brand-2, #213E40);
+    --panel-bg:      linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
     --red:           #ef4444;
     --green:         #10b981;
     --cyan:          #06b6d4;
@@ -30,7 +30,7 @@
     max-width: 1400px;
     width: 100%;
     padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(24px, 3vw, 36px);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     color: var(--ink-solid);
     animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
     display: flex;
@@ -60,20 +60,20 @@
     flex-shrink: 0;
 }
 .headerLeft { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
-.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; margin: 0; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1; }
-.subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.title { font-family: var(--font-head, 'Cinzel'), serif; color: var(--brand-ink, #1a2e30); font-size: var(--fs-h1); font-weight: 700; margin: 0; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1; }
+.subtitle { font-family: var(--font-ui, 'DM Sans'), sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
 
 .refreshBtn {
-    background: rgba(26,46,48,0.08);
-    border: 1.5px solid rgba(26,46,48,0.2);
-    color: #1a2e30;
+    background: rgba(var(--brand-ink-rgb, 26, 46, 48),0.08);
+    border: 1.5px solid rgba(var(--brand-ink-rgb, 26, 46, 48),0.2);
+    color: var(--brand-ink, #1a2e30);
     border-radius: var(--radius-sm);
     padding: 0 clamp(12px,1.5vw,16px);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: var(--fs-btn);
     text-transform: uppercase;
@@ -82,7 +82,7 @@
     height: clamp(34px, 4vw, 40px);
     flex-shrink: 0;
 }
-.refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
+.refreshBtn:hover { background: var(--acc, #EE8C3A); color: #fff; border-color: var(--acc, #EE8C3A); }
 
 /* SUMMARY CARDS */
 .summaryRow {
@@ -94,7 +94,7 @@
 }
 .sumCard {
     background: var(--panel-bg);
-    border: 1.5px solid #EE8C3A;
+    border: 1.5px solid var(--acc, #EE8C3A);
     transition: border-color 0.2s ease;
     border-radius: var(--radius);
     padding: clamp(12px, 1.5vw, 18px);
@@ -102,11 +102,11 @@
     flex-direction: column;
     gap: 4px;
 }
-.sumCard label { font-family: 'DM Sans', sans-serif; font-size: var(--stat-label); font-weight: 900; color: rgba(var(--ink-rgb), 0.5); text-transform: uppercase; letter-spacing: 1px; }
+.sumCard label { font-family: var(--font-ui, 'DM Sans'), sans-serif; font-size: var(--stat-label); font-weight: 900; color: rgba(var(--ink-rgb), 0.5); text-transform: uppercase; letter-spacing: 1px; }
 .sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--stat-value); color: var(--ink-solid); font-weight: 700; word-break: break-all; }
 .sumCard span { font-size: var(--stat-note); color: rgba(var(--ink-rgb), 0.35); }
 /* fix149: hover border = the card's font colour */
-.sumWhite:hover { border-color: #EE8C3A; }
+.sumWhite:hover { border-color: var(--acc, #EE8C3A); }
 .sumGreen:hover { border-color: #22c55e; }
 .sumRed:hover   { border-color: #ef4444; }
 
@@ -121,24 +121,24 @@
     max-width: clamp(300px, 50vw, 560px);
     transition: border-color 0.2s, box-shadow 0.2s;
 }
-.searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.searchIcon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--tx-accent, #EE8C3A); font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
+.searchWrap:focus-within { border-color: var(--acc, #EE8C3A); box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58),0.14); }
+.searchIcon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--tx-accent, var(--acc, #EE8C3A)); font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
 .searchInput {
     width: 100%; border: none; outline: none; background: transparent;
-    color: #1a2e30; padding-right: 36px !important; padding-left: 42px !important;
-    font-family: 'DM Sans', sans-serif; font-weight: 800;
+    color: var(--brand-ink, #1a2e30); padding-right: 36px !important; padding-left: 42px !important;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif; font-weight: 800;
     font-size: var(--fs-input);
     height: 100%;
     transition: padding 0.2s ease;
 }
-.searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
+.searchInput::placeholder { font-weight: 500; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.3); }
 .clearBtn {
     position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
     background: transparent; border: none;
-    cursor: pointer; color: rgba(26,46,48,0.4); display: flex;
+    cursor: pointer; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.4); display: flex;
     align-items: center; padding: 4px; border-radius: 4px; transition: color 0.15s, background 0.15s;
 }
-.clearBtn:hover { color: #1a2e30; background: rgba(26,46,48,0.08); }
+.clearBtn:hover { color: var(--brand-ink, #1a2e30); background: rgba(var(--brand-ink-rgb, 26, 46, 48),0.08); }
 
 
 
@@ -155,7 +155,7 @@
     scrollbar-color: var(--orange) transparent;
 }
 .tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(var(--acc-rgb, 238, 140, 58),0.4); border-radius: 2px; }
 
 .ledgerTable {
     width: 100%;
@@ -166,16 +166,16 @@
 
 /* TABLE HEADER */
 .ledgerTable th {
-    background: var(--sf-head, #162a2c);
+    background: var(--sf-head, var(--brand-head, #162a2c));
     padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
     text-align: left;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: var(--fs-th);
     font-weight: 900;
     color: var(--orange);
     text-transform: uppercase;
     letter-spacing: 2px;
-    border-bottom: 3px solid #EE8C3A;
+    border-bottom: 3px solid var(--acc, #EE8C3A);
     white-space: nowrap;
     user-select: none;
     position: sticky;
@@ -184,11 +184,11 @@
 }
 
 .thSortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
-.thSortable:hover { background: rgba(238, 140, 58, 0.07); color: var(--ink-solid); }
+.thSortable:hover { background: rgba(var(--acc-rgb, 238, 140, 58), 0.07); color: var(--ink-solid); }
 
 /* fix147: HardwarePanel hard-codes its orange border, so re-point it from the active pill */
-.accentWrap[data-tab-accent] > section[class] { border-color: rgba(238, 140, 58, 0.2); }
-.accentWrap[data-tab-accent] > section[class]:hover { border-color: #EE8C3A; }
+.accentWrap[data-tab-accent] > section[class] { border-color: rgba(var(--acc-rgb, 238, 140, 58), 0.2); }
+.accentWrap[data-tab-accent] > section[class]:hover { border-color: var(--acc, #EE8C3A); }
 .accentWrap[data-tab-accent] .thSortable:hover { background: var(--orange-dim); }
 
 /* TABLE BODY */
@@ -197,7 +197,7 @@
     border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
     vertical-align: middle;
     color: var(--ink-solid);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: var(--fs-td);
 }
 
@@ -209,10 +209,10 @@
 }
 .dataRow:hover {
     background: rgba(var(--ink-rgb), 0.05);
-    border-left-color: #EE8C3A;
+    border-left-color: var(--acc, #EE8C3A);
 }
 .dataRow:focus-visible {
-    background: rgba(238, 140, 58, 0.07);
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.07);
     border-left-color: var(--orange);
     outline: 2px solid var(--orange);
     outline-offset: -2px;
@@ -221,12 +221,12 @@
 /* CELL TYPES */
 .dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
 .time { font-family: 'Space Mono', monospace; font-size: var(--fs-label); opacity: 0.45; }
-.plotNum { font-family: 'Space Mono', monospace; color: var(--tx-accent, #EE8C3A); font-size: var(--fs-value); font-weight: 700; letter-spacing: 0.5px; }
+.plotNum { font-family: 'Space Mono', monospace; color: var(--tx-accent, var(--acc, #EE8C3A)); font-size: var(--fs-value); font-weight: 700; letter-spacing: 0.5px; }
 .ownerCell { font-weight: 700; color: var(--ink-solid); max-width: clamp(100px, 14vw, 180px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .typeBadge {
     display: inline-flex; align-items: center; gap: 4px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-transform: uppercase;
@@ -275,8 +275,8 @@
 }
 .loadingSpinner {
     width: 32px; height: 32px;
-    border: 3px solid rgba(238,140,58,0.15);
-    border-top-color: #EE8C3A; border-radius: 50%;
+    border: 3px solid rgba(var(--acc-rgb, 238, 140, 58),0.15);
+    border-top-color: var(--acc, #EE8C3A); border-radius: 50%;
     animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -331,10 +331,10 @@
 .searchWrap  { max-width: none; width: 100%; height: clamp(36px, 4.5vw, 44px); }
 .searchIcon  { left: 12px; font-size: 16px; }
 .searchInput {
-    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 12px;
+    font-family: var(--font-body, 'Inter'), sans-serif; font-weight: 600; font-size: 12px;
     padding: 0 34px 0 41px !important;
 }
-.searchInput::placeholder { color: rgba(26, 46, 48, 0.35); }
+.searchInput::placeholder { color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.35); }
 
 @media (max-width: 640px) {
     .container  { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); }
@@ -374,13 +374,13 @@
 /* dots legend: one line, scrolls sideways, sits a little inside, breathes before the table */
 .legendRow { display: flex; flex-wrap: nowrap; gap: 14px; margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .legendRow::-webkit-scrollbar { display: none; }
-.legendItem { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: rgba(26, 46, 48, 0.6); white-space: nowrap; flex-shrink: 0; }
+.legendItem { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.6); white-space: nowrap; flex-shrink: 0; }
 .legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
 /* Ledger table behaviour: table scrolls inside its own box, header pinned to that box */
 .tableScroll { max-height: calc(var(--app-vh) - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }
 .tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.ledgerTable th { z-index: 5; box-shadow: 0 1px 0 #EE8C3A; }
+.ledgerTable th { z-index: 5; box-shadow: 0 1px 0 var(--acc, #EE8C3A); }
 
 /* fix181 (16.x): books check box, error row with retry, small text buttons, the row you came back to */
 .booksOk, .booksBad { position: relative; border-radius: 8px; padding: 10px 36px 10px 12px; margin: 0 0 12px; font-size: 0.85rem; line-height: 1.5; }
@@ -390,7 +390,7 @@
 .retryBtn { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 6px; padding: 3px 10px; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.06em; }
 .retryBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 .linkBtn { background: none; border: 0; padding: 0; color: var(--tx-cyan, #67e8f9); cursor: pointer; font-size: 0.72rem; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; }
-.rowHighlight { outline: 1px solid #EE8C3A; outline-offset: -1px; }
+.rowHighlight { outline: 1px solid var(--acc, #EE8C3A); outline-offset: -1px; }
 
 /* fix182: date + check filters (same field as the Audit page) */
 .filterRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ctl-gap); margin: 0 0 8px; }
@@ -400,28 +400,28 @@
     background: #fff; border: 1.5px solid #c8d6d7; border-radius: 6px; cursor: pointer;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
-.dateField:hover { border-color: #EE8C3A; }
-.dateField:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
-.dateField span { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #5b6f70; }
+.dateField:hover { border-color: var(--acc, #EE8C3A); }
+.dateField:focus-within { border-color: var(--acc, #EE8C3A); box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58), 0.16); }
+.dateField span { font-family: var(--font-body, 'Inter'), sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #5b6f70; }
 .checkToggle {
     display: inline-flex; align-items: center; gap: 8px;
     height: clamp(36px, 4.4vw, 44px); padding: 0 14px;
     background: #fff; border: 1.5px solid #c8d6d7; border-radius: 6px; cursor: pointer; user-select: none;
-    font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.9vw, 10px); font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase;
-    color: #1a2e30; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(9px, 0.9vw, 10px); font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--brand-ink, #1a2e30); transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
-.checkToggle:hover { border-color: #EE8C3A; }
-.checkToggle:focus-within { box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
-.checkToggleOn { border-color: #EE8C3A; background: #fff6ee; }
-.dateField input { min-width: 108px; border: none !important; outline: none; background: transparent; box-shadow: none !important; height: auto !important; padding: 0 22px 0 0 !important; font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px) !important; font-weight: 700; color: #1a2e30; }
+.checkToggle:hover { border-color: var(--acc, #EE8C3A); }
+.checkToggle:focus-within { box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58), 0.16); }
+.checkToggleOn { border-color: var(--acc, #EE8C3A); background: #fff6ee; }
+.dateField input { min-width: 108px; border: none !important; outline: none; background: transparent; box-shadow: none !important; height: auto !important; padding: 0 22px 0 0 !important; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(10px, 1vw, 12px) !important; font-weight: 700; color: var(--brand-ink, #1a2e30); }
 /* summary card figures in their own colour (were inline styles) */
 .sumGreen label, .sumGreen strong { color: #22c55e; }
 .sumYellow label, .sumYellow strong { color: #eab308; }
 .sumRed label, .sumRed strong { color: #ef4444; }
 .sumYellow:hover { border-color: #eab308; }
-:root[data-theme="bright"] .sumGreen label, :root[data-theme="bright"] .sumGreen strong { color: #047857; }
-:root[data-theme="bright"] .sumYellow label, :root[data-theme="bright"] .sumYellow strong { color: #a16207; }
-:root[data-theme="bright"] .sumRed label, :root[data-theme="bright"] .sumRed strong { color: #b91c1c; }
+:root:is([data-theme="bright"], [data-theme="ges"]) .sumGreen label, :root:is([data-theme="bright"], [data-theme="ges"]) .sumGreen strong { color: #047857; }
+:root:is([data-theme="bright"], [data-theme="ges"]) .sumYellow label, :root:is([data-theme="bright"], [data-theme="ges"]) .sumYellow strong { color: #a16207; }
+:root:is([data-theme="bright"], [data-theme="ges"]) .sumRed label, :root:is([data-theme="bright"], [data-theme="ges"]) .sumRed strong { color: #b91c1c; }
 
 /* ===== fix183: ONE table card for the three ledgers =====================
    Payment Records now uses the Project Ledger card (LedgerPage.module.css):
@@ -432,32 +432,32 @@
    file on purpose: last rule wins. */
 .tablePanel {
     position: relative;
-    background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
-    border: 1.5px solid var(--orange-border, rgba(238, 140, 58, 0.28));
+    background: linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+    border: 1.5px solid var(--orange-border, rgba(var(--acc-rgb, 238, 140, 58), 0.28));
     border-radius: var(--radius, 10px); padding: 0; isolation: isolate;
 }
-.decorBl, .decorBr { position: absolute; width: 14px; height: 14px; border: 1.5px solid var(--orange, #EE8C3A); opacity: .55; pointer-events: none; z-index: 20; }
+.decorBl, .decorBr { position: absolute; width: 14px; height: 14px; border: 1.5px solid var(--orange, var(--acc, #EE8C3A)); opacity: .55; pointer-events: none; z-index: 20; }
 .decorBl::after, .decorBr::after { content: ''; position: absolute; width: 4px; height: 4px; background: rgba(255, 255, 255, 0.5); border-radius: 50%; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
 .decorBl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
 .decorBl::after { bottom: -2px; left: -2px; }
 .decorBr { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
 .decorBr::after { bottom: -2px; right: -2px; }
 .pinsBottom { position: absolute; display: flex; gap: 7px; left: 50%; bottom: -3px; transform: translateX(-50%); pointer-events: none; z-index: 20; }
-.pin { width: 3px; height: 5px; background: var(--orange, #EE8C3A); border-radius: 1px; box-shadow: 0 0 5px rgba(238, 140, 58, .4); }
+.pin { width: 3px; height: 5px; background: var(--orange, var(--acc, #EE8C3A)); border-radius: 1px; box-shadow: 0 0 5px rgba(var(--acc-rgb, 238, 140, 58), .4); }
 .tablePanel .tableScroll { margin: 0; background: transparent; border-radius: var(--radius, 10px); transform: translateZ(0); }
 .tablePanel .ledgerTable { min-width: 760px; }
-.tablePanel .ledgerTable th { font-family: 'Inter', sans-serif; z-index: 5; }
+.tablePanel .ledgerTable th { font-family: var(--font-body, 'Inter'), sans-serif; z-index: 5; }
 .tablePanel .ledgerTable th:first-child { border-radius: var(--radius, 10px) 0 0 0; }
 .tablePanel .ledgerTable th:last-child { border-radius: 0 var(--radius, 10px) 0 0; }
-.tablePanel .ledgerTable td { padding: 12px 14px; border-bottom: 1px solid rgba(var(--ink-rgb), 0.06); vertical-align: top; font-family: 'Inter', sans-serif; }
+.tablePanel .ledgerTable td { padding: 12px 14px; border-bottom: 1px solid rgba(var(--ink-rgb), 0.06); vertical-align: top; font-family: var(--font-body, 'Inter'), sans-serif; }
 .tablePanel .dataRow:hover { background: rgba(var(--ink-rgb), 0.04); }
-.tablePanel .thSortable:hover { background: linear-gradient(rgba(238, 140, 58, 0.12), rgba(238, 140, 58, 0.12)), var(--sf-head, #162a2c); }
+.tablePanel .thSortable:hover { background: linear-gradient(rgba(var(--acc-rgb, 238, 140, 58), 0.12), rgba(var(--acc-rgb, 238, 140, 58), 0.12)), var(--sf-head, var(--brand-head, #162a2c)); }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 4px 2px; }
 .pageBtn { background: rgba(var(--sf-navy-rgb), 0.75); border: 1.5px solid rgba(var(--ink-rgb), 0.18); color: rgba(var(--ink-rgb), 0.85); padding: 7px 14px; border-radius: 6px; font-weight: 900; font-size: 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; transition: all .2s; flex-shrink: 0; }
 .pageBtn:hover:not(:disabled) { background: rgba(var(--ink-rgb), 0.07); border-color: rgba(var(--ink-rgb), 0.22); color: var(--ink-solid); }
 .pageBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 .pageIndicator { color: rgba(var(--ink-rgb), 0.6); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-align: center; min-width: 0; }
-.recordCount { color: var(--orange, #EE8C3A); }
+.recordCount { color: var(--orange, var(--acc, #EE8C3A)); }
 @media (max-width: 768px) {
     /* same header and cell sizes as the Ledger on a phone (they were shrunk to 7px here) */
     .tablePanel .ledgerTable th { font-size: var(--fs-th); letter-spacing: 2px; }
@@ -476,18 +476,18 @@
 /* fix214 (David): PAID WITH -- one light button per payment method on the cream page (like the check toggles).
    The Director also sees each method's net amount inside its button. */
 .methodRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ctl-gap); margin: 0 0 8px; }
-.methodLabel { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #5b6f70; }
+.methodLabel { font-family: var(--font-body, 'Inter'), sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #5b6f70; }
 .methodChip {
     display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px;
     min-height: clamp(36px, 4.4vw, 44px); padding: 4px 14px;
     background: #fff; border: 1.5px solid #c8d6d7; border-radius: 6px; cursor: pointer; user-select: none;
-    font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px); font-weight: 800; color: #1a2e30;
+    font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(10px, 1vw, 12px); font-weight: 800; color: var(--brand-ink, #1a2e30);
     transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .methodChip strong { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.9vw, 11px); font-weight: 700; color: #2f6b45; }
-.methodChip:hover { border-color: #EE8C3A; }
-.methodChip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); border-color: #EE8C3A; }
-.methodChipOn, .methodChipOn:hover { border-color: #EE8C3A; background: #fff6ee; box-shadow: inset 0 -2px 0 #EE8C3A; }
+.methodChip:hover { border-color: var(--acc, #EE8C3A); }
+.methodChip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58), 0.16); border-color: var(--acc, #EE8C3A); }
+.methodChipOn, .methodChipOn:hover { border-color: var(--acc, #EE8C3A); background: #fff6ee; box-shadow: inset 0 -2px 0 var(--acc, #EE8C3A); }
 .methodChipNone { color: #5b6f70; font-style: italic; }
 .methodCell { font-weight: 800; color: var(--ink-solid); white-space: nowrap; }
 .methodCellNone { font-weight: 700; font-style: italic; color: rgba(var(--ink-rgb), 0.45); white-space: nowrap; }
@@ -495,7 +495,7 @@
 /* fix227b (David): "too many font colours ... too many font styles ... never any underlined words".
    The table now uses ONE font (Inter), dark ink for the main value of a cell, one soft grey for the small lines under it,
    orange only for the project number, and red only for something wrong (reversed, no receipt, a minus amount). */
-.ledgerTable td, .ledgerTable td * { font-family: 'Inter', sans-serif; font-style: normal; }
+.ledgerTable td, .ledgerTable td * { font-family: var(--font-body, 'Inter'), sans-serif; font-style: normal; }
 .dateCell { font-weight: 600; color: var(--ink-solid); }
 .time { font-size: 10.5px; font-weight: 500; opacity: 1; color: rgba(var(--ink-rgb), 0.6); letter-spacing: 0; }
 .plotNum { font-weight: 700; letter-spacing: 0; }
@@ -507,21 +507,21 @@
 .recorder { font-weight: 500; color: rgba(var(--ink-rgb), 0.75); }
 .notesCell { font-style: normal; color: rgba(var(--ink-rgb), 0.6); }
 .bad { color: var(--tx-red, #ef4444) !important; }
-.linkBtn { text-decoration: none; color: var(--tx-accent, #EE8C3A); font-weight: 600; }
+.linkBtn { text-decoration: none; color: var(--tx-accent, var(--acc, #EE8C3A)); font-weight: 600; }
 .linkBtn:hover { color: var(--ink-solid); }
 .receiptBtn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer;
-    background: rgba(238, 140, 58, 0.12); border: 1px solid rgba(238, 140, 58, 0.4); color: var(--tx-accent, #EE8C3A); font-size: 13px;
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.12); border: 1px solid rgba(var(--acc-rgb, 238, 140, 58), 0.4); color: var(--tx-accent, var(--acc, #EE8C3A)); font-size: 13px;
     transition: background 0.15s, color 0.15s; }
-.receiptBtn:hover, .receiptBtn:focus-visible { background: #EE8C3A; color: #1a2e30; outline: none; }
+.receiptBtn:hover, .receiptBtn:focus-visible { background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); outline: none; }
 
 /* fix228 (David): "the payments page top part looks disorganised" -- search + tabs on one line; then ONE filter bar:
    FROM / TO, the two toggles and PAID WITH, all the same height (36px) and the same font; amounts in quiet ink */
 .filterRow { gap: 8px; margin: 0 0 6px; }
 .dateField, .checkToggle { height: 36px; }
-.filterSep { width: 1px; height: 22px; background: rgba(26, 46, 48, 0.18); margin: 0 4px; }
+.filterSep { width: 1px; height: 22px; background: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.18); margin: 0 4px; }
 .methodRow { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
-.methodChip { flex-direction: row; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; font-family: 'Inter', sans-serif; }
-.methodChip strong { font-family: 'Inter', sans-serif; font-weight: 600; color: rgba(26, 46, 48, 0.62); }
+.methodChip { flex-direction: row; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; font-family: var(--font-body, 'Inter'), sans-serif; }
+.methodChip strong { font-family: var(--font-body, 'Inter'), sans-serif; font-weight: 600; color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.62); }
 .methodChipNone { font-style: normal; }
 .methodChipOn, .methodChipOn:hover { box-shadow: none; }
 .legendRow { margin-top: 2px; }

@@ -1,7 +1,7 @@
 /* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css */
 /* GOLDEN SEED -- REPORT STUDIO STYLESHEET (fix84 complete rewrite).
    Every class the studio JSX references is defined here, once, in the app's
-   own language: dark teal panels with #162a2c heads and orange separators,
+   own language: dark teal panels with var(--brand-head, #162a2c) heads and orange separators,
    white controls with ink text, orange for active/hover, Intake chip spec. */
 .studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }
 .scopePanel, .catPanel, .viewerPanel {
@@ -15,17 +15,17 @@
    same gradient body and the same wake-up hover -- border warms to
    orange and the shadow deepens, telling you the whole card is live. */
 .scopePanel, .catPanel {
-  background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-raise-2, #2a4a4c) 50%, var(--sf-2, #213E40) 100%);
-  border-color: rgba(238, 140, 58, 0.2);
+  background: linear-gradient(135deg, var(--sf-raise-1, var(--brand-raise-1, #3a5a5c)) 0%, var(--sf-raise-2, var(--brand-raise-2, #2a4a4c)) 50%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+  border-color: rgba(var(--acc-rgb, 238, 140, 58), 0.2);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .scopePanel:hover, .catPanel:hover {
-  border-color: #EE8C3A;
+  border-color: var(--acc, #EE8C3A);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 .panelHeadRow {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  background: var(--sf-head, #162a2c); border-bottom: 1.5px solid #EE8C3A;
+  background: var(--sf-head, var(--brand-head, #162a2c)); border-bottom: 1.5px solid var(--acc, #EE8C3A);
   border-radius: 11px 11px 0 0; padding: 10px 14px;
   width: 100%; box-sizing: border-box; text-align: left;
   transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;
@@ -34,7 +34,7 @@
    CollapsibleSection); the Preview head reuses this class but stays
    inert, so it keeps the default cursor. */
 .scopePanel .panelHeadRow, .catPanel .panelHeadRow { cursor: pointer; }
-.scopePanel .panelHeadRow:focus-visible, .catPanel .panelHeadRow:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
+.scopePanel .panelHeadRow:focus-visible, .catPanel .panelHeadRow:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: -2px; }
 /* fix113: Scope's header row is the one directly comparable to an
    Intake CollapsibleSection header (no search box competing for room),
    so it gets Intake's exact clamp() padding/gap instead of the shared
@@ -53,7 +53,7 @@
   padding: 9px 12px;
   gap: 8px;
 }
-.scopeTitle { font-family: 'Cinzel', serif; color: var(--tx-accent, #EE8C3A); font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.scopeTitle { font-family: var(--font-head, 'Cinzel'), serif; color: var(--tx-accent, var(--acc, #EE8C3A)); font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .scopePanel .scopeTitle { font-size: clamp(10px, 1.3vw, 13px); }
 .badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(var(--ink-rgb), 0.65); background: rgba(var(--ink-rgb), 0.07); border: 1px solid rgba(var(--ink-rgb), 0.16); border-radius: 20px; padding: 4px 12px; }
 .scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); animation: panelExpand 0.2s ease-out; }
@@ -71,143 +71,143 @@
 }
 .sourceCount {
   margin-left: auto; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px);
-  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(26,46,48,0.55);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.55);
   background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; padding: 8px 12px; white-space: nowrap;
 }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px; border-radius: 6px;
   border: 1.5px solid rgba(var(--ink-rgb), 0.2); background: rgba(var(--ink-rgb), 0.08);
   color: rgba(var(--ink-rgb), 0.85); transition: all 0.2s ease;
 }
-.chip:hover:not(:disabled) { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); background: rgba(238,140,58,0.12); }
+.chip:hover:not(:disabled) { border-color: var(--acc, #EE8C3A); color: var(--tx-accent, var(--acc, #EE8C3A)); background: rgba(var(--acc-rgb, 238, 140, 58),0.12); }
 .chip:disabled { opacity: 0.45; cursor: not-allowed; }
 .tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tile {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase;
   padding: 8px 12px; border-radius: 6px; outline: none;
   border: 1.5px solid transparent; background: transparent;
   color: rgba(var(--ink-rgb), 0.92); transition: color 0.2s ease;
 }
-.tile:hover { color: var(--tx-accent, #EE8C3A); }
+.tile:hover { color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .tileActive {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase;
   padding: 8px 14px; border-radius: 6px; outline: none;
-  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;
-  box-shadow: 0 4px 16px rgba(238,140,58,0.3);
+  border: 1.5px solid var(--acc, #EE8C3A); background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30);
+  box-shadow: 0 4px 16px rgba(var(--acc-rgb, 238, 140, 58),0.3);
 }
 .tileCount { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 9px); opacity: 0.75; }
 .hint { display: flex; align-items: center; gap: 7px; margin: 0; font-size: clamp(10px, 1vw, 11.5px); font-weight: 600; color: rgba(var(--ink-rgb), 0.66); }
-.hint svg { color: var(--tx-accent, #EE8C3A); flex-shrink: 0; }
+.hint svg { color: var(--tx-accent, var(--acc, #EE8C3A)); flex-shrink: 0; }
 .error { display: flex; align-items: center; gap: 8px; background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 8px 12px; }
 .scopeRow { display: flex; flex-wrap: wrap; gap: clamp(12px, 1.8vw, 24px); align-items: flex-start; }
 .scopeField { display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; }
 .miniLabel { font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.6); }
 .entWrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.chipE { display: inline-flex; align-items: center; gap: 8px; background: #EE8C3A; color: #1a2e30; border-radius: 6px; padding: 9px 12px; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
-.chipE button { background: transparent; border: none; cursor: pointer; color: #1a2e30; font-size: 12px; font-weight: 900; display: flex; }
+.chipE { display: inline-flex; align-items: center; gap: 8px; background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); border-radius: 6px; padding: 9px 12px; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.chipE button { background: transparent; border: none; cursor: pointer; color: var(--brand-ink, #1a2e30); font-size: 12px; font-weight: 900; display: flex; }
 .pickBtn {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   min-width: clamp(150px, 18vw, 240px); height: 38px; padding: 0 12px; border-radius: 6px;
-  border: 1.5px solid #dfd9d1; background: #fff; color: #1a2e30;
-  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 800;
+  border: 1.5px solid #dfd9d1; background: #fff; color: var(--brand-ink, #1a2e30);
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 800;
   letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.pickBtn:hover { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.pickBtn svg { color: var(--tx-accent, #EE8C3A); transition: transform 0.2s; flex-shrink: 0; }
+.pickBtn:hover { border-color: var(--acc, #EE8C3A); box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58),0.14); }
+.pickBtn svg { color: var(--tx-accent, var(--acc, #EE8C3A)); transition: transform 0.2s; flex-shrink: 0; }
 .pickIconOpen { transform: rotate(180deg); }
 .pickList {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
   width: max-content; min-width: 100%; max-width: 340px;
   background: #fff; border: 1px solid #dfd9d1; border-radius: 8px;
-  box-shadow: 0 18px 40px rgba(26,46,48,0.28); overflow: hidden;
+  box-shadow: 0 18px 40px rgba(var(--brand-ink-rgb, 26, 46, 48),0.28); overflow: hidden;
 }
 .ddScroll { max-height: 264px; overflow-y: auto; padding: 0; scrollbar-width: none; -ms-overflow-style: none; }
 .ddScroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .ddScroll::-webkit-scrollbar-thumb { background: transparent; }
 .pickOption {
   display: flex; width: 100%; text-align: left; border: none; border-bottom: 1px solid #f1eeea;
-  border-radius: 0; background: transparent; color: #1a2e30;
-  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; padding: 10px 12px; cursor: pointer;
+  border-radius: 0; background: transparent; color: var(--brand-ink, #1a2e30);
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: 12px; font-weight: 700; padding: 10px 12px; cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 .pickOption:last-child { border-bottom: none; }
-.pickOption:hover { background: #EE8C3A; color: #fff; }
-.pickOptionActive { background: #EE8C3A; color: #fff; }
+.pickOption:hover { background: var(--acc, #EE8C3A); color: #fff; }
+.pickOptionActive { background: var(--acc, #EE8C3A); color: #fff; }
 .pickCheck {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
   border: none; border-bottom: 1px solid #f1eeea; border-radius: 0; background: transparent;
-  color: #1a2e30; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+  color: var(--brand-ink, #1a2e30); font-family: var(--font-body, 'Inter'), sans-serif; font-size: 12px; font-weight: 700;
   padding: 10px 12px; cursor: pointer; transition: background 0.15s, color 0.15s;
 }
 .pickCheck:last-child { border-bottom: none; }
-.pickCheck:hover { background: #EE8C3A; color: #fff; }
+.pickCheck:hover { background: var(--acc, #EE8C3A); color: #fff; }
 .pickCheck:hover input { border-color: #fff; }
 .pickCheckOn { background: #fdf3e7; color: #b45309; }
 .pickCheck input { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
 .perChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .perChipsDim { opacity: 0.45; pointer-events: none; }
 .pchip {
-  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 12px;
   border-radius: 6px; border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--ink-rgb), 0.06);
   color: rgba(var(--ink-rgb), 0.85); transition: all 0.2s ease; white-space: nowrap;
 }
-.pchip:hover { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
+.pchip:hover { border-color: var(--acc, #EE8C3A); color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .pchipOn {
-  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 12px;
-  border-radius: 6px; border: 1.5px solid #EE8C3A; background: #EE8C3A;
-  color: #1a2e30; white-space: nowrap; outline: none;
+  border-radius: 6px; border: 1.5px solid var(--acc, #EE8C3A); background: var(--acc, #EE8C3A);
+  color: var(--brand-ink, #1a2e30); white-space: nowrap; outline: none;
 }
 .customRange { display: flex; align-items: center; gap: 8px; }
-.customRange input { height: 36px; padding: 0 10px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #1a2e30; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; }
+.customRange input { height: 36px; padding: 0 10px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: var(--brand-ink, #1a2e30); font-family: var(--font-body, 'Inter'), sans-serif; font-size: 11px; font-weight: 700; }
 .customRange span { color: rgba(var(--ink-rgb), 0.6); font-weight: 900; font-size: 10px; }
-.snapHint { color: var(--tx-accent, #EE8C3A); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
+.snapHint { color: var(--tx-accent, var(--acc, #EE8C3A)); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
 .sortRow { display: flex; gap: 6px; align-items: center; }
-.dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: var(--tx-accent, #EE8C3A); font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
-.dirBtn:hover { border-color: #EE8C3A; }
+.dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: var(--tx-accent, var(--acc, #EE8C3A)); font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+.dirBtn:hover { border-color: var(--acc, #EE8C3A); }
 .searchBox {
   box-sizing: border-box; position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto;
 }
-.searchBox:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.searchBox:focus-within { border-color: var(--acc, #EE8C3A); box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58),0.14); }
 .searchIcon {
-  position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--tx-accent, #EE8C3A); pointer-events: none;
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--tx-accent, var(--acc, #EE8C3A)); pointer-events: none;
 }
 .searchBox input {
-  flex: 1; width: 100%; height: 34px; border: none; outline: none; background: transparent; padding: 0 12px 0 40px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; line-height: 34px;
+  flex: 1; width: 100%; height: 34px; border: none; outline: none; background: transparent; padding: 0 12px 0 40px; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 12px; font-weight: 700; color: var(--brand-ink, #1a2e30); line-height: 34px;
 }
-.searchClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.45); display: flex; padding: 4px; }
-.searchClear:hover { color: #1a2e30; }
+.searchClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.45); display: flex; padding: 4px; }
+.searchClear:hover { color: var(--brand-ink, #1a2e30); }
 .tabRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: rgba(var(--well), 0.16); border-bottom: 1px solid rgba(var(--ink-rgb), 0.08); }
 .gtab {
-  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
   border-radius: 6px; border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--ink-rgb), 0.06);
   color: rgba(var(--ink-rgb), 0.8); transition: all 0.2s;
 }
-.gtab:hover { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
+.gtab:hover { border-color: var(--acc, #EE8C3A); color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .gtabOn {
-  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
-  border-radius: 6px; border: 1.5px solid #EE8C3A; background: #EE8C3A;
-  color: #1a2e30; outline: none;
+  border-radius: 6px; border: 1.5px solid var(--acc, #EE8C3A); background: var(--acc, #EE8C3A);
+  color: var(--brand-ink, #1a2e30); outline: none;
 }
 .gcnt { font-family: 'Space Mono', monospace; opacity: 0.7; margin-left: 6px; }
 .recentRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 14px; background: #fff; border-bottom: 1px solid #dfd9d1; }
-.recentLabel { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: rgba(26,46,48,0.45); margin-right: 4px; }
+.recentLabel { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.45); margin-right: 4px; }
 .rchip {
-  cursor: pointer; font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900;
+  cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 9px; font-weight: 900;
   letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px; border-radius: 6px;
-  border: 1.5px solid rgba(238,140,58,0.5); background: #fff; color: #b45309; transition: all 0.2s;
+  border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58),0.5); background: #fff; color: #b45309; transition: all 0.2s;
 }
-.rchip:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.rchip:hover { background: var(--acc, #EE8C3A); border-color: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
 /* fix118: prototype parity (report-catalogue-option1-refined.html).
    Groups no longer render as a stack of individually-shadowed,
    hover-lifting cards (one per report) -- each group now shares ONE
@@ -241,23 +241,23 @@
    the rail's corner and left a sliver of the card's white
    background showing through at the top (and bottom on the last
    row). Plain overflow:hidden back on the card -- no seams. */
-.ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
+.ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(var(--brand-ink-rgb, 26, 46, 48),0.14); background: #fff; }
 .groupLabel { padding: 2px 4px; }
 .groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #5b6f70; transition: color 0.18s ease; }
-.groupLabel span:hover { color: var(--tx-accent, #EE8C3A); }
+.groupLabel span:hover { color: var(--tx-accent, var(--acc, #EE8C3A)); }
 /* the row itself carries the left rail, so an expanded readout can
    share it, and the hairline divider between records. */
-.row { border-left: 3px solid transparent; border-bottom: 1.5px solid rgba(26,46,48,0.16); transition: border-left-color 0.16s ease; }
+.row { border-left: 3px solid transparent; border-bottom: 1.5px solid rgba(var(--brand-ink-rgb, 26, 46, 48),0.16); transition: border-left-color 0.16s ease; }
 .row:last-child { border-bottom: none; }
-.row.rowOpen, .row.rowApplied { border-left-color: #EE8C3A; }
+.row.rowOpen, .row.rowApplied { border-left-color: var(--acc, #EE8C3A); }
 /* applied, closed, at rest: a real, visible orange wash rather
    than just the rail -- text stays ink. Opening it, or just
    hovering it, both hand off to the same solid-orange treatment
    every row gets below, so the applied report is never flatter
    than the rest just because it's active. */
-.row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }
-.row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }
-.row.rowApplied .desc { color: rgba(26,46,48,0.65); }
+.row.rowApplied .rowHead { background: rgba(var(--acc-rgb, 238, 140, 58),0.26); }
+.row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: var(--brand-ink, #1a2e30); }
+.row.rowApplied .desc { color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.65); }
 .rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }
 /* fix123: open keeps the fill persistently, not just on :hover, so
    it stays visible after you've expanded a row and moved the
@@ -266,7 +266,7 @@
    hovering the active report lights it up exactly like any
    other one. */
 .row.rowOpen .rowHead,
-.row .rowHead:hover { background: #EE8C3A; }
+.row .rowHead:hover { background: var(--acc, #EE8C3A); }
 .row.rowOpen .rowHead .name,
 .row.rowOpen .rowHead .rows,
 .row.rowOpen .rowHead .tag,
@@ -277,15 +277,15 @@
 .row .rowHead:hover .chev { color: var(--ink-solid); }
 .row.rowOpen .rowHead .desc,
 .row .rowHead:hover .desc { color: rgba(var(--ink-rgb), 0.85); }
-.rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
+.rowHead:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: -2px; }
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #5b6f70; transition: color 0.15s ease; }
-.desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 2px; transition: color 0.15s ease; }
+.desc { font-size: 11px; font-weight: 600; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.55); margin-top: 2px; transition: color 0.15s ease; }
 .rightMeta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-.rows { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
-.tag { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
-.chev { color: rgba(26,46,48,0.35); font-size: 12px; flex-shrink: 0; transition: transform 0.2s ease, color 0.15s ease; }
-.row.rowOpen .chev { transform: rotate(180deg); color: var(--tx-accent, #EE8C3A); }
+.rows { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.4); white-space: nowrap; transition: color 0.15s ease; }
+.tag { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.4); white-space: nowrap; transition: color 0.15s ease; }
+.chev { color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.35); font-size: 12px; flex-shrink: 0; transition: transform 0.2s ease, color 0.15s ease; }
+.row.rowOpen .chev { transform: rotate(180deg); color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .appliedTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 1px; color: #a8551c; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 2px 6px; margin-left: 8px; }
 /* fix120: the default row's permanent wash + rail is removed -- it
    made the default view look "active"/selected at all times, even
@@ -296,22 +296,22 @@
 /* readout sits flush against the row's own left rail with zero extra
    margin -- the rail stops exactly where the readout stops. */
 .readout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0; background: var(--sf-readout, #28383a); }
-.readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; line-height: 1.5; color: rgba(242,237,228,0.85); }
+.readoutText { flex: 1; min-width: 0; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 11px; font-weight: 600; line-height: 1.5; color: rgba(242,237,228,0.85); }
 /* real HeaderButton .primary spec: ~34px tall, recolor-only hover (no
    lift/transform), disabled/applied reuses the same colors at 0.5
    opacity instead of the old 0.45. */
 .useBtn {
   flex-shrink: 0; cursor: pointer; height: 34px; padding: 0 16px; border-radius: 6px;
-  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
-  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  border: 1.5px solid var(--acc, #EE8C3A); background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
-.useBtn:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; color: #1a2e30; }
+.useBtn:hover:not(:disabled) { background: var(--acc-dk, #d97a2b); border-color: var(--acc-dk, #d97a2b); color: var(--brand-ink, #1a2e30); }
 .useBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-.emptyCell { text-align: center; padding: 24px 16px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26,46,48,0.5); }
-.foot { padding: 10px 14px; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 0 0 11px 11px; }
+.emptyCell { text-align: center; padding: 24px 16px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.5); }
+.foot { padding: 10px 14px; background: #f6f3ef; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.55); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 0 0 11px 11px; }
 .viewerPanel { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
-.viewerPanel .panelHeadRow { background: transparent; border-bottom: 1.5px solid #EE8C3A; border-radius: 0; padding: 0 0 10px 0; }
+.viewerPanel .panelHeadRow { background: transparent; border-bottom: 1.5px solid var(--acc, #EE8C3A); border-radius: 0; padding: 0 0 10px 0; }
 .pvChips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pvChip {
   font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700;
@@ -322,40 +322,40 @@
 .pvBtns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .chartChips { display: flex; gap: 6px; flex-wrap: wrap; }
 .cchip {
-  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
   border-radius: 6px; border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--ink-rgb), 0.06);
   color: rgba(var(--ink-rgb), 0.8); transition: all 0.2s;
 }
-.cchip:hover { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
-.cchipOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.cchip:hover { border-color: var(--acc, #EE8C3A); color: var(--tx-accent, var(--acc, #EE8C3A)); }
+.cchipOn { background: var(--acc, #EE8C3A); border-color: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
 .chartBox {
   --accent: #EE8C3A; --surface: #ffffff; --surface-3: #efe9e2; --surface-edge: #dfd9d1;
-  --ink: #1a2e30; --ink-soft: #5b6f70; --ink-faint: rgba(26,46,48,0.45);
+  --ink: var(--brand-ink, #1a2e30); --ink-soft: #5b6f70; --ink-faint: rgba(var(--brand-ink-rgb, 26, 46, 48),0.45);
   background: #fff; border: 1.5px solid #dfd9d1; border-radius: 8px; padding: clamp(10px, 1.4vw, 14px);
 }
-.pvScroll { overflow-x: auto; background: #fff; border: 1.5px solid #dfd9d1; border-radius: 8px; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
+.pvScroll { overflow-x: auto; background: #fff; border: 1.5px solid #dfd9d1; border-radius: 8px; scrollbar-width: thin; scrollbar-color: var(--acc, #EE8C3A) transparent; }
 .pvScroll::-webkit-scrollbar { height: 8px; }
-.pvScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 4px; }
+.pvScroll::-webkit-scrollbar-thumb { background: rgba(var(--acc-rgb, 238, 140, 58),0.45); border-radius: 4px; }
 .pvTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
-.pvTable th { position: sticky; top: 0; z-index: 2; background: var(--sf-head, #162a2c); color: var(--tx-accent, #EE8C3A); font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: 9px 12px; white-space: nowrap; }
-.pvTable td { padding: 8px 12px; border-bottom: 1px solid #f1eeea; color: #1a2e30; font-size: clamp(10px, 1.05vw, 12px); font-weight: 600; white-space: nowrap; }
+.pvTable th { position: sticky; top: 0; z-index: 2; background: var(--sf-head, var(--brand-head, #162a2c)); color: var(--tx-accent, var(--acc, #EE8C3A)); font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: 9px 12px; white-space: nowrap; }
+.pvTable td { padding: 8px 12px; border-bottom: 1px solid #f1eeea; color: var(--brand-ink, #1a2e30); font-size: clamp(10px, 1.05vw, 12px); font-weight: 600; white-space: nowrap; }
 .pvTable tbody tr:nth-child(even) td { background: #fbf9f7; }
-.pvTable tbody tr:hover td { background: rgba(238,140,58,0.22); }
+.pvTable tbody tr:hover td { background: rgba(var(--acc-rgb, 238, 140, 58),0.22); }
 .pvTable th:first-child, .pvTable td:first-child { position: sticky; left: 0; z-index: 3; }
-.pvTable th:first-child { background: var(--sf-head, #162a2c); }
+.pvTable th:first-child { background: var(--sf-head, var(--brand-head, #162a2c)); }
 .pvTable td:first-child { background: #fff; font-family: 'Space Mono', monospace; font-weight: 700; border-right: 1px solid #dfd9d1; }
 .pvTable tbody tr:nth-child(even) td:first-child { background: #fbf9f7; }
-.pvTable tbody tr:hover td:first-child { background: rgba(238,140,58,0.22); }
+.pvTable tbody tr:hover td:first-child { background: rgba(var(--acc-rgb, 238, 140, 58),0.22); }
 .pvNote { color: rgba(var(--ink-rgb), 0.62); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7; }
-.appliedLine { color: rgba(26,46,48,0.62); font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
-.appliedLine b { color: var(--tx-accent, #EE8C3A); }
+.appliedLine { color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.62); font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.appliedLine b { color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .useBtnDark {
-  flex-shrink: 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  flex-shrink: 0; cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px;
-  border-radius: 6px; border: 1.5px solid #EE8C3A; background: var(--sf-head, #162a2c); color: var(--tx-accent, #EE8C3A); transition: all 0.2s;
+  border-radius: 6px; border: 1.5px solid var(--acc, #EE8C3A); background: var(--sf-head, var(--brand-head, #162a2c)); color: var(--tx-accent, var(--acc, #EE8C3A)); transition: all 0.2s;
 }
-.useBtnDark:hover:not(:disabled) { background: var(--sf-2, #213E40); transform: translateY(-1px); }
+.useBtnDark:hover:not(:disabled) { background: var(--sf-2, var(--brand-2, #213E40)); transform: translateY(-1px); }
 .useBtnDark:disabled { opacity: 0.45; cursor: not-allowed; }
 .approachNote { background: rgba(var(--well), 0.28); border: 1px solid rgba(var(--ink-rgb), 0.1); border-radius: 6px; padding: 8px 12px; color: rgba(var(--ink-rgb), 0.72); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 10px); line-height: 1.6; }
 .pvChipDd {
@@ -367,24 +367,24 @@
 }
 .chartDdBtn {
   display: flex; align-items: center; gap: 4px; cursor: pointer; height: 22px; padding: 0 8px;
-  border-radius: 4px; border: none; background: #EE8C3A; color: #1a2e30;
-  font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+  border-radius: 4px; border: none; background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30);
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
 }
 .chartDdBtn svg { flex-shrink: 0; transition: transform 0.2s; }
-.entInput { box-sizing: border-box; flex: 0 0 auto; height: 36px; width: clamp(200px, 22vw, 260px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-.entInput:focus { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.entInput { box-sizing: border-box; flex: 0 0 auto; height: 36px; width: clamp(200px, 22vw, 260px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 12px; font-weight: 700; color: var(--brand-ink, #1a2e30); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.entInput:focus { border-color: var(--acc, #EE8C3A); box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58),0.14); }
 .pickOptionTag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.7; }
-.ddFootMsg { padding: 8px 10px; color: rgba(26,46,48,0.5); font-size: 10px; font-weight: 700; }
+.ddFootMsg { padding: 8px 10px; color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.5); font-size: 10px; font-weight: 700; }
 /* fix97: prototype parity -- canonical field dims last, empty preview
    placeholder, head toggles, panel bottom edge + corner ticks. */
 .entInput, .searchBox { box-sizing: border-box; height: 36px; width: clamp(200px, 22vw, 260px); }
 .viewerEmpty {
-  border: 2px dashed rgba(26, 46, 48, 0.28); border-radius: 10px;
+  border: 2px dashed rgba(var(--brand-ink-rgb, 26, 46, 48), 0.28); border-radius: 10px;
   background: rgba(var(--ink-rgb), 0.35);
   padding: clamp(24px, 4vw, 40px) 16px;
   display: flex; align-items: center; justify-content: center; text-align: center;
-  font-family: 'Inter', sans-serif; font-size: clamp(9px, 1vw, 11px); font-weight: 900;
-  letter-spacing: 2px; text-transform: uppercase; color: rgba(26, 46, 48, 0.45);
+  font-family: var(--font-body, 'Inter'), sans-serif; font-size: clamp(9px, 1vw, 11px); font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase; color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.45);
 }
 /* fix115: this comment always said "a plain rotating glyph, not a boxed
    button" but the rule below it still was one -- a fixed 28x28 circle
@@ -401,7 +401,7 @@
 .headToggle svg {
   transition: transform 0.2s ease;
 }
-.headToggle .pickIconOpen { color: var(--tx-accent, #EE8C3A); }
+.headToggle .pickIconOpen { color: var(--tx-accent, var(--acc, #EE8C3A)); }
 .catPanel .searchBox { margin-left: auto; }
 .catPanel .headToggle { margin-left: 10px; }
 /* Collapsed, the head row IS the whole visible panel -- it should read as
@@ -422,8 +422,8 @@
 }
 
 /* fix217: an option reached by typing a letter (global type-ahead) is marked like a hovered one */
-.pickOption:focus, .pickOption:focus-visible { background: #EE8C3A; color: #fff; outline: none; }
-.pickCheck:focus, .pickCheck:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
+.pickOption:focus, .pickOption:focus-visible { background: var(--acc, #EE8C3A); color: #fff; outline: none; }
+.pickCheck:focus, .pickCheck:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: -2px; }
 
 /* fix227 (David): two or more charts side by side (one column on a phone) */
 .chartGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: clamp(10px, 1.4vw, 14px); }

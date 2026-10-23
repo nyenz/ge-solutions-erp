@@ -22,12 +22,12 @@
 }
 .requiredMark { color: #ef4444; margin-left: 4px; }
 
-.placeholder { color: rgba(26, 46, 48, 0.45); }
+.placeholder { color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.45); }
 
 .selectBox {
     background: #ffffff;
     border-radius: var(--input-radius, 6px);
-    border: 1.5px solid rgba(238, 140, 58, 0.3);
+    border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     padding: 0 var(--input-px, clamp(9px, 1.2vw, 13px));
     display: flex;
     justify-content: space-between;
@@ -40,7 +40,7 @@
 }
 .selectBox:hover, .active {
     border-color: var(--orange);
-    box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15);
+    box-shadow: 0 0 0 2px rgba(var(--acc-rgb, 238, 140, 58), 0.15);
 }
 
 .currentValue {
@@ -99,7 +99,7 @@
     color: white;
 }
 /* fix210: the row the keyboard (or a typed letter) is on */
-.optionActive { background: rgba(238, 140, 58, 0.16); }
+.optionActive { background: rgba(var(--acc-rgb, 238, 140, 58), 0.16); }
 .selected.optionActive { background: #d97a2e; }
 .selectBox:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 

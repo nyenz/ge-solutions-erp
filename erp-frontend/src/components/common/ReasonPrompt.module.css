@@ -3,11 +3,11 @@
 .picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .pick {
     font: inherit; font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 99px; cursor: pointer;
-    background: transparent; color: inherit; border: 1px solid rgba(238, 140, 58, 0.35);
+    background: transparent; color: inherit; border: 1px solid rgba(var(--acc-rgb, 238, 140, 58), 0.35);
     transition: border-color 0.15s, background 0.15s;
 }
-.pick:hover, .pick:focus-visible { border-color: #EE8C3A; outline: none; }
-.pickOn { background: rgba(238, 140, 58, 0.18); border-color: #EE8C3A; }
+.pick:hover, .pick:focus-visible { border-color: var(--acc, #EE8C3A); outline: none; }
+.pickOn { background: rgba(var(--acc-rgb, 238, 140, 58), 0.18); border-color: var(--acc, #EE8C3A); }
 .pick:disabled { opacity: 0.5; cursor: default; }
 .boxErr { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18) !important; }
 .err { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: #f87171; font-size: 12px; font-weight: 700; }
@@ -15,7 +15,7 @@
     display: inline-flex; align-items: center; gap: 8px;
     height: var(--btn-height, clamp(32px, 4vw, 38px)); padding: 0 clamp(10px, 1.4vw, 16px);
     background: #b91c1c; color: #fff; border: none; border-radius: 6px;
-    font-family: 'Inter', sans-serif; font-weight: 900; font-size: var(--btn-font, clamp(8px, 0.85vw, 10px));
+    font-family: var(--font-body, 'Inter'), sans-serif; font-weight: 900; font-size: var(--btn-font, clamp(8px, 0.85vw, 10px));
     letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, box-shadow 0.2s;
 }
 .danger:hover, .danger:focus-visible { background: #991b1b; color: #fff; box-shadow: 0 0 16px rgba(239, 68, 68, 0.35); outline: none; }

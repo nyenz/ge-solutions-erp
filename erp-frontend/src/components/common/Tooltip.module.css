@@ -39,7 +39,7 @@
     backdrop-filter: blur(10px);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
     color: #f3efe7; /* fix208: a fixed light colour -- the theme ink turned dark in Light mode and the words vanished on the dark bubble */
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: 11px;
     font-weight: 400;
     line-height: 1.5;
@@ -64,7 +64,7 @@
     outline: none;
 }
 .term:focus-visible {
-    outline: 2px solid #EE8C3A;
+    outline: 2px solid var(--acc, #EE8C3A);
     outline-offset: 2px;
     border-radius: 2px;
 }

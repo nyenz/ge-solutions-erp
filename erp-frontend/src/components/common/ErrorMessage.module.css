@@ -10,7 +10,7 @@
     border: 1.5px solid transparent;
     width: 100%;
     box-sizing: border-box;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     animation: errIn 0.28s cubic-bezier(0.2, 1, 0.3, 1) both;
 }
 
@@ -53,7 +53,7 @@
 }
 .title {
     display: block;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: clamp(11px, 1.1vw, 13px);
     letter-spacing: 0.3px;
@@ -62,7 +62,7 @@
 }
 .msg {
     margin: 0;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(11px, 1.05vw, 13px);
     font-weight: 700;
     line-height: 1.55;
@@ -81,7 +81,7 @@
     border-radius: 6px;
     border: 1.5px solid currentColor;
     background: transparent;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: clamp(9px, 0.9vw, 11px);
     text-transform: uppercase;
@@ -113,7 +113,7 @@
 
 /* On dark panels (inside .hwPanel / .panel dark variant) */
 .dark .error,
-[data-theme="dark"] .error {
+:root:is([data-theme="dark"], [data-theme="gesnavy"]) .error {
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.35);
     color: var(--tx-red, #fca5a5);

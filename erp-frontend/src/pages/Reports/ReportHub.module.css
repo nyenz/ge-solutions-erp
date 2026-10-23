@@ -1,12 +1,12 @@
 /* PATH: erp-frontend/src/pages/Reports/ReportHub.module.css */
 
 .container {
-    --orange:        #EE8C3A;
-    --orange-dim:    rgba(238, 140, 58, 0.18);
-    --orange-border: rgba(238, 140, 58, 0.28);
-    --navy:          #1a2e30;
-    --panel-bg:      linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
-    --panel-border:  rgba(238, 140, 58, 0.2);
+    --orange:        var(--acc, #EE8C3A);
+    --orange-dim:    rgba(var(--acc-rgb, 238, 140, 58), 0.18);
+    --orange-border: rgba(var(--acc-rgb, 238, 140, 58), 0.28);
+    --navy:          var(--brand-ink, #1a2e30);
+    --panel-bg:      linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+    --panel-border:  rgba(var(--acc-rgb, 238, 140, 58), 0.2);
     --red:           #ef4444;
     --green:         #4ade80;
 
@@ -26,7 +26,7 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: clamp(8px, 2vw, 18px) clamp(8px, 2vw, 18px) clamp(28px, 4.5vw, 52px);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     color: var(--ink-solid);
     animation: hubBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
 }
@@ -42,7 +42,7 @@
 @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
 .toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: #fff; }
 .toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: #fff; }
-.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: #1a2e30; }
+.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: var(--brand-ink, #1a2e30); }
 .toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: #fff; }
 .toastIcon  { font-size: clamp(13px,1.5vw,17px); flex-shrink: 0; margin-top: 1px; }
 .toastMsg   { font-family: 'Space Mono', monospace; font-size: clamp(9px,1vw,11px); font-weight: 700; line-height: 1.4; flex: 1; min-width: 0; word-break: break-word; }
@@ -65,8 +65,8 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
 }
 .headerLeft { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); min-width: 0; flex: 1; }
-.title  { font-family: 'Cinzel', serif; color: var(--navy); font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; line-height: 1; margin: 0; }
-.subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.title  { font-family: var(--font-head, 'Cinzel'), serif; color: var(--navy); font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; line-height: 1; margin: 0; }
+.subtitle { font-family: var(--font-ui, 'DM Sans'), sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
 
 /* ── PILLAR STACK ── */
 .pillarStack { display: flex; flex-direction: column; gap: var(--gap-md); }
@@ -77,17 +77,17 @@
     border-radius: var(--radius); overflow: visible;
     box-shadow: 0 8px 24px rgba(0,0,0,0.14); transition: border-color 0.2s;
 }
-.hwPanel:hover { border-color: rgba(238,140,58,0.38); }
+.hwPanel:hover { border-color: rgba(var(--acc-rgb, 238, 140, 58),0.38); }
 
 .drawerHeader {
     display: flex; justify-content: space-between; align-items: center;
     padding: clamp(8px, 1.1vw, 11px) clamp(12px, 1.5vw, 17px);
-    border-bottom: 1px solid rgba(238,140,58,0.12);
+    border-bottom: 1px solid rgba(var(--acc-rgb, 238, 140, 58),0.12);
     cursor: pointer; user-select: none; outline: none; transition: background 0.2s;
 }
-.drawerHeader:hover { background: rgba(238,140,58,0.04); }
+.drawerHeader:hover { background: rgba(var(--acc-rgb, 238, 140, 58),0.04); }
 .drawerHeader:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
-.drawerTitle { display: flex; align-items: center; gap: clamp(7px,0.9vw,11px); font-family: 'DM Sans', sans-serif; color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: 2px; text-transform: uppercase; }
+.drawerTitle { display: flex; align-items: center; gap: clamp(7px,0.9vw,11px); font-family: var(--font-ui, 'DM Sans'), sans-serif; color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: 2px; text-transform: uppercase; }
 .drawerIcon { font-size: clamp(13px,1.4vw,16px); color: var(--orange); }
 .chevron { color: var(--orange); font-size: clamp(15px,1.7vw,19px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); flex-shrink: 0; }
 .rotated { transform: rotate(180deg); }
@@ -117,7 +117,7 @@
 }
 .reportRow:hover { background: rgba(var(--ink-rgb), 0.035); }
 .reportRow:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
-.reportRowActive { background: rgba(238,140,58,0.06); border-left: 3px solid var(--orange); }
+.reportRowActive { background: rgba(var(--acc-rgb, 238, 140, 58),0.06); border-left: 3px solid var(--orange); }
 
 .iconFrame {
     width:  clamp(28px,3.2vw,36px); height: clamp(28px,3.2vw,36px);
@@ -149,7 +149,7 @@
     display: flex;
     align-items: center;
     gap: clamp(7px,0.9vw,10px);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(8px,0.82vw,10px);
     font-weight: 900;
     color: var(--tx-green, #4ade80);
@@ -161,7 +161,7 @@
 /* Plain English description in soft grey */
 .detailDesc {
     margin: 0 0 clamp(12px,1.5vw,16px);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(11px,1.1vw,13px);
     font-weight: 700;
     color: rgba(var(--ink-rgb), 0.65);
@@ -174,7 +174,7 @@
 }
 .schemaLabel {
     display: block;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(8px,0.82vw,10px);
     font-weight: 900;
     color: var(--orange);
@@ -208,22 +208,22 @@
     padding: 0 clamp(20px,2.5vw,30px);
     height: clamp(40px,5vw,48px);
     background: var(--orange);
-    color: #1a2e30;
+    color: var(--brand-ink, #1a2e30);
     border: none;
     border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: clamp(10px,1vw,12px);
     text-transform: uppercase;
     letter-spacing: 1.5px;
     cursor: pointer;
     transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
-    box-shadow: 0 4px 16px rgba(238,140,58,0.35);
+    box-shadow: 0 4px 16px rgba(var(--acc-rgb, 238, 140, 58),0.35);
     white-space: nowrap;
 }
 .exportBtnLarge:hover:not(:disabled) {
-    background: #f0a050;
-    box-shadow: 0 0 24px rgba(238,140,58,0.55);
+    background: var(--acc-hi, #f0a050);
+    box-shadow: 0 0 24px rgba(var(--acc-rgb, 238, 140, 58),0.55);
     transform: translateY(-1px);
 }
 .exportBtnLarge:disabled { opacity: 0.5; cursor: wait; }
@@ -232,8 +232,8 @@
 /* Spinner inside export button */
 .exportSpinner {
     width: 14px; height: 14px;
-    border: 2px solid rgba(26,46,48,0.3);
-    border-top-color: var(--sf-navy, #1a2e30);
+    border: 2px solid rgba(var(--brand-ink-rgb, 26, 46, 48),0.3);
+    border-top-color: var(--sf-navy, var(--brand-ink, #1a2e30));
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
@@ -247,8 +247,8 @@
 }
 .lockIcon { color: #ef4444; font-size: clamp(20px,2.5vw,28px); flex-shrink: 0; animation: lockPulse 2s infinite; }
 @keyframes lockPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
-.warningText strong { display: block; font-family: 'DM Sans', sans-serif; color: var(--tx-red, #fca5a5); font-size: var(--fs-drawer); font-weight: 900; letter-spacing: 1px; margin-bottom: clamp(2px,0.3vw,4px); text-transform: uppercase; }
-.warningText p { font-family: 'DM Sans', sans-serif; color: rgba(var(--ink-rgb), 0.65); font-size: var(--fs-label); font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.warningText strong { display: block; font-family: var(--font-ui, 'DM Sans'), sans-serif; color: var(--tx-red, #fca5a5); font-size: var(--fs-drawer); font-weight: 900; letter-spacing: 1px; margin-bottom: clamp(2px,0.3vw,4px); text-transform: uppercase; }
+.warningText p { font-family: var(--font-ui, 'DM Sans'), sans-serif; color: rgba(var(--ink-rgb), 0.65); font-size: var(--fs-label); font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
@@ -274,18 +274,18 @@
 }
 .tab, .tabActive {
     display: inline-flex; align-items: center; gap: 7px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(9px, 0.95vw, 11px);
     font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
     padding: clamp(8px, 1.1vw, 11px) clamp(14px, 2vw, 24px);
     border-radius: var(--radius-sm);
-    border: 1.5px solid rgba(26, 46, 48, 0.2);
+    border: 1.5px solid rgba(var(--brand-ink-rgb, 26, 46, 48), 0.2);
     background: rgba(255, 255, 255, 0.62);
     -webkit-backdrop-filter: blur(15px);
     backdrop-filter: blur(15px);
     /* CONTRAST RULE: these sit on the cream page, not on a panel, so the
        text is navy on a frosted white pill -- 13.4:1. */
-    color: #1a2e30;
+    color: var(--brand-ink, #1a2e30);
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -293,8 +293,8 @@
 .tabActive {
     background: var(--orange);
     border-color: var(--orange);
-    color: #1a2e30;
-    box-shadow: 0 4px 16px rgba(238, 140, 58, 0.3);
+    color: var(--brand-ink, #1a2e30);
+    box-shadow: 0 4px 16px rgba(var(--acc-rgb, 238, 140, 58), 0.3);
 }
 .tab:focus-visible, .tabActive:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
@@ -322,7 +322,7 @@
 .libWrap { display: flex; flex-direction: column; gap: clamp(10px,1.4vw,16px); }
 .libGroup { display: flex; flex-direction: column; gap: 6px; }
 .libLabel {
-  font-family: 'DM Sans', sans-serif; font-weight: 900;
+  font-family: var(--font-ui, 'DM Sans'), sans-serif; font-weight: 900;
   font-size: clamp(8px,0.85vw,10px); letter-spacing: 2px; text-transform: uppercase;
   color: rgba(var(--ink-rgb), 0.6);
 }
@@ -335,12 +335,12 @@
   overflow: hidden;
 }
 .libList .reportRow { padding: clamp(9px,1.2vw,13px) clamp(10px,1.4vw,15px); }
-.libList .reportRow:hover { background: rgba(238,140,58,0.07); }
-.libList .reportRowActive { background: rgba(238,140,58,0.09); border-left: 3px solid var(--orange); }
-.libList .rptTitle { color: #1a2e30; }
-.libList .rowChevron { color: rgba(26,46,48,0.35); }
+.libList .reportRow:hover { background: rgba(var(--acc-rgb, 238, 140, 58),0.07); }
+.libList .reportRowActive { background: rgba(var(--acc-rgb, 238, 140, 58),0.09); border-left: 3px solid var(--orange); }
+.libList .rptTitle { color: var(--brand-ink, #1a2e30); }
+.libList .rowChevron { color: rgba(var(--brand-ink-rgb, 26, 46, 48),0.35); }
 .libList .reportRow:hover .rowChevron { color: var(--orange); }
-.libList .iconFrame { background: rgba(238,140,58,0.12); }
+.libList .iconFrame { background: rgba(var(--acc-rgb, 238, 140, 58),0.12); }
 /* the forensic detail drawer stays black on purpose -- it is the one object
    in the library that should look like a vault opening. */
 .libList .detailBox { border-top: 1px solid rgba(var(--ink-rgb), 0.08); }
@@ -350,7 +350,7 @@
    dark panel body). The black expandable drawers are gone. */
 .libChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .libChip {
-  font-family: 'Inter', sans-serif; font-weight: 900;
+  font-family: var(--font-body, 'Inter'), sans-serif; font-weight: 900;
   text-transform: uppercase; letter-spacing: 1.5px;
   font-size: clamp(8px,0.85vw,10px);
   padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
@@ -360,7 +360,7 @@
   color: rgba(var(--ink-rgb), 0.85);
   cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
 }
-.libChip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: var(--tx-accent, #EE8C3A); border-color: #EE8C3A; }
+.libChip:hover:not(:disabled) { background: rgba(var(--acc-rgb, 238, 140, 58),0.12); color: var(--tx-accent, var(--acc, #EE8C3A)); border-color: var(--acc, #EE8C3A); }
 .libChip:disabled { opacity: 0.45; cursor: wait; }
 
 

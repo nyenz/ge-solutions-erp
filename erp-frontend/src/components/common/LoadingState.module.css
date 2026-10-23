@@ -5,11 +5,11 @@
    screen renders before .container exists at all -- so it can never rely on
    a page's --orange / --panel-bg being in scope. */
 .shell {
-    --ls-panel-bg:     linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
-    --ls-panel-border: rgba(238, 140, 58, 0.28);
-    --ls-orange:       #EE8C3A;
-    --ls-track:        rgba(238, 140, 58, 0.15);
-    --ls-text:         rgba(var(--ink-rgb), 0.72); /* 6.98:1 on #1c3335 */
+    --ls-panel-bg:     linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+    --ls-panel-border: rgba(var(--acc-rgb, 238, 140, 58), 0.28);
+    --ls-orange:       var(--acc, #EE8C3A);
+    --ls-track:        rgba(var(--acc-rgb, 238, 140, 58), 0.15);
+    --ls-text:         rgba(var(--ink-rgb), 0.72); /* 6.98:1 on var(--brand-1, #1c3335) */
     --ls-radius:       10px;
 
     display: flex;
@@ -68,8 +68,8 @@
 
 /* -- TABLE ROW VARIANT -- */
 .cell {
-    --ls-orange: #EE8C3A;
-    --ls-track:  rgba(238, 140, 58, 0.15);
+    --ls-orange: var(--acc, #EE8C3A);
+    --ls-track:  rgba(var(--acc-rgb, 238, 140, 58), 0.15);
     --ls-text:   rgba(var(--ink-rgb), 0.72);
     text-align: center;
     padding: clamp(24px, 4vw, 34px) 16px !important;
@@ -104,7 +104,7 @@
 .shellSkel { align-items: stretch; justify-content: flex-start; text-align: left; padding: clamp(14px, 2vw, 22px); }
 .skelStack { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); width: 100%; }
 .skelHud, .skelHeader, .skelLine, .skelRowBar {
-    background-color: var(--sf-deep, #16292b);
+    background-color: var(--sf-deep, var(--brand-deep, #16292b));
     background-image: linear-gradient(90deg, rgba(var(--ink-rgb), 0.04) 25%, rgba(var(--ink-rgb), 0.10) 50%, rgba(var(--ink-rgb), 0.04) 75%);
     background-size: 1200px 100%;
     animation: lsShimmer 1.4s infinite linear;
