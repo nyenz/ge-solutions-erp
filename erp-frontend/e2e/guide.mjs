@@ -122,6 +122,8 @@ const TASKS = (P, C) => [
             const s = t.steps[i];
             try {
                 await page.goto(WEB + '/' + s.go, { waitUntil: 'networkidle', timeout: 45000 });
+                // the test machine's LOCAL badge is not part of the real app -- keep it out of the guide pictures
+                await page.addStyleTag({ content: '[class*="localStrip"]{display:none!important}' });
                 await page.waitForTimeout(1200);
                 for (const c of [].concat(s.click || [])) {
                     const loc = (typeof c === 'string' ? page.getByText(c, { exact: false }) : page.locator(c.css)).filter({ visible: true }).first();

@@ -61,7 +61,11 @@
   .speed { font-size: 12px; color: var(--body); }
   .empty { margin: auto; text-align: center; color: var(--body); }
   @media (max-width: 760px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+    .side, .main { min-width: 0; }
+    .stage { flex: none; }
+    .frame { aspect-ratio: 16 / 9; height: auto; }
+    .speed { display: none; }
     .tasks { display: flex; overflow-x: auto; padding: 0 10px 10px; }
     .task { min-width: 200px; }
     .frame { width: 100%; }
@@ -104,7 +108,7 @@
   function start(data) {
     DATA = data;
     var roles = ['All'];
-    data.tasks.forEach(function (t) { if (roles.indexOf(t.role) < 0) roles.push(t.role); });
+    data.tasks.forEach(function (t) { if (t.role !== 'All staff' && roles.indexOf(t.role) < 0) roles.push(t.role); });
     var want = (new URLSearchParams(location.search).get('role') || '').toLowerCase();
     roles.forEach(function (r) { if (r.toLowerCase() === want) state.role = r; });
     $('roles').innerHTML = '';

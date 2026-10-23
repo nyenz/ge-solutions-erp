@@ -1,0 +1,543 @@
+{
+ "made": "2026-10-23T09:29:21.229Z",
+ "size": {
+  "width": 1280,
+  "height": 720
+ },
+ "tasks": [
+  {
+   "id": "start",
+   "role": "All staff",
+   "title": "Find your way around",
+   "why": "Where everything is, and how to get help on any button.",
+   "steps": [
+    {
+     "img": "start-1.jpg",
+     "cap": "The top bar: the menu button on the left, your name and rank, the bell for alerts, and sign out on the right.",
+     "box": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 64
+     }
+    },
+    {
+     "img": "start-2.jpg",
+     "cap": "The menu: every page you may open. Your rank decides which pages show.",
+     "box": {
+      "x": 0,
+      "y": 64,
+      "w": 200,
+      "h": 656
+     }
+    },
+    {
+     "img": "start-3.jpg",
+     "cap": "The Dashboard: today’s work first. Press a box to jump to that list.",
+     "box": {
+      "x": 224,
+      "y": 237,
+      "w": 1032,
+      "h": 212
+     }
+    },
+    {
+     "img": "start-4.jpg",
+     "cap": "Hold the mouse on any button, tab or column for a short explainer. Turn them FAST or OFF in Settings > Appearance.",
+     "box": {
+      "x": 598,
+      "y": 389,
+      "w": 283,
+      "h": 31
+     }
+    }
+   ]
+  },
+  {
+   "id": "new-project",
+   "role": "Secretary",
+   "title": "Register a new project",
+   "why": "Enter a new job: who pays, where the land is, the stages and the money.",
+   "steps": [
+    {
+     "img": "new-project-1.jpg",
+     "cap": "New Project. Pick the project type first. The index number is given by the app.",
+     "box": {
+      "x": 255,
+      "y": 173,
+      "w": 148,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-2.jpg",
+     "cap": "Clients: the people who pay. Type the NIN first — a person already saved is filled in for you.",
+     "box": {
+      "x": 255,
+      "y": 470,
+      "w": 113,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-3.jpg",
+     "cap": "Location: district down to village, and the size in hectares (digits only).",
+     "box": {
+      "x": 255,
+      "y": 375,
+      "w": 129,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-4.jpg",
+     "cap": "Stages: the steps of the work. The usual list is ready; tick what is already done.",
+     "box": {
+      "x": 255,
+      "y": 375,
+      "w": 104,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-5.jpg",
+     "cap": "Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending.",
+     "box": {
+      "x": 255,
+      "y": 375,
+      "w": 142,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-6.jpg",
+     "cap": "Documents: add scans and choose their type. PDF, photos, Word and Excel are accepted.",
+     "box": {
+      "x": 255,
+      "y": 414,
+      "w": 149,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-7.jpg",
+     "cap": "Press SAVE. A missing box is marked in red and the page takes you straight to it.",
+     "box": {
+      "x": 1046,
+      "y": 90,
+      "w": 103,
+      "h": 48
+     }
+    }
+   ]
+  },
+  {
+   "id": "find",
+   "role": "Secretary",
+   "title": "Find a project and open its folder",
+   "why": "Every project lives in its folder: details, stages, money, documents and notes.",
+   "steps": [
+    {
+     "img": "find-1.jpg",
+     "cap": "Project Ledger: type any part of a name, phone, plot, NIN or index in the search box.",
+     "box": {
+      "x": 77,
+      "y": 164,
+      "w": 418,
+      "h": 48
+     }
+    },
+    {
+     "img": "find-2.jpg",
+     "cap": "The tabs narrow the list: no title details yet, legacy, receivables, critical, problem, pending.",
+     "box": {
+      "x": 85,
+      "y": 227,
+      "w": 121,
+      "h": 30
+     }
+    },
+    {
+     "img": "find-3.jpg",
+     "cap": "Press a row to open that project’s folder.",
+     "box": {
+      "x": 77,
+      "y": 372,
+      "w": 1178,
+      "h": 93
+     }
+    },
+    {
+     "img": "find-4.jpg",
+     "cap": "The folder title: PLOT and its number (or PROJECT and the index). Under it: type, status and what the project is waiting for.",
+     "box": {
+      "x": 88,
+      "y": 83,
+      "w": 958,
+      "h": 40
+     }
+    },
+    {
+     "img": "find-5.jpg",
+     "cap": "The folder tabs: Overview, Financials, People, Documents, Notes.",
+     "box": {
+      "x": 68,
+      "y": 225,
+      "w": 129,
+      "h": 47
+     }
+    }
+   ]
+  },
+  {
+   "id": "stage",
+   "role": "Secretary",
+   "title": "Tick a stage and attach its document",
+   "why": "Keep the work up to date; every tick is saved with your name and the date.",
+   "steps": [
+    {
+     "img": "stage-1.jpg",
+     "cap": "On the Overview tab, the Stage checklist shows every step and how many are done.",
+     "box": {
+      "x": 79,
+      "y": 476,
+      "w": 347,
+      "h": 34
+     }
+    },
+    {
+     "img": "stage-2.jpg",
+     "cap": "Tick a stage when it is done. It saves the moment you click it.",
+     "box": {
+      "x": 79,
+      "y": 543,
+      "w": 1174,
+      "h": 52
+     }
+    },
+    {
+     "img": "stage-3.jpg",
+     "cap": "The paperclip attaches that stage’s document (it is filed in Documents under the stage).",
+     "box": {
+      "x": 1190,
+      "y": 595,
+      "w": 50,
+      "h": 46
+     }
+    }
+   ]
+  },
+  {
+   "id": "notes",
+   "role": "Secretary",
+   "title": "Write a note and set a follow-up",
+   "why": "What happened, what was agreed, what comes next — the office remembers it for you.",
+   "steps": [
+    {
+     "img": "notes-1.jpg",
+     "cap": "Notes tab: everything that happened on this project — notes, decisions, money, events and calls.",
+     "box": {
+      "x": 79,
+      "y": 299,
+      "w": 246,
+      "h": 34
+     }
+    },
+    {
+     "img": "notes-2.jpg",
+     "cap": "Press ADD NOTE. Pick a topic, write the note, and choose a follow-up day if needed.",
+     "box": {
+      "x": 1123,
+      "y": 380,
+      "w": 130,
+      "h": 50
+     }
+    },
+    {
+     "img": "notes-3.jpg",
+     "cap": "On the follow-up day the bell reminds the office. Pin a note to keep it on top (the bell tells the office too).",
+     "box": {
+      "x": 404,
+      "y": 420,
+      "w": 472,
+      "h": 28
+     }
+    }
+   ]
+  },
+  {
+   "id": "call",
+   "role": "Secretary",
+   "title": "Log a recovery call",
+   "why": "Call clients who owe; every call is counted and the queue sorts itself.",
+   "steps": [
+    {
+     "img": "call-1.jpg",
+     "cap": "Recovery: the clients to call now. The tabs show who was contacted, missed, needs a site visit or is resting.",
+     "box": {
+      "x": 663,
+      "y": 257,
+      "w": 77,
+      "h": 30
+     }
+    },
+    {
+     "img": "call-2.jpg",
+     "cap": "Open a client and press CALL LOG.",
+     "box": {
+      "x": 229,
+      "y": 629,
+      "w": 125,
+      "h": 52
+     }
+    },
+    {
+     "img": "call-3.jpg",
+     "cap": "Pick what happened (answered, not picking up ...), add a short note or a promise date, then save. The history is underneath.",
+     "box": {
+      "x": 406,
+      "y": 426,
+      "w": 468,
+      "h": 43
+     }
+    }
+   ]
+  },
+  {
+   "id": "payment",
+   "role": "Manager",
+   "title": "Record a payment",
+   "why": "Money in: the balance, receipts and reports all follow.",
+   "steps": [
+    {
+     "img": "payment-1.jpg",
+     "cap": "Folder > Financials: press RECORD PAYMENT.",
+     "box": {
+      "x": 819,
+      "y": 114,
+      "w": 189,
+      "h": 54
+     }
+    },
+    {
+     "img": "payment-2.jpg",
+     "cap": "Enter the amount, how it was paid (Office, Mobile Money, Bank, Other), who paid, and attach the receipt. Then save.",
+     "box": {
+      "x": 380,
+      "y": 36,
+      "w": 520,
+      "h": 648
+     }
+    },
+    {
+     "img": "payment-3.jpg",
+     "cap": "Every payment is listed in Payment History. A mistake is REVERSED (never deleted) and the reason is kept.",
+     "box": {
+      "x": 79,
+      "y": 600,
+      "w": 227,
+      "h": 34
+     }
+    }
+   ]
+  },
+  {
+   "id": "expense",
+   "role": "Manager",
+   "title": "Log an expense",
+   "why": "Money out of the office, in two taps.",
+   "steps": [
+    {
+     "img": "expense-1.jpg",
+     "cap": "Expenses: tap a category to log money spent. Anything else goes under OTHER.",
+     "box": {
+      "x": 255,
+      "y": 277,
+      "w": 165,
+      "h": 34
+     }
+    },
+    {
+     "img": "expense-2.jpg",
+     "cap": "Entries can be corrected for 24 hours. Deleting asks why, and the reason is kept.",
+     "box": {
+      "x": 255,
+      "y": 462,
+      "w": 267,
+      "h": 34
+     }
+    }
+   ]
+  },
+  {
+   "id": "payments",
+   "role": "Manager",
+   "title": "Check the payments",
+   "why": "See every payment line, find missing receipts.",
+   "steps": [
+    {
+     "img": "payments-1.jpg",
+     "cap": "Payments: search by project, client, phone, amount or reference.",
+     "box": {
+      "x": 225,
+      "y": 174,
+      "w": 418,
+      "h": 48
+     }
+    },
+    {
+     "img": "payments-2.jpg",
+     "cap": "Filter by dates, missing receipt, and how it was paid.",
+     "box": {
+      "x": 214,
+      "y": 279,
+      "w": 84,
+      "h": 27
+     }
+    },
+    {
+     "img": "payments-3.jpg",
+     "cap": "Press a line to open its project. The receipt button opens the receipt.",
+     "box": {
+      "x": 225,
+      "y": 416,
+      "w": 1155,
+      "h": 83
+     }
+    }
+   ]
+  },
+  {
+   "id": "report",
+   "role": "Director",
+   "title": "Run a report and download the PDF",
+   "why": "Numbers for meetings, in the company colours.",
+   "steps": [
+    {
+     "img": "report-1.jpg",
+     "cap": "Reports: pick the data at the top (Projects, Clients, Payments, Expenses, Company) and the period.",
+     "box": {
+      "x": 231,
+      "y": 229,
+      "w": 76,
+      "h": 34
+     }
+    },
+    {
+     "img": "report-2.jpg",
+     "cap": "Pick a ready report in the catalogue and press Use This Report.",
+     "box": {
+      "x": 227,
+      "y": 585,
+      "w": 196,
+      "h": 34
+     }
+    },
+    {
+     "img": "report-3.jpg",
+     "cap": "Choose one or more charts, then download the CSV (for Excel) or the PDF document.",
+     "box": {
+      "x": 1052,
+      "y": 367,
+      "w": 196,
+      "h": 50
+     }
+    }
+   ]
+  },
+  {
+   "id": "receivables",
+   "role": "Director",
+   "title": "Receivables and storage fees",
+   "why": "Long-owing projects and the storage fees of kept titles.",
+   "steps": [
+    {
+     "img": "receivables-1.jpg",
+     "cap": "Ledger > Receivables: projects owing for a long time. Storage fees grow every 30 days.",
+     "box": {
+      "x": 626,
+      "y": 227,
+      "w": 113,
+      "h": 30
+     }
+    },
+    {
+     "img": "receivables-2.jpg",
+     "cap": "In a folder, Financials holds the fee buttons: rate, pause, reduce, set aside, waive or add to the cost. Each one asks why.",
+     "box": {
+      "x": 79,
+      "y": 463,
+      "w": 173,
+      "h": 34
+     }
+    }
+   ]
+  },
+  {
+   "id": "staff",
+   "role": "Director",
+   "title": "Staff and settings",
+   "why": "Add staff, reset a key, and set how the app looks for you.",
+   "steps": [
+    {
+     "img": "staff-1.jpg",
+     "cap": "Settings > Staff: add a person and give them a rank. They get a temporary key and choose their own at first sign-in.",
+     "box": {
+      "x": 1097,
+      "y": 278,
+      "w": 150,
+      "h": 50
+     }
+    },
+    {
+     "img": "staff-2.jpg",
+     "cap": "Settings > Appearance: theme, size, explainers, animation — saved for you on this device.",
+     "box": {
+      "x": 83,
+      "y": 229,
+      "w": 159,
+      "h": 34
+     }
+    }
+   ]
+  },
+  {
+   "id": "field",
+   "role": "Employee",
+   "title": "Enter a project from the field",
+   "why": "Field staff enter the land and the people; the office adds the money.",
+   "steps": [
+    {
+     "img": "field-1.jpg",
+     "cap": "New Project: enter the type, clients, owners, neighbours, location and stages. No money boxes for field staff.",
+     "box": {
+      "x": 255,
+      "y": 173,
+      "w": 148,
+      "h": 34
+     }
+    },
+    {
+     "img": "field-2.jpg",
+     "cap": "Press SAVE. The entry waits as Pending until the office adds the invoice, contract and price.",
+     "box": {
+      "x": 1046,
+      "y": 90,
+      "w": 103,
+      "h": 48
+     }
+    },
+    {
+     "img": "field-3.jpg",
+     "cap": "My Entries: your entries and whether the office has started them.",
+     "box": {
+      "x": 241,
+      "y": 84,
+      "w": 472,
+      "h": 47
+     }
+    }
+   ]
+  }
+ ]
+}
