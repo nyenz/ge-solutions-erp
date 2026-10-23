@@ -15,7 +15,7 @@
       (function () {
         try {
           var A = { theme: ['light', 'dark', 'bright'], uiScale: ['90', '100', '110', '125'], motion: ['full', 'reduced'],
-                    tips: ['normal', 'slow', 'off'], contrast: ['normal', 'high'] };
+                    tips: ['normal', 'fast', 'off'], contrast: ['normal', 'high'] };
           var D = { theme: 'light', uiScale: '100', motion: 'full', tips: 'normal', contrast: 'normal' };
           var ls = window.localStorage, u = null, p = null;
           try { u = (JSON.parse(ls.getItem('gs_user') || 'null') || {}).username || null; } catch (e) { u = null; }

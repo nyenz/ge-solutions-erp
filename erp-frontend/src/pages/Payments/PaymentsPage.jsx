@@ -8,6 +8,7 @@
 //  - search, tab, sort, dates and filters live in the address, so Back returns to the same list;
 //  - a failed load says so (with RETRY) instead of looking like "no payments".
 import React, { useState, useEffect, useCallback } from 'react';
+import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiSearch, FiX, FiUser, FiRefreshCw, FiLayers, FiArrowUp, FiArrowDown, FiFileText, FiCheckSquare, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../../api/axios';
@@ -303,7 +304,7 @@ const PaymentsPage = () => {
                                                     {KIND_LABEL[pay.kind] && <div className={styles.time}>{KIND_LABEL[pay.kind]}</div>}
                                                     {pay.reversed && <div className={styles.time} style={{ color: '#ef4444' }}>REVERSED</div>}
                                                     {pay.kind === 'REVERSAL' && pay.reversalOf && (
-                                                        <button type="button" className={styles.linkBtn} onClick={e => { e.stopPropagation(); const el = document.getElementById('pay-' + pay.reversalOf); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>
+                                                        <button type="button" className={styles.linkBtn} onClick={e => { e.stopPropagation(); const el = document.getElementById('pay-' + pay.reversalOf); if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'center' }); }}>
                                                             reverses payment of {fmtDay(pay.reversalOfDate) || 'an earlier day'}</button>
                                                     )}
                                                 </td>

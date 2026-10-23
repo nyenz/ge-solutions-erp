@@ -1,7 +1,8 @@
 // PATH: erp-frontend/src/components/common/HardwareSelect.jsx
 // fix210 (David): the list now works from the keyboard like a normal select box -- Tab reaches it, Up/Down move,
 // Enter picks, Esc closes -- and typing letters jumps to the matching item (utils/typeAhead.js).
-import React, { useState, useRef, useEffect, useId } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useId } from 'react';
+import { applyFlip } from '../../utils/popFit';   // fix226
 import { FiChevronDown } from 'react-icons/fi';
 import styles from './HardwareSelect.module.css';
 import { useTypeAhead } from '../../utils/typeAhead';
@@ -11,6 +12,7 @@ const HardwareSelect = ({ label, options, value, onChange, required = false, pla
     const [active, setActive] = useState(-1);
     const containerRef = useRef(null);
     const listRef = useRef(null);
+    useLayoutEffect(() => { if (isOpen) applyFlip(containerRef.current, listRef.current); }, [isOpen, options]);   // fix226: never cut off
     const typeAhead = useTypeAhead();
     const listId = useId();
     const current = options.indexOf(value);

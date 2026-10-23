@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { portalRoot } from '../../components/common/portalRoot';
 import { roleFlags } from '../../utils/roles';
 import { useSearchParams } from 'react-router-dom';
@@ -80,7 +81,7 @@ export default function RecoveryPortal() {
           pendingOpen.current = null;
           if (hit) {
             setOpenId(hit.id);
-            setTimeout(() => { const el = document.getElementById('rc-' + hit.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 80);
+            setTimeout(() => { const el = document.getElementById('rc-' + hit.id); if (el) el.scrollIntoView({ block: 'center', behavior: scrollBehavior() }); }, 80);
           } else setOpenId(list.length ? list[0].id : null);
         } else {
           setOpenId(list.length ? list[0].id : null);

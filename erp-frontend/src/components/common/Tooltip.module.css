@@ -28,7 +28,10 @@
 .bubble {
     position: fixed;
     z-index: 200200;
-    max-width: min(300px, 78vw);
+    /* fix226: as wide as its words (up to 300px), then moved inward at a screen edge -- never squeezed to "Sig / n / out" */
+    width: max-content;
+    max-width: min(300px, calc(100vw - 20px));
+    box-sizing: border-box;
     padding: 7px 11px;
     border-radius: 7px;
     background: rgba(18, 32, 34, 0.86);
@@ -44,7 +47,7 @@
     text-align: left;
     text-transform: none;
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
     pointer-events: none; /* never let the bubble eat the next hover */
     animation: tipIn 0.12s ease-out;
 }

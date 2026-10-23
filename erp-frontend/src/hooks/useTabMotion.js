@@ -14,13 +14,14 @@
 //
 // Both respect Settings > Appearance > ANIMATION = reduced and the device's own "reduce motion" switch.
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { calmMotion } from '../utils/motion';
 
 const PICKED = ':scope > [aria-selected="true"], :scope > [aria-pressed="true"]';
 
 export const motionOff = () => {
     try {
         if (document.documentElement.getAttribute('data-motion') === 'reduced') return true;
-        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        return calmMotion();   // fix226: also Settings > Animation = REDUCED
     } catch { return true; }
 };
 

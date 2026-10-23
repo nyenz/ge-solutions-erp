@@ -1,5 +1,6 @@
 // PATH: erp-frontend/src/components/common/SuggestInput.jsx
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { applyFlip } from '../../utils/popFit';   // fix226
 import styles from './SuggestInput.module.css';
 
 /**
@@ -23,9 +24,11 @@ const SuggestInput = ({ value, onChange, suggestions = [], onPick, className = '
     const [open, setOpen] = useState(false);
     const [at, setAt] = useState(-1);
     const wrapRef = useRef(null);
+    const listRef = useRef(null);
     const listId = useId();
     const list = suggestions || [];
     const show = open && list.length > 0;
+    useLayoutEffect(() => { if (show) applyFlip(wrapRef.current, listRef.current); }, [show, list.length]);   // fix226: open upward near the bottom of the screen
 
     // the marked row never points past the end of a list that just got shorter
     const mark = at >= list.length ? -1 : at;
@@ -81,7 +84,7 @@ const SuggestInput = ({ value, onChange, suggestions = [], onPick, className = '
                 onKeyDown={keys}
             />
             {show && (
-                <ul className={styles.list} id={listId} role="listbox">
+                <ul className={styles.list} id={listId} role="listbox" ref={listRef}>
                     {list.map((s, i) => (
                         <li key={s.key || s.value + i} id={listId + '-' + i} role="option" aria-selected={i === mark}
                             className={`${styles.row} ${i === mark ? styles.rowOn : ''}`}

@@ -13,7 +13,9 @@
 
 .pop {
     position: fixed;
-    z-index: 100000;
+    z-index: 150000;   /* fix226: above a stacked popup (100001), below the confirm box (200000) */
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
     box-sizing: border-box;
     padding: 14px;
     background: #faf7f2;

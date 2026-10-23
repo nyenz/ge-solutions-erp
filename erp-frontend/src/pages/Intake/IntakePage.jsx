@@ -1,5 +1,6 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import { portalRoot } from '../../components/common/portalRoot';
+import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { roleFlags } from '../../utils/roles';
 import { PAY_METHODS, methodLabel, methodCode, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -616,7 +617,7 @@ export default function IntakePage() {
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         loadTypeStatuses(projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: scrollBehavior() });
     };
 
     // fix171: Amount Owed now includes the storage fees still unpaid (Legacy Title only, and only while the title work is not fully paid)

@@ -38,9 +38,9 @@ import { portalRoot, uiScale } from './portalRoot';
 // fix69: dwell and auto-dismiss come from the user's Appearance setting,
 // which the provider writes onto <html data-tips>. "off" means the explainer
 // never opens at all -- some people find it noise, and that is a fair call.
-const TIP_MODES = {
-    normal: { delay: 120, life: 6000 },
-    slow:   { delay: 500, life: 9000 },
+const TIP_MODES = {   // fix226: NORMAL / FAST / OFF -- the same timings as globalTips.js
+    normal: { delay: 320, life: 7000 },
+    fast:   { delay: 40,  life: 7000 },
     off:    { delay: 0,   life: 0, disabled: true },
 };
 const tipMode = () => {
@@ -139,6 +139,7 @@ export const Tooltip = ({ label, children, placement = 'top', delay, disabled = 
         <>
             <span
                 ref={anchorRef}
+                data-gs-own=""
                 className={block ? `${styles.anchor} ${styles.anchorBlock}` : styles.anchor}
                 onMouseEnter={show}
                 onMouseLeave={hide}

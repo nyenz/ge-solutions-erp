@@ -3,6 +3,7 @@
 // own red errors without blur or a duplicate toast, every money / flag / hand-over action needs a reason, who paid
 // is recorded per owner, storage fees paid vs unpaid are shown, set-aside fees are visible, dead code removed.
 import { portalRoot } from '../../components/common/portalRoot';
+import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -50,6 +51,7 @@ import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test 
 import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
 import NotesTimeline from '../../components/notes/NotesTimeline';   // fix215
 import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
+import { explainFor } from '../../utils/explainers';   // fix226
 import { useReasonPrompt, DELETE_PICKS } from '../../components/common/useReasonPrompt';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
@@ -114,7 +116,7 @@ const SavingOverlay = ({ visible }) => {
 };
 const DrawerHeader = ({ label, count, isOpen, onClick, icon: Icon }) => (
     <div className={styles.drawerHeader} onClick={onClick} role="button" tabIndex={0} aria-expanded={isOpen}
-        aria-label={`${label} section, ${isOpen ? 'collapse' : 'expand'}`} title={isOpen ? 'Click to fold this section' : 'Click to open this section'}
+        aria-label={`${label} section, ${isOpen ? 'collapse' : 'expand'}`} title={(explainFor(label) ? explainFor(label) + ' ' : '') + (isOpen ? 'Press to fold.' : 'Press to open.')}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}>
         <div className={styles.drawerTitle}>{Icon && <Icon className={styles.drawerIcon} aria-hidden="true" />}{label}
             {count !== undefined && <span className={styles.drawerCount}>{count}</span>}</div>
@@ -515,13 +517,13 @@ const FolderPage = () => {
         if (hash === 'payment' || hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
             setActiveTab('FINANCIALS');
             setTimeout(() => {
-                if (hash.startsWith('payment-')) { const el = document.getElementById(hash); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add(styles.highlightRow); setTimeout(() => el.classList.remove(styles.highlightRow), 3000); } }
-                else { const el = document.getElementById('paymentHistorySection'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+                if (hash.startsWith('payment-')) { const el = document.getElementById(hash); if (el) { el.scrollIntoView({ behavior: scrollBehavior(), block: 'center' }); el.classList.add(styles.highlightRow); setTimeout(() => el.classList.remove(styles.highlightRow), 3000); } }
+                else { const el = document.getElementById('paymentHistorySection'); if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }); }
             }, 350);
         } else if (hash === 'notes' || hash === 'calls') setActiveTab('NOTES');
         else if (hash === 'identity' || hash === 'owners' || hash === 'clients' || hash === 'people') setActiveTab('PEOPLE');
         else if (hash === 'vault' || hash === 'documents') setActiveTab('DOCUMENTS');
-        else window.scrollTo({ top: 0, behavior: 'smooth' });
+        else window.scrollTo({ top: 0, behavior: scrollBehavior() });
     }, [id]);
     useEffect(() => { if (isEditing) setTimeout(() => firstInputRef.current?.focus(), 120); }, [isEditing]);
     // fix166: nothing is saved by itself; after 10 quiet minutes the page only reminds
@@ -1716,7 +1718,7 @@ const FolderPage = () => {
             </HardwareModal>
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
             <ReasonPrompt state={reasonState} onClose={closeReason} />
-            {showTopBtn && (<button type="button" className={styles.scrollTopBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top" title="Back to the top (EDIT, SAVE and the other buttons)"><FiArrowUp aria-hidden="true" /></button>)}
+            {showTopBtn && (<button type="button" className={styles.scrollTopBtn} onClick={() => window.scrollTo({ top: 0, behavior: scrollBehavior() })} aria-label="Back to top" title="Back to the top (EDIT, SAVE and the other buttons)"><FiArrowUp aria-hidden="true" /></button>)}
         </div>
     );
 };
