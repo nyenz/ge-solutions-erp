@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { FiArrowUp } from 'react-icons/fi';
 import styles from './BackToTopButton.module.css';
 
@@ -29,8 +30,8 @@ export default function BackToTopButton() {
     };
   }, []);
   const toTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    for (const el of scrollers()) el.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
+    for (const el of scrollers()) el.scrollTo({ top: 0, behavior: scrollBehavior() });
   };
   return (
     <button type="button" className={`${styles.backToTop} ${show ? styles.show : ''}`} onClick={toTop} aria-label="Back to top" tabIndex={show ? 0 : -1}>

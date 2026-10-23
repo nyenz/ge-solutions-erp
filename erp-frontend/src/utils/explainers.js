@@ -22,6 +22,62 @@ export const EXPLAIN = {
     'NO PROJECTS': 'People saved in the app with no live project.',
     'JOINT PROJECTS': 'Projects with more than one client.',
     'SOLO PROJECTS': 'Projects with one client.',
+    // ── fix226: panel headings (New Project and Folder) -- "1. ENTRY MODE" is looked up as ENTRY MODE
+    'ENTRY MODE': 'The project type and the index number this project gets.',
+    'CLIENTS': 'The people who brought the work and pay for it.',
+    'OWNERS': 'The people whose names are on the title.',
+    'NEIGHBORS': 'The people next to the land (for the boundary work).',
+    'LOCATION': 'Where the land is: district down to village, and its size in hectares.',
+    'TITLE DETAILS': 'What is written on the title: plot, block, volume, folio, title date.',
+    'STAGES': 'The steps of the work. Tick each one when it is done.',
+    'FINANCIALS': 'The price, the money already received and how it was paid.',
+    'DOCUMENTS': 'Scans and files of this project, by type.',
+    'PLOT DETAILS': 'Where the land is and what its title says.',
+    'BALANCE SUMMARY': 'What the project costs, what is paid and what is still owed.',
+    'PAYMENT HISTORY': 'Every payment on this project, newest first.',
+    'SUBDIVISIONS': 'The new plots this subdivision creates.',
+    'RELATED PROJECTS': 'Other projects of the same land or the same people.',
+    'NOTES AND HISTORY': 'Everything that happened: notes, decisions, money, events and calls.',
+    'UPLOAD DOCUMENTS': 'Add scans or files and choose their type.',
+    // ── fix226: project types
+    'FRESH SURVEY': 'New land with no title yet: survey it and process the title.',
+    'SUBDIVISION': 'Split one titled plot into several new plots.',
+    'LEGACY TITLES': 'An old title kept in storage. It can carry monthly storage fees.',
+    'TRANSFER OF TITLE': 'Move a title from one owner to another.',
+    'BOUNDARY OPENING': 'Find and mark the boundaries of a titled plot.',
+    'TOPOGRAPHIC SURVEY': 'Map the shape of the land. Title details only if switched on.',
+    'RESURVEY': 'Survey a titled plot again.',
+    'SPECIAL PROJECTS': 'Big or unusual jobs. You set the stages and goals yourself.',
+    // ── fix226: New Project / Folder boxes
+    'ENTRY DATE': 'The day this project is entered. Filled in by the app.',
+    'DATE STARTED': 'The day the work really started, if it was before today.',
+    'FULL NAME': 'The name as it is on the National ID.',
+    'NIN': 'National ID number. Each person has one; it finds them again later.',
+    'EMAIL': 'Optional. Kept in small letters.',
+    'SIDE': 'Which side of the land this neighbor is on.',
+    'THEIR PLOT': 'The neighbor\'s plot number, if known.',
+    'PLOT NUMBER': 'The plot number on the title. Taken only once in the same block and district.',
+    'BLOCK': 'The block number on the title.',
+    'TENURE': 'How the land is held: Mailo, Freehold, Leasehold or Customary.',
+    'AREA (HECTARES)': 'The size of the land in hectares, digits only, for example 0.405.',
+    'VOLUME': 'The volume number on the title.',
+    'FOLIO': 'The folio number on the title.',
+    'TITLE DATE': 'The date written on the title.',
+    'INVOICE NUMBER': 'The number on the invoice given to the client.',
+    'CONTRACT NUMBER': 'The number on the signed contract.',
+    'TOTAL COST': 'The full price of the work, in whole shillings.',
+    'INITIAL PAYMENT': 'Money the client already paid for the work at the start.',
+    'INITIAL PAYMENT (TITLE WORK)': 'Money the client already paid for the title work at the start.',
+    'PAYMENT METHOD': 'How the money came in: Office, Mobile Money, Bank or Other.',
+    'RECEIPT BOOK NUMBER': 'The number in the paper receipt book, if one was written.',
+    'DATE LAST PAID': 'The day of the last payment. Today unless you change it.',
+    'MONTHLY STORAGE FEE': 'The fee added every 30 days while the title stays in storage.',
+    'INITIAL STORAGE FEE': 'Storage fees already owed before this project was entered.',
+    'STORAGE FEES ALREADY PAID': 'Storage fees the client already paid before entry.',
+    'IN RECEIVABLES SINCE': 'The day the project went into receivables, if before today.',
+    'NUMBER OF SUBDIVISIONS': 'How many new plots this subdivision creates.',
+    'INITIAL PAYMENT PAID BY': 'Which client paid the initial payment.',
+    'STORAGE FEES PAID BY': 'Which client paid the storage fees.',
     // ── Recovery tabs
     'ALL DUE': 'Clients to call now: they owe money and are not resting.',
     'CONTACTED': 'Clients who answered a call recently.',
@@ -158,7 +214,8 @@ export const normalizeLabel = (text) => String(text || '')
     .replace(/(^|\s)\d[\d,]*(?=\s|$)/g, ' ')
     .replace(/[^A-Z0-9#%()&\-' ]/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .replace(/^\d+\s+(?=[A-Z])/, '');   // fix226: "1. ENTRY MODE" -> ENTRY MODE
 
 /** The explainer for an element's visible words, or '' */
 export const explainFor = (text) => EXPLAIN[normalizeLabel(text)] || '';

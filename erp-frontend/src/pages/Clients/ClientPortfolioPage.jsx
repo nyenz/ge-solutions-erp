@@ -8,6 +8,7 @@
 // their projects (solo or joint) make up that number, how healthy is each
 // payment, and what has staff said to them.
 import { roleFlags } from '../../utils/roles';
+import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { PaymentHealthDot } from '../../components/common/PaymentHealth';
 import { paymentLabel } from '../../utils/paymentHealth';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -175,7 +176,7 @@ const ClientPortfolioPage = () => {
     finally { setSaving(false); }
   };
 
-  const scrollToSection = (elId) => { const el = document.getElementById(elId); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const scrollToSection = (elId) => { const el = document.getElementById(elId); if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }); };
 
   const backBtn = (<button type="button" className={styles.backBtn} onClick={() => navigate('/clients')}><FiArrowLeft aria-hidden="true" /> BACK</button>);
 

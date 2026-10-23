@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/components/common/HardwareDatePicker.jsx
 import { portalRoot, uiScale } from './portalRoot';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { applyFit } from '../../utils/popFit';   // fix226
 import { createPortal } from 'react-dom';
 import {
     FiCalendar, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight
@@ -78,6 +79,9 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
         }
         setOpen(true);
     };
+
+    // fix226: once drawn, the real card size decides: under the box, above it, or moved up so none of it is cut off
+    useLayoutEffect(() => { if (open) applyFit(inputRef.current, popRef.current); }, [open, pos, view]);
 
     useEffect(() => {
         if (!open) return;

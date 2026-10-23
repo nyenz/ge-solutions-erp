@@ -6,7 +6,7 @@ export const DEFAULT_PREFS = {
     uiScale: '100',      // 90 | 100 | 110 | 125
     statSize: 'standard',// small | standard | large
     motion: 'full',      // full | reduced
-    tips: 'normal',      // normal | slow | off
+    tips: 'normal',      // normal | fast | off (fix226: FAST replaced SLOW)
     contrast: 'normal',  // normal | high
     notifPoll: '300',    // 300 | 900 | 0 (seconds) -- bell auto-refresh, 0 = manual only
     landing: 'dashboard',// dashboard | ledger | recovery | clients -- start page (fix181, 14.0a); Employee has none
@@ -18,7 +18,7 @@ export const PREF_ALLOWED = {
     uiScale: ['90', '100', '110', '125'],
     statSize: ['small', 'standard', 'large'],
     motion: ['full', 'reduced'],
-    tips: ['normal', 'slow', 'off'],
+    tips: ['normal', 'fast', 'off'],
     contrast: ['normal', 'high'],
     notifPoll: ['300', '900', '0'],
     landing: ['dashboard', 'ledger', 'recovery', 'clients'],

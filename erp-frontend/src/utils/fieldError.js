@@ -8,6 +8,8 @@
 //   flagField('Title date', { section: 'Title' })  -> opens the closed panel whose heading contains "Title" first
 //   flagField(fieldForError(err, MAP))             -> the box named for a server answer such as "PLOT_TAKEN: ..."
 
+import { calmMotion } from './motion.js';
+
 const ATTR = 'data-field-error';
 const norm = (t) => String(t || '').replace(/[*:]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -69,7 +71,7 @@ function mark(el, boxOverride) {
     const done = () => { box.removeAttribute(ATTR); box.removeEventListener('input', done, true); box.removeEventListener('change', done, true); };
     box.addEventListener('input', done, true);
     box.addEventListener('change', done, true);
-    const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const calm = calmMotion();   // fix226: also Settings > Animation = REDUCED
     box.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
     const focusable = el.matches('input, textarea, select, button, [tabindex]') ? el : box.querySelector('input, textarea, select, button');
     if (focusable) setTimeout(() => { try { focusable.focus({ preventScroll: true }); } catch { /* old browser */ } }, calm ? 0 : 380);

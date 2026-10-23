@@ -19,7 +19,8 @@ import { explainFor } from '../../utils/explainers';   // fix216
  * fallback list (utils/explainers.js). Appearance > Hover explainers OFF now hides everything: the browser's own grey
  * title box is taken away too (before, OFF still let it show). New code can keep writing title="...".
  */
-const MODES = { normal: { delay: 120, life: 6000 }, slow: { delay: 500, life: 9000 }, off: { off: true } };
+// fix226 (David): NORMAL / FAST / OFF (FAST replaces SLOW; an old saved SLOW reads as NORMAL)
+const MODES = { normal: { delay: 320, life: 7000 }, fast: { delay: 40, life: 7000 }, off: { off: true } };
 const mode = () => MODES[document.documentElement.getAttribute('data-tips')] || MODES.normal;
 
 function tipOf(el) {
@@ -30,9 +31,12 @@ function tipOf(el) {
 }
 
 // fix216: the element with its own explainer, else a tab / pill / heading / short button whose words are in the list
-const FALLBACK = 'th, button, [role="tab"], [role="button"], a';
+// fix226: also box labels and panel headings (New Project had none); a panel heading with no line of its own says how
+// to fold it. Anything inside a <Tooltip> is left to that Tooltip, so one item never shows two bubbles.
+const FALLBACK = 'th, button, [role="tab"], [role="button"], a, label, [aria-expanded]';
 const anchorOf = (node) => {
     if (!node || !node.closest) return null;
+    if (node.closest('[data-gs-own]')) return null;
     const own = node.closest('[title],[data-gs-tip]');
     if (own) return own;
     const el = node.closest(FALLBACK);
@@ -40,7 +44,12 @@ const anchorOf = (node) => {
     const words = (el.textContent || '').trim();
     // an icon-only button (no words) explains itself with its aria-label ("Close", "Sign out" ...)
     const label = el.getAttribute('aria-label') || '';
-    const text = (words.length <= 40 ? explainFor(words) : '') || (label.length > 2 && label.toUpperCase() !== words.toUpperCase() ? label : '');
+    // a panel heading: opens / folds and holds a title (not a dropdown, which also says aria-expanded)
+    const head = el.getAttribute('aria-expanded') != null && !el.matches('[aria-haspopup], [role="combobox"], select, input')
+        && !!el.querySelector('h2, h3, [class*="title" i]');
+    const wordsOf = head ? (el.querySelector('[class*="title" i], [class*="label" i]') || el).textContent.trim() : words;
+    const text = (wordsOf.length <= 40 ? explainFor(wordsOf) : '') || (label.length > 2 && label.toUpperCase() !== words.toUpperCase() ? label : '')
+        || (head ? 'Press to open or fold this section.' : '');
     if (!text) { el.setAttribute('data-gs-none', ''); return null; }   // looked up once
     el.setAttribute('data-gs-tip', text);
     return el;
