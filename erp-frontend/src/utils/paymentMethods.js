@@ -20,11 +20,12 @@ export const methodCode = (label) => {
     return m ? m.value : '';
 };
 
-/** The label for the reference box, which changes with the method. */
-export const referenceLabel = (code) => code === 'OTHER' ? 'How was it paid? (required)'
-    : code === 'MOBILE_MONEY' ? 'Transaction ID (optional)'
-    : code === 'BANK' ? 'Bank reference (optional)'
-    : 'Receipt book number (optional)';
+/** The label for the reference box, which changes with the method. fix228 (David): short, so it never wraps onto a
+ *  second line and pushes its box below the boxes next to it (only OTHER needs it; the others are optional). */
+export const referenceLabel = (code) => code === 'OTHER' ? 'How was it paid?'
+    : code === 'MOBILE_MONEY' ? 'Transaction ID'
+    : code === 'BANK' ? 'Bank reference'
+    : 'Receipt no.';
 
 /** Same checks as the server. Returns '' when fine, else the message. */
 export const checkMethod = (code, reference) => {

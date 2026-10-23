@@ -491,3 +491,38 @@
 .methodChipNone { color: #5b6f70; font-style: italic; }
 .methodCell { font-weight: 800; color: var(--ink-solid); white-space: nowrap; }
 .methodCellNone { font-weight: 700; font-style: italic; color: rgba(var(--ink-rgb), 0.45); white-space: nowrap; }
+
+/* fix227b (David): "too many font colours ... too many font styles ... never any underlined words".
+   The table now uses ONE font (Inter), dark ink for the main value of a cell, one soft grey for the small lines under it,
+   orange only for the project number, and red only for something wrong (reversed, no receipt, a minus amount). */
+.ledgerTable td, .ledgerTable td * { font-family: 'Inter', sans-serif; font-style: normal; }
+.dateCell { font-weight: 600; color: var(--ink-solid); }
+.time { font-size: 10.5px; font-weight: 500; opacity: 1; color: rgba(var(--ink-rgb), 0.6); letter-spacing: 0; }
+.plotNum { font-weight: 700; letter-spacing: 0; }
+.ownerCell { font-weight: 600; }
+.forCell { font-weight: 600; color: var(--ink-solid); white-space: nowrap; }
+.methodCell { font-weight: 600; }
+.methodCellNone { font-weight: 500; font-style: normal; color: rgba(var(--ink-rgb), 0.6); }
+.amount { font-weight: 700; color: var(--ink-solid); }
+.recorder { font-weight: 500; color: rgba(var(--ink-rgb), 0.75); }
+.notesCell { font-style: normal; color: rgba(var(--ink-rgb), 0.6); }
+.bad { color: var(--tx-red, #ef4444) !important; }
+.linkBtn { text-decoration: none; color: var(--tx-accent, #EE8C3A); font-weight: 600; }
+.linkBtn:hover { color: var(--ink-solid); }
+.receiptBtn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer;
+    background: rgba(238, 140, 58, 0.12); border: 1px solid rgba(238, 140, 58, 0.4); color: var(--tx-accent, #EE8C3A); font-size: 13px;
+    transition: background 0.15s, color 0.15s; }
+.receiptBtn:hover, .receiptBtn:focus-visible { background: #EE8C3A; color: #1a2e30; outline: none; }
+
+/* fix228 (David): "the payments page top part looks disorganised" -- search + tabs on one line; then ONE filter bar:
+   FROM / TO, the two toggles and PAID WITH, all the same height (36px) and the same font; amounts in quiet ink */
+.filterRow { gap: 8px; margin: 0 0 6px; }
+.dateField, .checkToggle { height: 36px; }
+.filterSep { width: 1px; height: 22px; background: rgba(26, 46, 48, 0.18); margin: 0 4px; }
+.methodRow { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.methodChip { flex-direction: row; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; font-family: 'Inter', sans-serif; }
+.methodChip strong { font-family: 'Inter', sans-serif; font-weight: 600; color: rgba(26, 46, 48, 0.62); }
+.methodChipNone { font-style: normal; }
+.methodChipOn, .methodChipOn:hover { box-shadow: none; }
+.legendRow { margin-top: 2px; }
+.legendItem { font-weight: 600; }

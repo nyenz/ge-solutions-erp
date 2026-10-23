@@ -57,3 +57,6 @@
 }
 
 .btn:hover .hoverGlow { opacity: 1; }
+/* fix228: the same delete look everywhere -- solid dark red with white words, darker on hover / press */
+.danger { background: #b91c1c; color: #fff; }
+.danger:hover:not(:disabled), .danger:focus-visible, .danger:active { background: #991b1b; color: #fff; }

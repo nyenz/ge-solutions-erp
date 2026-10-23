@@ -206,3 +206,6 @@
 /* fix184: the neutral "waiting" word (PENDING, WAITING FOR PRICES): quiet grey-blue, never green, never red */
 .tagWaiting{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;color:rgba(var(--ink-rgb), 0.62);}
 .statusGroup [title]{cursor:help;}
+
+/* fix228: PLOT 316 under the index -- the same small line as the type, a little stronger */
+.stackPlot { font-size: var(--fs-meta, 11px); font-weight: 800; letter-spacing: 0.5px; color: rgba(var(--ink-rgb), 0.85); }

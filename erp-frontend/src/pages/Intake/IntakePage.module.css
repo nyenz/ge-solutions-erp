@@ -219,3 +219,11 @@
     font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 0.5px;
     color: var(--tx-orange, #ffb46b); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
 .didYouMean:hover { color: var(--ink-solid); }
+
+/* fix228: delete buttons turn solid dark red with white words on hover / press */
+.btn.deleteBtn:hover:not(:disabled), .btn.deleteBtn:focus-visible, .btn.deleteBtn:active { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+
+/* fix228 (David): a box label stays on ONE line (cut with ... if it is very long; hover shows what it means), so a long
+   label never pushes its box below the boxes next to it. Boxes in a row line up at the bottom. */
+.label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid2, .grid3 { align-items: start; }

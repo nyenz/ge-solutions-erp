@@ -116,3 +116,8 @@
     .headerLeft { flex: 1 1 auto; min-width: min(100%, 8em); }
     .headerRight { justify-content: flex-start; }
 }
+
+/* fix227b (David): the panel heading hover of the Settings page, on every panel -- the icon (and title) brighten */
+.headerLeft svg, .title { transition: color 0.2s ease, transform 0.2s ease, filter 0.2s ease; }
+.header:hover .headerLeft, .header:hover .title, .header:focus-visible .headerLeft, .header:focus-visible .title { color: var(--ink-solid); }
+.header:hover .headerLeft svg, .header:focus-visible .headerLeft svg { transform: scale(1.08); }

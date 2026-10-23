@@ -274,7 +274,6 @@ const LedgerPage = () => {
                                 const WORD_CLASS = { PENDING: styles.tagWaiting, ACTIVE: styles.tagStandard, RECEIVABLES: styles.tagReceivable, HANDED_OVER: styles.tagReleased, DELETED: styles.tagCritical, NO_PRICE: styles.tagWaiting, FULLY_PAID: styles.tagPaid, CRITICAL: styles.tagCritical };
                                 const people = clientsOf(proj);
                                 const names  = people.map(p => p.fullName).filter(Boolean);
-                                const nins   = people.map(p => p.nationalId).filter(Boolean);
                                 const phones = people.flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
                                 const statuses = (statusMap[proj.id] || []).map(s => ({ ...s, done: !!(s.isCompleted ?? s.completed) })).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
                                 const curStatusIdx = statuses.findIndex(s => !s.done);
@@ -291,12 +290,13 @@ const LedgerPage = () => {
                                                 <PaymentDot proj={proj} />
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
+                                                    {/* fix228 (David): the plot number right after the index (no line when there is none); no NIN here */}
+                                                    {proj.landTitle?.plotNumber && <span className={styles.stackPlot} title="Plot number on the title">PLOT {proj.landTitle.plotNumber}</span>}
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
                                                     {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">INV {proj.invoiceNumber}</span>}
                                                     {proj.contractNumber && <span className={styles.stackSub} title="Contract number">CON {proj.contractNumber}</span>}
                                                     {proj.pending && <span className={styles.stackSub} title="How long this entry has been waiting for the office">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
-                                                    {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>
                                             </div>
                                         </td>

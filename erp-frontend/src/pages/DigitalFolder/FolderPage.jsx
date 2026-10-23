@@ -1058,7 +1058,8 @@ const FolderPage = () => {
     const effectiveRate = project.storageFeeOverride !== null && project.storageFeeOverride !== undefined ? Number(project.storageFeeOverride) : defaultRate;
     const pausedUntil = project.negotiationDeadline ? fmtDate(project.negotiationDeadline) : '';
     const isPaused = !!project.negotiationDeadline || !!project.storagePaused;
-    const plotName = project.landTitle?.plotNumber || ('#' + project.projectIndex);
+    // fix228 (David): the title says what it is -- PLOT 316 when there is a plot number, else PROJECT #002A
+    const plotName = project.landTitle?.plotNumber ? 'PLOT ' + project.landTitle.plotNumber : 'PROJECT #' + project.projectIndex;
     const reasonCfg = REASON_KINDS[reasonModal.kind] || {};
     // fix185: the ONE thing this project is waiting for (the rule is in utils/projectStatus.js); nothing once it is finished
     const waiting = waitingFor(project, liveStages || binder.statuses);

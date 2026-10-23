@@ -679,3 +679,9 @@ section[data-field-error] { box-shadow: 0 0 0 2px var(--field-err-glow), 0 0 0 1
 }
 @media (prefers-reduced-motion: reduce) { [data-field-error] { animation: none; } }
 :root[data-motion="reduced"] [data-field-error] { animation: none; }
+
+/* fix228 (David): "never at one time have I ever wanted any underlined words in the apps, never". One rule for the whole
+   app (pages, pop-ups, prints): no underline on any text or link. A crossed-out amount (a reversed payment) keeps its
+   line through it with data-strike. */
+*:not([data-strike]), *:not([data-strike])::before, *:not([data-strike])::after { text-decoration-line: none !important; }
+[data-strike] { text-decoration: line-through; }

@@ -1696,7 +1696,7 @@
 .statusItem { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: rgba(var(--ink-rgb), 0.03); border: 1px solid rgba(var(--ink-rgb), 0.08); border-radius: 7px; cursor: pointer; transition: border-color 0.2s; }
 .statusItem:hover { border-color: rgba(238,140,58,0.35); }
 .statusItemChecked { background: rgba(238,140,58,0.06); border-color: rgba(238,140,58,0.3); }
-.statusItemChecked .statusItemName { text-decoration: line-through; color: var(--fs-muted); }
+.statusItemChecked .statusItemName { text-decoration-line: line-through !important; color: var(--fs-muted); }   /* fix228: a done stage stays crossed out */
 .statusCheckbox { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 .statusItemName { font-weight: 700; color: var(--ink-solid); font-size: clamp(11px, 1.1vw, 13px); letter-spacing: 0.5px; flex: 1; min-width: 0; }
 .statusActions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
@@ -1924,3 +1924,20 @@
     border: 1px solid rgba(238, 140, 58, 0.45); background: transparent; color: rgba(var(--ink-rgb), 0.85); transition: background 0.2s, border-color 0.2s; }
 .reasonPick:hover, .reasonPick:focus-visible { border-color: #EE8C3A; outline: none; }
 .reasonPickOn { background: rgba(238, 140, 58, 0.18); border-color: #EE8C3A; }
+
+/* fix227b (David): the panel heading hover of the Settings page, on every Folder panel -- the icon (and title) brighten */
+.drawerIcon, .drawerTitle { transition: color 0.2s ease, transform 0.2s ease, opacity 0.2s ease; }
+.drawerHeader:hover .drawerTitle, .drawerHeader:focus-visible .drawerTitle,
+.drawerHeader:hover .drawerIcon, .drawerHeader:focus-visible .drawerIcon { color: var(--ink-solid); opacity: 1; }
+.drawerHeader:hover .drawerIcon, .drawerHeader:focus-visible .drawerIcon { transform: scale(1.08); }
+
+/* fix228 (David): every delete button, the same clear look -- dark red words on the light header; on hover or press it
+   turns SOLID dark red with WHITE words (never red-on-red or pale pink you can hardly read) */
+.purgeBtn { background: rgba(185, 28, 28, 0.08); border-color: rgba(185, 28, 28, 0.55); color: #b91c1c; }
+.purgeBtn:hover, .purgeBtn:focus-visible, .purgeBtn:active,
+.ghostBtnDanger:hover, .ghostBtnDanger:focus-visible, .ghostBtnDanger:active,
+.btnDanger:hover, .btnDanger:focus-visible, .btnDanger:active { background: #b91c1c !important; border-color: #b91c1c !important; color: #fff !important; box-shadow: none; }
+
+/* fix228 (David): a box label stays on ONE line (cut with ... when very long), so boxes in a row line up */
+.inputLabelRow { flex-wrap: nowrap; min-width: 0; }
+.inputLabelRow label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
