@@ -37,4 +37,7 @@ public interface FollowUpRepository extends JpaRepository<FollowUpLog, UUID> {
 
     /** fix215: notes whose follow-up day is this day (the morning reminder) */
     List<FollowUpLog> findByFollowUpOn(java.time.LocalDate day);
+
+    /** fix225: the notes written about these clients themselves */
+    List<FollowUpLog> findByClientIdInOrderByTimestampDesc(java.util.Collection<UUID> clientIds);
 }

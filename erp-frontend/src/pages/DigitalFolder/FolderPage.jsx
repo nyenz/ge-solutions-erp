@@ -467,6 +467,7 @@ const FolderPage = () => {
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const { reasonState, askReason, closeReason } = useReasonPrompt();   // fix223
+    const [noteTotal, setNoteCount] = useState(null);   // fix225
     const firstInputRef = useRef(null);
     const fileInputRef = useRef(null);
     // fix136: document categories + the UPLOAD DOCUMENTS window
@@ -1031,7 +1032,7 @@ const FolderPage = () => {
     const statusNamesById = new Map((binder.statuses || []).map(st => [st.id, st.statusName]));
     const statusNameOf = (sid) => statusNamesById.get(sid) || '';
     const notes = binder.notes || [];
-    const noteCount = notes.length;
+    const noteCount = noteTotal ?? notes.length;   // fix225: the timeline reports its real number after every change
     const paymentCount = payments.length;
     // fix162: which payments have been reversed (a REVERSAL line points at its original by id)
     const reversedIds = new Set(payments.filter(p => p.paymentType === 'REVERSAL' && p.notes)
@@ -1519,7 +1520,7 @@ const FolderPage = () => {
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                             <CornerDecor hideTop />
                             <NotesTimeline scope="project" id={id} canWrite={!isDeleted} refreshKey={binder}
-                                onToast={(t, k) => toast(t, k === 'error' ? 'error' : k, 3500)}
+                                onToast={(t, k) => toast(t, k === 'error' ? 'error' : k, 3500)} onCount={setNoteCount}
                                 onOpenDoc={(docId) => { const d = docsById.get(docId); if (d) handleOpenDoc(d.filePath, d.fileName); else toast('The file is in Documents.', 'info', 3000); }} />
                         </div></div>
                     </section>

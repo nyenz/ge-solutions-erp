@@ -144,4 +144,28 @@ public class TimelineTest {
         assertEquals("Stage ticked: Deed Plan", stage.getTitle());
         assertNull(TimelineJobs.fromAudit("FEES_REDUCED", "reduced storage fees on #999Z", Map.of("004A", id), Set.of(id)), "an unknown project is skipped");
     }
+
+    /** fix225 (David): a note about the client alone shows on the client page AND on each of the client's projects. */
+    @Test
+    public void aClientNoteShowsOnTheClientAndOnTheirProjects() {
+        as("test.secretary", "ROLE_SECRETARY");
+        LandProject p = project();
+        Client c = p.billingParties().iterator().next();
+        notes.addForClient(c.getId(), "Prefers calls after 5 pm.", "Call with client", null, true);
+
+        List<Map<String, Object>> onClient = entries(timeline.forClient(c.getId()));
+        Map<String, Object> row = onClient.stream().filter(r -> Boolean.TRUE.equals(r.get("clientNote"))).findFirst().orElseThrow();
+        assertEquals("Prefers calls after 5 pm.", row.get("text"));
+        assertEquals(Boolean.TRUE, row.get("pinned"));
+        assertNull(row.get("projectId"));
+
+        List<Map<String, Object>> onProject = entries(timeline.forProject(p.getId()));
+        assertTrue(onProject.stream().anyMatch(r -> Boolean.TRUE.equals(r.get("clientNote"))), "the project shows its client's note");
+
+        // it can be changed and deleted like any note (no project to check)
+        UUID id = (UUID) row.get("id");
+        notes.edit(id, "Prefers calls after 6 pm.", null, null);
+        notes.delete(id, "Wrong details");
+        assertTrue(entries(timeline.forClient(c.getId())).stream().noneMatch(r -> Boolean.TRUE.equals(r.get("clientNote"))));
+    }
 }

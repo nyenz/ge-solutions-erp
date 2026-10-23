@@ -24,8 +24,13 @@ public class FollowUpLog {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "project_id", nullable = false)
+    /** fix225: empty for a note about the CLIENT (clientId is set instead). */
+    @Column(name = "project_id")
     private UUID projectId;
+
+    /** fix225 (David): a note about the client alone ("prefers calls after 5 pm"), not about one project. */
+    @Column(name = "client_id")
+    private UUID clientId;
 
     /**
      * STAGE 10 FIX: WHICH PERSON THIS CONTACT BELONGS TO.

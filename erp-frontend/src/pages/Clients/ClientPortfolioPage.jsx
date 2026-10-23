@@ -87,6 +87,7 @@ const ClientPortfolioPage = () => {
   const phoneOnly = roleFlags(user).isSecretary;
 
   const [d, setD] = useState(null);
+  const [noteTotal, setNoteTotal] = useState(null);   // fix225: the real number of notes, after every change
   const [loading, setLoading] = useState(true);
   const [loadCode, setLoadCode] = useState('');
 
@@ -421,11 +422,11 @@ const ClientPortfolioPage = () => {
       )}
 
       {/* fix215 (David): one Notes timeline for this client -- notes, decisions, money, events and calls of all their projects */}
-      <CollapsibleSection icon={<FiPhoneCall aria-hidden="true" />} title="NOTES AND HISTORY">
+      <CollapsibleSection icon={<FiPhoneCall aria-hidden="true" />} title="NOTES AND HISTORY" right={noteTotal != null ? <span className={styles.coChip} title="Lines in the notes">{noteTotal}</span> : null}>
         <CornerDecor hideTop />
         {/* fix181 (6.4): straight to this client's card in Recovery */}
         <button type="button" className={styles.coChip} onClick={() => navigate('/recovery?client=' + id)} title="Open this client's card on the Recovery page">OPEN IN RECOVERY</button>
-        <NotesTimeline scope="client" id={id} refreshKey={d} />
+        <NotesTimeline scope="client" id={id} refreshKey={d} onCount={setNoteTotal} />
       </CollapsibleSection>
       <BackToTopButton />
     </div>

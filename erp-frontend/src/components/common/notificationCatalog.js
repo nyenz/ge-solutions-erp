@@ -31,7 +31,7 @@ import {
     FiDollarSign, FiFilePlus, FiClock, FiArchive, FiAlertTriangle, FiPhoneCall,
     FiUnlock, FiLock, FiMapPin, FiTrendingDown, FiUserPlus, FiUserX, FiUserCheck,
     FiShield, FiKey, FiTrash2, FiRotateCcw, FiCheckCircle, FiLayers, FiUploadCloud,
-    FiFlag, FiBell, FiCreditCard,
+    FiFlag, FiBell, FiCreditCard, FiBookmark,
 } from 'react-icons/fi';
 
 export const GROUPS = {
@@ -104,6 +104,7 @@ export const CATALOG = {
     TITLE_COMPLETED:       { label: 'Title completed',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'POSITIVE' },
     NEGOTIATION_DEADLINE:  { label: 'Deadline approaching',  group: GROUPS.PIPELINE, icon: FiClock,       severity: 'WARN' },
     FOLLOW_UP_DUE:         { label: 'Follow-up today',       group: GROUPS.PIPELINE, icon: FiClock,       severity: 'INFO' },   // fix215
+    NOTE_PINNED:           { label: 'Note pinned',           group: GROUPS.PIPELINE, icon: FiBookmark,    severity: 'INFO' },   // fix225
     AUTO_RECEIVABLE_365:   { label: 'Auto-flagged receivable', group: GROUPS.PIPELINE, icon: FiAlertTriangle, severity: 'WARN' },
     PROBLEM_FLAGGED:       { label: 'Flagged as a problem',  group: GROUPS.PIPELINE, icon: FiFlag,        severity: 'CRITICAL' },
     DOC_UPLOADED:          { label: 'Document attached',     group: GROUPS.PIPELINE, icon: FiUploadCloud, severity: 'INFO' },
@@ -171,6 +172,7 @@ export const routeFor = (n) => {
     if (!n) return '/dashboard';
     if (n.entityId) {
         if (n.entityType === 'PROJECT') return '/folder/' + n.entityId;
+        if (n.entityType === 'PROJECT_NOTES') return '/folder/' + n.entityId + '#notes';   // fix225: a pinned note
         if (n.entityType === 'CLIENT')  return '/client/' + n.entityId;
         if (n.entityType === 'EXPENSE') return '/financials';
         if (n.entityType === 'STAFF')   return '/settings';

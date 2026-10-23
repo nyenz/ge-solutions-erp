@@ -38,6 +38,8 @@ public class NoteService {
     private final LandService landService;
     private final AuditService auditService;
     private final TimelineService timeline;   // fix223
+    private final com.gesolutions.erp.modules.client.repository.ClientRepository clientRepository;   // fix225
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;   // fix225
 
     @Transactional(rollbackFor = Exception.class)
     public FollowUpLog add(UUID projectId, String content, String topic, LocalDate followUpOn, boolean pinned, MultipartFile file) throws Exception {
@@ -59,7 +61,47 @@ public class NoteService {
         auditService.logActionAfterCommit("NOTE_ADDED", "Operator [" + AuditService.currentOperator() + "] added a note to project #"
                 + p.getProjectIndex() + (t != null ? " (" + t + ")" : "") + (followUpOn != null ? " | follow up on " + followUpOn : "")
                 + (docId != null ? " | with a file" : "") + ": " + shortText(text));
+        if (pinned) announcePin(n);
         return n;
+    }
+
+    /** fix225 (David): a note about the CLIENT alone, written on the client page (no project, no file). */
+    @Transactional
+    public FollowUpLog addForClient(UUID clientId, String content, String topic, LocalDate followUpOn, boolean pinned) {
+        com.gesolutions.erp.modules.client.model.Client c = clientRepository.findById(clientId)
+                .orElseThrow(() -> new BusinessException("CLIENT_NOT_FOUND: This client no longer exists."));
+        String text = text(content);
+        if (LandService.isEvidenceNote(text)) {
+            throw new BusinessException("NOTE_INVALID: A note cannot start with a system label like [PROBLEM] or [HANDED OVER].");
+        }
+        String t = topic(topic);
+        checkDay(followUpOn);
+        FollowUpLog n = noteRepository.save(FollowUpLog.builder().clientId(clientId).notes(text).topic(t).followUpOn(followUpOn)
+                .pinned(pinned).recordedBy(AuditService.currentOperator()).build());
+        auditService.logActionAfterCommit("NOTE_ADDED", "Operator [" + AuditService.currentOperator() + "] added a client note about "
+                + c.getFullName() + (t != null ? " (" + t + ")" : "") + (followUpOn != null ? " | follow up on " + followUpOn : "") + ": " + shortText(text));
+        if (pinned) announcePin(n);
+        return n;
+    }
+
+    /** fix225 (David): a pinned note also rings the bell of the Secretary, Manager and Director (once per pin). */
+    private void announcePin(FollowUpLog n) {
+        try {
+            String who = AuditService.currentOperator();
+            String words = shortText(n.getNotes());
+            if (n.getProjectId() != null) {
+                String index = projectRepository.findById(n.getProjectId()).map(p -> String.valueOf(p.getProjectIndex())).orElse("?");
+                notificationService.emitToAudience("NOTE_PINNED", "Note pinned on project #" + index + " by " + who + ": " + words,
+                        "PROJECT_NOTES", n.getProjectId());
+            } else if (n.getClientId() != null) {
+                String name = clientRepository.findById(n.getClientId()).map(c -> c.getFullName()).orElse("a client");
+                notificationService.emitToAudience("NOTE_PINNED", "Note pinned about " + name + " by " + who + ": " + words,
+                        "CLIENT", n.getClientId());
+            }
+        } catch (RuntimeException e) {
+            // the bell is a convenience: it must never stop the pin itself
+            org.slf4j.LoggerFactory.getLogger(NoteService.class).warn("[NOTES] pin alert not sent: {}", e.getMessage());
+        }
     }
 
     @Transactional
@@ -88,8 +130,11 @@ public class NoteService {
         FollowUpLog n = noteRepository.findById(noteId)
                 .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
         if (LandService.isEvidenceNote(n.getNotes())) throw new BusinessException("NOTE_LOCKED: Record lines cannot be pinned.");
+        boolean was = Boolean.TRUE.equals(n.getPinned());
         n.setPinned(pinned);
-        return noteRepository.save(n);
+        FollowUpLog saved = noteRepository.save(n);
+        if (pinned && !was) announcePin(saved);   // fix225
+        return saved;
     }
 
     @Transactional
@@ -112,7 +157,7 @@ public class NoteService {
         if (LandService.isEvidenceNote(n.getNotes())) {
             throw new BusinessException("NOTE_LOCKED: This line was written by the system for a PROBLEM flag or a hand-over. It is kept as a record and cannot be changed.");
         }
-        projectRepository.findById(n.getProjectId()).ifPresent(p -> {
+        if (n.getProjectId() != null) projectRepository.findById(n.getProjectId()).ifPresent(p -> {
             if (p.isDeleted()) throw new BusinessException("NOTE_LOCKED: This project is deleted. Restore it first.");
         });
         String me = AuditService.currentOperator();

@@ -43,6 +43,21 @@ public class TimelineController {
         return Map.of("id", n.getId());
     }
 
+    /** fix225 (David): a note about the client alone (no project, no file). */
+    @PostMapping("/client/{id}/notes")
+    public Map<String, Object> addForClient(@PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        Object day = body.get("followUpOn");
+        LocalDate on;
+        try {
+            on = day == null || String.valueOf(day).isBlank() ? null : LocalDate.parse(String.valueOf(day).trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("DATE_INVALID: The follow-up day is not a valid date.");
+        }
+        FollowUpLog n = notes.addForClient(id, body.get("content") == null ? null : String.valueOf(body.get("content")),
+                body.get("topic") == null ? null : String.valueOf(body.get("topic")), on, Boolean.TRUE.equals(body.get("pinned")));
+        return Map.of("id", n.getId());
+    }
+
     @PutMapping("/notes/{noteId}")
     public Map<String, Object> edit(@PathVariable UUID noteId, @RequestBody Map<String, String> body) {
         String day = body.get("followUpOn");
