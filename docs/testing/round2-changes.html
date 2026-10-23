@@ -1,0 +1,413 @@
+<title>Round 2 Test Pack</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow working column; a sticky score bar on top; each step is a row with DO, COPY chips, EXPECT and PASS/FAIL. */
+:root {
+  --bg: #f3f5f4; --panel: #ffffff; --ink: #1c3335; --ink-soft: #55696b; --line: #d3dcdb;
+  --accent: #c96a1b; --accent-wash: #fbeee1; --chip: #e9efee;
+  --pass: #1f7a4d; --pass-wash: #e2f3ea; --fail: #b3261e; --fail-wash: #fbe6e4;
+  --f-display: 'Cinzel', Georgia, serif; --f-body: 'DM Sans', system-ui, sans-serif; --f-mono: 'DM Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12201f; --panel: #1b2e2f; --ink: #e6eeed; --ink-soft: #9fb3b2; --line: #2f4647;
+  --accent: #ee8c3a; --accent-wash: #3a2a1a; --chip: #24393a;
+  --pass: #5fcf97; --pass-wash: #173527; --fail: #ff8a80; --fail-wash: #3d1f1d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12201f; --panel: #1b2e2f; --ink: #e6eeed; --ink-soft: #9fb3b2; --line: #2f4647;
+  --accent: #ee8c3a; --accent-wash: #3a2a1a; --chip: #24393a;
+  --pass: #5fcf97; --pass-wash: #173527; --fail: #ff8a80; --fail-wash: #3d1f1d; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 60px; display: flex; flex-direction: column; gap: 22px; }
+h1 { font-family: var(--f-display); font-size: clamp(22px, 4vw, 30px); margin: 0; letter-spacing: .02em; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-size: 18px; margin: 0; letter-spacing: .03em; color: var(--accent); text-wrap: balance; }
+p { margin: 0; }
+.lead { color: var(--ink-soft); max-width: 65ch; }
+.how { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: var(--accent-wash); border-left: 4px solid var(--accent); }
+.how b { font-weight: 700; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.score { display: flex; gap: 14px; font-variant-numeric: tabular-nums; font-weight: 700; flex-wrap: wrap; }
+.score .p { color: var(--pass); } .score .f { color: var(--fail); } .score .l { color: var(--ink-soft); }
+.bar .sp { flex: 1 1 auto; }
+button { font: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 6px; padding: 7px 12px; font-weight: 700; font-size: 14px; }
+.btn:hover { border-color: var(--accent); }
+.btn.main { background: var(--accent); border-color: var(--accent); color: #fff; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.files { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.files ul { margin: 4px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 14px; }
+.files li { font-family: var(--f-mono); font-size: 13px; overflow-wrap: anywhere; }
+.fgroup { display: flex; flex-direction: column; }
+section { display: flex; flex-direction: column; gap: 10px; }
+.secnote { color: var(--ink-soft); font-size: 15px; max-width: 65ch; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.step.pass { border-color: var(--pass); } .step.fail { border-color: var(--fail); }
+.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.num { font-family: var(--f-mono); font-size: 13px; color: var(--ink-soft); }
+.role { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: var(--chip); color: var(--ink); }
+.do { font-weight: 500; min-width: 0; }
+.lbl { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.copies { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.copy { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; color: var(--ink); min-width: 0; }
+.copy:hover { border-color: var(--accent); }
+.copy .k { font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+.copy .v { font-family: var(--f-mono); font-size: 14px; overflow-wrap: anywhere; }
+.copy.done { border-color: var(--pass); background: var(--pass-wash); }
+.expect { padding: 9px 12px; background: var(--bg); border-radius: 6px; min-width: 0; }
+.expect ul { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+.mark { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mark button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 7px 16px; font-weight: 700; font-size: 14px; }
+.mark .bp[aria-pressed="true"] { background: var(--pass-wash); border-color: var(--pass); color: var(--pass); }
+.mark .bf[aria-pressed="true"] { background: var(--fail-wash); border-color: var(--fail); color: var(--fail); }
+.mark input { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-weight: 700; font-size: 14px; max-width: calc(100% - 32px); }
+/* fix218: "only what is left" -- passed steps and info steps hide, a finished section folds into one line */
+.next { font-weight: 700; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+body.leftOnly .step.pass, body.leftOnly .step.info { display: none; }
+body.leftOnly .how p.old { display: none; }
+#files:not(.open) .fgroup, #files:not(.open) .secnote { display: none; }
+#files #filesToggle { align-self: flex-start; }
+body.leftOnly section.sdone > :not(h2):not(.donebar) { display: none; }
+body.leftOnly:not(.showDone) section.sdone:not(.sopen) { display: none; }
+#doneSummary { display: none; }
+body.leftOnly #doneSummary { display: block; }
+.donebar { display: none; border: 1px dashed var(--pass); color: var(--pass); background: var(--pass-wash); border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 14px; text-align: left; cursor: pointer; }
+body.leftOnly section.sdone .donebar { display: block; }
+section.sopen .step.pass, section.sopen .step.info { display: flex !important; }
+section.sopen > * { display: revert !important; }
+section.sopen .step { display: flex !important; }
+textarea#out { width: 100%; min-height: 140px; font-family: var(--f-mono); font-size: 13px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1>Round 2: Every Change</h1>
+    <p class="lead">Golden Seed ERP manual test of fix222 to fix231: Reports expenses, delete reasons, errors that point at the box, Notes, explainers, prints, the look, phones and the Guide.</p>
+  </header>
+
+  <div class="how">
+    <p><b>Round 2: every change since Round 1 (fix222 to fix231, 23 Oct 2026).</b> Sign in on the live app with your test accounts. Use your own test data (any project, client or payment you already have). Nothing here wipes data.</p>
+    <p><b>How to use this page.</b> Do the steps from top to bottom. Read <b>What should happen</b>. If the app does that, press PASS. If not, press FAIL and type what you saw. Your ticks are kept on this device.</p>
+    <p>At the end press <b>Copy results</b> and paste them to Claude.</p>
+  </div>
+
+  <div class="bar" role="status">
+    <div class="score"><span class="p" id="nPass">0 passed</span><span class="f" id="nFail">0 failed</span><span class="l" id="nLeft">0 left</span></div>
+    <span class="sp"></span>
+    <span class="next" id="nNext"></span>
+    <button class="btn" id="viewMode" type="button" aria-pressed="true">Show all steps</button>
+    <button class="btn main" id="copyResults" type="button">Copy results</button>
+    <button class="btn" id="resetAll" type="button">Clear ticks</button>
+  </div>
+
+  <button class="donebar" id="doneSummary" type="button"></button>
+  <main id="main" style="display:flex;flex-direction:column;gap:28px"></main>
+
+  <section id="outBox" hidden>
+    <h2>Your results</h2>
+    <p class="secnote">The copy did not work here. Select all the text in this box and copy it by hand.</p>
+    <textarea id="out" readonly></textarea>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+var DATA = [
+{ title: "A. Get the new version", steps: [
+  { role: "Any", does: "Open golden-seed.onrender.com and press Ctrl + Shift + R once. If the server was asleep, wait one minute and press it again.",
+    expect: ["The left menu has a new item GUIDE (a question-mark icon) just above SETTINGS. If it is not there, wait 10 minutes and refresh again."] }
+]},
+{ title: "B. Reports loads expenses (fix222)", steps: [
+  { role: "Director", does: "Open Reports and press the EXPENSES tab at the top.",
+    expect: ["The expenses load: no red box saying Could not load expenses.", "Pick EXPENSES BY CATEGORY in the catalogue: the chart and table show your expenses."] },
+  { role: "Director", does: "Turn off the internet for a moment, press REFRESH on Reports, then turn it back on.",
+    expect: ["The red box now says what happened (no reply from the server ... press REFRESH), not 'you may not have access'."] }
+]},
+{ title: "C. Every delete asks WHY (fix223)", note: "Use things you do not need. Each delete opens the same window: a WHY? box (needed), three quick reasons, CANCEL and a red DELETE button.", steps: [
+  { role: "Director", does: "Open a project folder > DOCUMENTS. Press the red bin on one document. Press DELETE DOCUMENT without typing anything.",
+    expect: ["The window stays open and the WHY? box turns red: Type why this is being deleted (a few words)."] },
+  { role: "Director", does: "Press the quick reason Uploaded by mistake, then DELETE DOCUMENT.",
+    expect: ["The button says DELETING..., the window closes, the document is gone.", "Open the folder's NOTES tab: a DECISIONS line Document deleted: <name> with the reason."] },
+  { role: "Director", does: "Folder > OVERVIEW > Stage checklist: press the bin on a stage you added (not Invoice / Contract). Give a reason and remove it.",
+    expect: ["It asks why first; afterwards NOTES shows Stage removed with the reason."] },
+  { role: "Secretary", does: "Folder > NOTES: write a test note, then press its red bin icon and delete it with a reason.",
+    expect: ["The WHY? window opens; the note goes; NOTES shows Note deleted with the reason."] },
+  { role: "Manager", does: "Recovery > open a client > CALL LOG > HISTORY: press DELETE on a call note you logged.",
+    expect: ["No more PRESS AGAIN: the WHY? window opens. After a reason the note goes and the history reloads."] },
+  { role: "Director", does: "Expenses > RECENT ENTRIES: press the bin on a test entry and delete it with a reason.",
+    expect: ["It asks why first; the entry goes.", "The bell alert Expense deleted shows the reason."] },
+  { role: "Director", does: "Hold the mouse on every red delete button you met above.",
+    expect: ["On hover the button turns SOLID dark red with WHITE words or icon (easy to read)."] }
+]},
+{ title: "D. Messages on top, errors point at the box (fix223, fix224)", steps: [
+  { role: "Director", does: "Open any popup (for example RECORD PAYMENT) and make it fail: press save with the amount empty.",
+    expect: ["The red message is ON TOP of the popup and its blur, never behind it."] },
+  { role: "Director", does: "Folder > EDIT > PEOPLE. Close every panel (CLIENTS, OWNERS ...). Clear Client 1's NIN and press SAVE.",
+    expect: ["The page opens the PEOPLE tab AND the CLIENTS panel, scrolls to the NIN box, marks it red and puts the cursor in it."] },
+  { role: "Director", does: "Press CANCEL to undo the edit.", expect: ["Nothing was saved."] },
+  { role: "Secretary", does: "New Project > LEGACY TITLES. Fill the people, location and title, leave Invoice Number, Contract Number and Total Cost EMPTY, all payment boxes 0, and press SAVE.",
+    expect: ["It saves as PENDING (no error about isStartAsReceivable or any code word)."] },
+  { role: "Secretary", does: "Same as above but type an Initial Payment of 100000, then SAVE.",
+    expect: ["A plain message (no code words) and the page jumps to the Invoice Number box, marked red."] },
+  { role: "Director", does: "Open that Pending Legacy project, add invoice, contract and price, and start it.",
+    expect: ["It starts and it is in RECEIVABLES (Legacy Titles start in receivables)."] },
+  { role: "Manager", does: "Expenses: press a category tile and press save with no amount.",
+    expect: ["The amount box is marked red and gets the cursor."] },
+  { role: "Any", does: "Settings > SECURITY: change your key with a WRONG current key.",
+    expect: ["The CURRENT KEY box is marked red and gets the cursor."] },
+  { role: "Any", does: "Press the bell, filter a group, and press READ (mark as read) when more unread alerts exist than shown.",
+    expect: ["The question comes in the app's own window (MARK AS READ), not the browser's grey box."] }
+]},
+{ title: "E. Notes (fix225)", steps: [
+  { role: "Secretary", does: "Open a project folder > NOTES tab. Look at the top.",
+    expect: ["Small light filter chips first (ALL, NOTES, MONEY, DECISIONS, EVENTS, CALLS), not the big page tabs.", "Then the search box and a smaller + ADD NOTE on one line."] },
+  { role: "Secretary", does: "Look at the list.",
+    expect: ["One light card like the Expenses table: every second row a shade darker, thin lines, no gaps.", "Quiet icons with no ring; money rows in the same colours as the rest (only the amount bold)."] },
+  { role: "Secretary", does: "Type a word in the search box.",
+    expect: ["The numbers on the filter chips change to match the search."] },
+  { role: "Secretary", does: "Press + ADD NOTE, write a note, press PIN TO THE TOP, save.",
+    expect: ["The note shows at the top with a small star.", "The heading NOTES AND HISTORY shows the new number at once (no refresh).", "Hold the mouse on the small buttons at the right of the note: open / pin / edit / delete explain themselves."] },
+  { role: "Manager", does: "Open the bell.",
+    expect: ["An alert Note pinned on project #... by test.secretary: <words>. Pressing it opens that folder's NOTES tab."] },
+  { role: "Secretary", does: "Open a client page (Clients > a client) > NOTES AND HISTORY > + ADD NOTE.",
+    expect: ["The window asks ABOUT: THIS CLIENT (picked) or one of their projects (#...)."] },
+  { role: "Secretary", does: "Keep THIS CLIENT, write Prefers calls after 5 pm, save.",
+    expect: ["The note shows with a small CLIENT tag.", "The filter chips EVERYTHING / CLIENT / #project appear; CLIENT shows only client notes and the numbers follow."] },
+  { role: "Secretary", does: "Open one of that client's projects > NOTES.",
+    expect: ["The same client note shows there too, tagged CLIENT."] },
+  { role: "Secretary", does: "Folder > NOTES: add a note WITH a file attached.",
+    expect: ["After saving, the DOCUMENTS tab count goes up at once (no refresh)."] }
+]},
+{ title: "F. Explainers, pop-outs and settings (fix226)", steps: [
+  { role: "Any", does: "Collapse the left menu and hold the mouse on the SETTINGS icon.",
+    expect: ["ONE explainer only (before, two SETTINGS boxes showed)."] },
+  { role: "Any", does: "Hold the mouse on the Sign out button at the top right.",
+    expect: ["The words stay whole (no Sig / n / out); the box moves inward at the edge."] },
+  { role: "Secretary", does: "New Project: hold the mouse on the panel headings (1. Entry Mode, 2. Clients ...), the project type buttons and the box labels (Plot Number, Tenure, Total Cost ...).",
+    expect: ["Each one explains itself."] },
+  { role: "Any", does: "Settings > APPEARANCE > Hover explainers.",
+    expect: ["The choices are NORMAL, FAST and OFF (no SLOW).", "FAST shows explainers almost at once; OFF hides them all."] },
+  { role: "Secretary", does: "Folder > NOTES > ADD NOTE: open the Follow up on calendar while the window is low on the screen (make the browser window short).",
+    expect: ["The whole calendar is visible: it opens above the box or moves up, never cut off."] },
+  { role: "Secretary", does: "Open a pick-list (for example Tenure, or document Category) near the bottom of the screen.",
+    expect: ["The list opens upward when there is no room below, and is never cut off."] },
+  { role: "Any", does: "Settings > APPEARANCE > Animation: REDUCED. Then press the round back-to-top arrow on a long page, and change tabs on the Ledger.",
+    expect: ["The page jumps to the top with no sliding; the tab highlight jumps with no slide."] },
+  { role: "Any", does: "Set Animation back to ON.", expect: ["Movement comes back."] }
+]},
+{ title: "G. Prints and the Reports PDF (fix227)", steps: [
+  { role: "Director", does: "Open a client with few projects and no calls. Press the PRINT icon (top right) and look at the print preview.",
+    expect: ["The print button is the printer ICON alone (no word PRINT).", "One sheet only: no second page with just a footer.", "No empty Call log section; no 'No payments recorded' line."] },
+  { role: "Director", does: "Look at the top of that Client File.",
+    expect: ["A navy band with the GE Solutions compass logo (navy circle, orange ring and needle) and 'GE Solutions'.", "The website colours: navy and orange, cream tints (no teal)."] },
+  { role: "Director", does: "Open a project folder and press its print icon.",
+    expect: ["The Project File has the same logo and colours; stage ticks are navy; sections with nothing in them are left out."] },
+  { role: "Director", does: "Reports > pick any report > open the CHART list and press DONUT, then BARS (tick two).",
+    expect: ["The list shows a tick before each chosen chart; the label says DONUT + BARS.", "Both charts show side by side (one under the other on a phone)."] },
+  { role: "Director", does: "Press PDF -- THE DOCUMENT and open the file.",
+    expect: ["The cover has the compass logo, 'GE Solutions' and the report name in orange on navy.", "Both charts are on the cover; then the table; the footer says GE Solutions | <report> | Page x of y."] },
+  { role: "Director", does: "Choose NONE in the CHART list.", expect: ["No chart shows; the PDF has no chart."] }
+]},
+{ title: "H. The look (fix228)", steps: [
+  { role: "Any", does: "Settings: look at the APPEARANCE panel heading icon, then hold the mouse on the heading.",
+    expect: ["No box around the icon.", "On hover the icon and title brighten and the icon grows a touch."] },
+  { role: "Secretary", does: "Hold the mouse on panel headings on New Project and in a Folder (PLOT DETAILS, DOCUMENTS ...).",
+    expect: ["The same hover as Settings everywhere."] },
+  { role: "Director", does: "Open Payments and look at the table.",
+    expect: ["One font; dark main values, soft grey small lines; orange only for the project number.", "No green / yellow amounts, no coloured dots, no typewriter font, no italics.", "RECEIPT is a small icon button (no underlined 'receipt'); missing receipts say No receipt in red."] },
+  { role: "Director", does: "Look at the top of Payments.",
+    expect: ["Search and tabs on one line; then ONE filter bar: FROM, TO, Missing receipt, Include deleted, PAID WITH, all the same height.", "Method amounts in quiet grey (not green)."] },
+  { role: "Any", does: "Look around the app (links, Today / Clear date on New Project, the login page, Recovery links).",
+    expect: ["No underlined words anywhere.", "Done stages and reversed amounts are still crossed out."] },
+  { role: "Secretary", does: "Recovery > a client > CALL LOG > HISTORY.",
+    expect: ["One cream card with every second row a shade darker, like Expenses."] },
+  { role: "Secretary", does: "New Project > FINANCIALS: type an Initial Payment so PAYMENT METHOD and the reference box show; pick Office, then Mobile Money, then Bank, then Other.",
+    expect: ["The reference label is short (Receipt no., Transaction ID, Bank reference, How was it paid?) and the boxes in that row line up."] },
+  { role: "Secretary", does: "Open a project that has a plot number, then one that has none.",
+    expect: ["The title reads PLOT 316 (with the number) or PROJECT #002A (with the index)."] },
+  { role: "Secretary", does: "Open the Project Ledger and look at the INDEX column.",
+    expect: ["Index, then PLOT <number> (if any), the type, the invoice and contract.", "No NIN lines (searching a NIN still finds the project)."] }
+]},
+{ title: "I. On a phone (fix230)", note: "Use your phone (or make the browser very narrow).", steps: [
+  { role: "Secretary", does: "Open a project folder from the Ledger.",
+    expect: ["The side menu stays CLOSED (before, it opened over the page)."] },
+  { role: "Any", does: "Open Dashboard, Ledger, Payments, Reports and Settings.",
+    expect: ["No long grey line under the page titles.", "Nothing runs off the right edge; the page never scrolls sideways."] },
+  { role: "Secretary", does: "Ledger: look at the index column.",
+    expect: ["The invoice / contract lines are whole (no INV- / 021A split) and say INV-... once (no INV INV-)."] }
+]},
+{ title: "J. The Guide (fix231)", steps: [
+  { role: "Secretary", does: "Press GUIDE in the left menu.",
+    expect: ["The guide opens on the Secretary's tasks and starts playing by itself.", "Each step: a picture of the app with an orange box on the thing to look at, and one sentence under it."] },
+  { role: "Secretary", does: "Press pause, back and next; press a step bar; use the arrow keys and space.",
+    expect: ["Each control does what it says; after the last step the next task starts by itself."] },
+  { role: "Secretary", does: "Press the rank buttons at the top left (Everyone, Secretary, Manager, Director, Employee).",
+    expect: ["The task list changes to that rank's tasks."] },
+  { role: "Employee", does: "Sign in as the Employee and press GUIDE.",
+    expect: ["GUIDE is in the Employee's menu and opens on the Employee's tasks."] },
+  { role: "Any", does: "Open the guide on a phone.",
+    expect: ["It fits the screen; the tasks scroll sideways at the top; the picture and sentence are readable."] }
+]}
+];
+
+var KEY = "round2-changes-v1";
+var state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+// fix218 (David): the results already sent to Claude are built into the page, so any browser or phone starts with them
+// ticked. A tick made on this device always wins. Steps NOT in these lists were passed (19 Oct 2026, 16:25).
+var SAVED = { on: "", notDone: null, failed: {} };   // Round 2: nothing is ticked in advance
+var MODE_KEY = KEY + "-mode";
+var leftOnly = true;
+try { leftOnly = localStorage.getItem(MODE_KEY) !== "all"; } catch (e) {}
+
+function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+var toastT;
+function toast(msg) { var t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 1600); }
+function copyText(text, onOk, onFail) {
+  try { navigator.clipboard.writeText(text).then(onOk, onFail); } catch (e) { onFail(); }
+}
+
+var all = [];
+var sections = [];
+var nextId = null;
+var main = document.getElementById("main");
+DATA.forEach(function (sec, si) {
+  var s = el("section");
+  s.appendChild(el("h2", null, sec.title));
+  if (sec.note) s.appendChild(el("p", "secnote", sec.note));
+  sec.steps.forEach(function (st, i) {
+    var id = String.fromCharCode(65 + si) + (i + 1);
+    var box = el("div", "step");
+    var top = el("div", "top");
+    top.appendChild(el("span", "num", id));
+    top.appendChild(el("span", "role", st.role));
+    box.appendChild(top);
+    box.appendChild(el("div", "do", st.does));
+    if (st.copy) {
+      var g = el("div", "copies");
+      st.copy.forEach(function (c) {
+        var b = el("button", "copy"); b.type = "button";
+        if (c[0]) b.appendChild(el("span", "k", c[0]));
+        b.appendChild(el("span", "v", c[1]));
+        b.addEventListener("click", function () {
+          copyText(c[1], function () { b.classList.add("done"); toast("Copied: " + c[1]); },
+            function () { var r = document.createRange(); r.selectNodeContents(b.lastChild); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Selected. Press Ctrl+C to copy."); });
+        });
+        g.appendChild(b);
+      });
+      box.appendChild(g);
+    }
+    if (st.expect) {
+      var ex = el("div", "expect");
+      ex.appendChild(el("div", "lbl", "What should happen"));
+      var ul = el("ul");
+      st.expect.forEach(function (x) { ul.appendChild(el("li", null, x)); });
+      ex.appendChild(ul);
+      box.appendChild(ex);
+    }
+    if (st.info) box.classList.add("info");
+    if (!st.info && !state[id]) {
+      if (SAVED.failed[id]) state[id] = { r: "f", n: SAVED.failed[id] };
+      else if (SAVED.notDone && SAVED.notDone.indexOf(id) < 0) state[id] = { r: "p" };
+    }
+    if (!st.info) {
+      var m = el("div", "mark");
+      var bp = el("button", "bp", "PASS"); bp.type = "button";
+      var bf = el("button", "bf", "FAIL"); bf.type = "button";
+      var note = el("input"); note.type = "text"; note.id = "note-" + id; note.placeholder = "If it failed, type what you saw"; note.setAttribute("aria-label", "Note for step " + id);
+      note.value = (state[id] && state[id].n) || "";
+      function paint() {
+        var r = state[id] && state[id].r;
+        bp.setAttribute("aria-pressed", r === "p" ? "true" : "false");
+        bf.setAttribute("aria-pressed", r === "f" ? "true" : "false");
+        box.classList.toggle("pass", r === "p"); box.classList.toggle("fail", r === "f");
+      }
+      function set(r) { state[id] = state[id] || {}; state[id].r = state[id].r === r ? null : r; save(); paint(); count(); }
+      bp.addEventListener("click", function () { set("p"); });
+      bf.addEventListener("click", function () { set("f"); note.focus(); });
+      note.addEventListener("input", function () { state[id] = state[id] || {}; state[id].n = note.value; save(); });
+      m.appendChild(bp); m.appendChild(bf); m.appendChild(note);
+      box.appendChild(m);
+      all.push({ id: id, role: st.role, does: st.does, paint: paint, note: note });
+      paint();
+    }
+    s.appendChild(box);
+  });
+  var db = el("button", "donebar"); db.type = "button";
+  db.addEventListener("click", function () { s.classList.toggle("sopen"); });
+  s.insertBefore(db, s.children[1] || null);
+  main.appendChild(s);
+  sections.push({ el: s, bar: db, ids: sec.steps.map(function (st, i) { return st.info ? null : String.fromCharCode(65 + si) + (i + 1); }).filter(Boolean), title: sec.title });
+});
+save();
+
+function count() {
+  var p = 0, f = 0;
+  all.forEach(function (a) { var r = state[a.id] && state[a.id].r; if (r === "p") p++; else if (r === "f") f++; });
+  document.getElementById("nPass").textContent = p + " passed";
+  document.getElementById("nFail").textContent = f + " failed";
+  document.getElementById("nLeft").textContent = (all.length - p - f) + " left";
+  // fix218: fold finished sections, show the next step to do
+  var next = null;
+  all.forEach(function (a) { var r = state[a.id] && state[a.id].r; if (!next && r !== "p") next = a.id; });
+  document.getElementById("nNext").textContent = next ? "Next: " + next : "All done";
+  nextId = next;
+  sections.forEach(function (x) {
+    var done = x.ids.length === 0 || x.ids.every(function (id) { return state[id] && state[id].r === "p"; });
+    x.el.classList.toggle("sdone", done);
+    x.bar.textContent = x.ids.length ? "All " + x.ids.length + " steps passed. Tap to see them." : "File list. Tap to see it.";
+  });
+  var doneSecs = sections.filter(function (x) { return x.el.classList.contains("sdone"); });
+  var letters = doneSecs.map(function (x) { return x.title.split(".")[0]; });
+  document.getElementById("doneSummary").textContent = doneSecs.length
+    ? (document.body.classList.contains("showDone") ? "Hide the finished sections" : "Finished: " + letters.join(", ") + " (" + p + " passed). Tap to see them.")
+    : "";
+  document.getElementById("doneSummary").hidden = !doneSecs.length;
+}
+function applyMode() {
+  document.body.classList.toggle("leftOnly", leftOnly);
+  var b = document.getElementById("viewMode");
+  b.textContent = leftOnly ? "Show all steps" : "Show only what is left";
+  b.setAttribute("aria-pressed", leftOnly ? "true" : "false");
+}
+document.getElementById("doneSummary").addEventListener("click", function () { document.body.classList.toggle("showDone"); count(); });
+document.getElementById("nNext").addEventListener("click", function () {
+  if (!nextId) return;
+  var n = document.getElementById("note-" + nextId);
+  if (n) n.closest(".step").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+document.getElementById("viewMode").addEventListener("click", function () {
+  leftOnly = !leftOnly;
+  try { localStorage.setItem(MODE_KEY, leftOnly ? "left" : "all"); } catch (e) {}
+  applyMode();
+});
+applyMode();
+count();
+
+document.getElementById("copyResults").addEventListener("click", function () {
+  var lines = ["ROUND 2 CHANGES RESULTS"], p = 0, f = 0, left = [];
+  all.forEach(function (a) {
+    var s = state[a.id] || {};
+    if (s.r === "p") p++;
+    else if (s.r === "f") { f++; lines.push("FAIL " + a.id + " (" + a.role + "): " + a.does + " | SAW: " + (s.n || "(no note)")); }
+    else { left.push(a.id); if (s.n) lines.push("NOTE " + a.id + ": " + s.n); }
+  });
+  lines.splice(1, 0, p + " passed, " + f + " failed, " + left.length + " not done" + (left.length ? " (" + left.join(", ") + ")" : ""));
+  var text = lines.join("\n");
+  copyText(text, function () { toast("Results copied. Paste them to Claude."); }, function () {
+    var o = document.getElementById("outBox"); o.hidden = false; var ta = document.getElementById("out"); ta.value = text; ta.focus(); ta.select();
+  });
+});
+
+var armed = false, armT;
+document.getElementById("resetAll").addEventListener("click", function () {
+  var b = this;
+  if (!armed) { armed = true; b.textContent = "Press again to clear"; clearTimeout(armT); armT = setTimeout(function () { armed = false; b.textContent = "Clear ticks"; }, 3000); return; }
+  armed = false; b.textContent = "Clear ticks"; state = {}; save();
+  all.forEach(function (a) { a.note.value = ""; a.paint(); }); count(); toast("All ticks cleared.");
+});
+</script>
