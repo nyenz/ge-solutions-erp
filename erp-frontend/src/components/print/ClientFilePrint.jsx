@@ -4,7 +4,7 @@
 // It shares the Project File's paper styles (ProjectFilePrint.module.css). Money parts print only when showMoney
 // is true (the Client page shows money to the Director and above only).
 import React from 'react';
-import GesMark from './GesMark';   // fix227: the website's compass logo
+import GesMark from './GesMark';   // fix233: the real GES globe logo
 import { PROJECT_STATUS } from '../../utils/projectStatus';
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';

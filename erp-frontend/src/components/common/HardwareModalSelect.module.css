@@ -19,9 +19,9 @@
     padding: 0 var(--input-px, clamp(9px, 1.2vw, 13px));
     border-radius: var(--input-radius, 6px);
     background: #ffffff;
-    border: 1.5px solid rgba(238, 140, 58, 0.3);
-    color: var(--navy, #213E40);
-    font-family: 'Inter', sans-serif;
+    border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58), 0.3);
+    color: var(--navy, var(--brand-2, #213E40));
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: var(--input-font, clamp(11px, 1.05vw, 13px));
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -33,8 +33,8 @@
 .trigger:hover,
 .trigger:focus-visible,
 .triggerOpen {
-    border-color: var(--orange, #EE8C3A);
-    box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15);
+    border-color: var(--orange, var(--acc, #EE8C3A));
+    box-shadow: 0 0 0 2px rgba(var(--acc-rgb, 238, 140, 58), 0.15);
 }
 
 /* the smaller box used on each file row */
@@ -52,12 +52,12 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.placeholder { color: rgba(26, 46, 48, 0.45); font-weight: 700; }
+.placeholder { color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.45); font-weight: 700; }
 
 .chevron {
     flex-shrink: 0;
     font-size: 14px;
-    color: var(--orange, var(--tx-accent, #EE8C3A));
+    color: var(--orange, var(--tx-accent, var(--acc, #EE8C3A)));
     transition: transform 0.3s;
 }
 .triggerOpen .chevron { transform: rotate(180deg); }
@@ -70,7 +70,7 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     background: #ffffff;
-    border: 1.5px solid var(--orange, #EE8C3A);
+    border: 1.5px solid var(--orange, var(--acc, #EE8C3A));
     border-radius: 6px;
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.3);
     scrollbar-width: none;
@@ -87,8 +87,8 @@
     padding: clamp(8px, 1vw, 11px) clamp(12px, 1.4vw, 16px);
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
-    color: var(--navy, #213E40);
-    font-family: 'Inter', sans-serif;
+    color: var(--navy, var(--brand-2, #213E40));
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(11px, 1.05vw, 13px);
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -105,7 +105,7 @@
 .optionActive,
 .optionSelected,
 .optionSelected.optionActive {
-    background: var(--orange, #EE8C3A);
+    background: var(--orange, var(--acc, #EE8C3A));
     color: #ffffff;
     border-bottom-color: transparent;
 }
@@ -113,8 +113,8 @@
 
 .empty {
     padding: clamp(10px, 1.2vw, 14px) clamp(12px, 1.6vw, 16px);
-    color: rgba(26, 46, 48, 0.55);
-    font-family: 'Inter', sans-serif;
+    color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.55);
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(11px, 1.05vw, 13px);
     font-weight: 700;
 }

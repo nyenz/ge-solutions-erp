@@ -9,8 +9,8 @@
 
     width: var(--sidebar-width);
     height: calc(var(--app-vh) - var(--header-height, clamp(52px, 7vw, 64px)));
-    background: linear-gradient(165deg, var(--sf-deep, #16292b) 0%, var(--sf-1, #1c3335) 45%, var(--sf-2, #213e40) 100%);
-    border-right: 2px solid rgba(238, 140, 58, 0.3);
+    background: linear-gradient(165deg, var(--sf-deep, var(--brand-deep, #16292b)) 0%, var(--sf-1, var(--brand-1, #1c3335)) 45%, var(--sf-2, var(--brand-2, #213e40)) 100%);
+    border-right: 2px solid rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -28,7 +28,7 @@
     position: absolute;
     top: 0; right: 0;
     width: 1px; height: 100%;
-    background: linear-gradient(180deg, transparent, #EE8C3A, transparent);
+    background: linear-gradient(180deg, transparent, var(--acc, #EE8C3A), transparent);
     opacity: 0.4;
     pointer-events: none;
 }
@@ -84,19 +84,19 @@
 
 /* Keyboard focus — orange outline matching ERP standard */
 .navItem:focus-visible {
-    outline: 2px solid #EE8C3A;
+    outline: 2px solid var(--acc, #EE8C3A);
     outline-offset: -2px;
-    background: rgba(238, 140, 58, 0.06);
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.06);
 }
 
 /* Active / current route */
 .active {
-    background: rgba(238, 140, 58, 0.1);
-    color: var(--tx-accent, #EE8C3A);
-    border-left-color: #EE8C3A;
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.1);
+    color: var(--tx-accent, var(--acc, #EE8C3A));
+    border-left-color: var(--acc, #EE8C3A);
 }
 .collapsed .active {
-    border-left-color: #EE8C3A;
+    border-left-color: var(--acc, #EE8C3A);
 }
 
 /* Locked item — muted, shows lock cursor */
@@ -123,7 +123,7 @@
 
 /* ── LABEL ──────────────────────────────────────────────────────── */
 .navText {
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(9px, 0.95vw, 11px);
     font-weight: 900;
     text-transform: uppercase;
@@ -149,7 +149,7 @@
 }
 .branding {
     font-family: 'Space Mono', monospace;
-    color: var(--tx-accent, #EE8C3A);
+    color: var(--tx-accent, var(--acc, #EE8C3A));
     opacity: 0.85;
     font-size: clamp(10px, 0.85vw, 11px);
     font-weight: 700;
@@ -210,4 +210,27 @@
     }
     .collapsed .navItem { padding: 0 clamp(9px, 1.1vw, 13px); justify-content: flex-start; }
     .navItem { --nav-row: 48px; }
+}
+
+/* fix233: in GES DAYLIGHT the page and panels are light but the side bar stays Prussian navy (as on the GES website),
+   so the side bar puts the dark-panel values back for itself and everything inside it. */
+:global(:root[data-theme="ges"]) .sidebar {
+    --sf-1: #0b2545;
+    --sf-2: #0d2a4e;
+    --sf-head: #071a33;
+    --sf-deep: #071a33;
+    --sf-navy: #0b2545;
+    --sf-raise-1: #1b3a63;
+    --sf-raise-2: #13355e;
+    --sf-navy-rgb: 11, 37, 69;
+    --well: 0, 0, 0;
+    --ink-rgb: 255, 255, 255;
+    --ink-solid: #ffffff;
+    --tx-accent: #fb923c;
+    --tx-orange: #fdba74;
+    --text-on-dark: rgba(244, 242, 239, 0.82);
+    --text-on-dark-soft: rgba(244, 242, 239, 0.72);
+    --text-light: #f4f2ef;
+    --scroll-track: #071a33;
+    color: #f4f2ef;
 }

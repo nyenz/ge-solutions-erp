@@ -92,6 +92,25 @@ const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
             await ctx.close();
         }
     }
+    // fix233: the Director's computer pages once more in each of the other looks (the main pass uses the default, GES DAY)
+    for (const theme of ['gesnavy', 'classic']) {
+        const ctx = await browser.newContext({ viewport: SIZES.pc });
+        await ctx.addInitScript(([t, u, th]) => {
+            try {
+                localStorage.setItem('gs_token', t); localStorage.setItem('gs_user', u);
+                localStorage.setItem('goldenseed.prefs.v1.' + JSON.parse(u).username.toLowerCase(), JSON.stringify({ theme: th }));
+            } catch { /* ignore */ }
+        }, [director.token, JSON.stringify(director.user), theme]);
+        const page = await ctx.newPage();
+        for (const p of PAGES.director.filter(Boolean)) {
+            try {
+                await page.goto(WEB + '/' + p, { waitUntil: 'networkidle', timeout: 45000 });
+                await page.waitForTimeout(1200);
+                await page.screenshot({ path: OUT + '/theme-' + theme + '-' + p.replace(/[/#]/g, '_').replace(/_[0-9a-f-]{36}/, '') + '.png', fullPage: true });
+            } catch (e) { note('[theme ' + theme + ' ' + p + '] FAILED ' + e.message); }
+        }
+        await ctx.close();
+    }
     await browser.close();
     fs.writeFileSync(OUT + '/report.txt', report.join('\n') + '\n');
     console.log('done: ' + fs.readdirSync(OUT).length + ' files');

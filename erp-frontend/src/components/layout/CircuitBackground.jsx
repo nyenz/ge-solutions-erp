@@ -81,10 +81,10 @@ const CircuitBackground = () => {
                 {/* ORANGE ENDPOINT BOXES */}
                 <g filter="url(#glowSoft)">
                     {ENDPOINTS.map((e, i) => (
-                        <rect key={`e-${i}`} x={e.x} y={e.y} width="6" height="6" fill="none" stroke="#EE8C3A" strokeWidth="0.8" opacity="0.6" rx="1"/>
+                        <rect key={`e-${i}`} x={e.x} y={e.y} width="6" height="6" fill="none" style={{ stroke: "var(--acc, #EE8C3A)" }} strokeWidth="0.8" opacity="0.6" rx="1"/>
                     ))}
                     {TURNS.map((t, i) => (
-                        <rect key={`t-${i}`} x={t.x} y={t.y} width="4" height="4" fill="#EE8C3A" opacity="0.4" rx="0.5"/>
+                        <rect key={`t-${i}`} x={t.x} y={t.y} width="4" height="4" style={{ fill: "var(--acc, #EE8C3A)" }} opacity="0.4" rx="0.5"/>
                     ))}
                 </g>
 

@@ -23,8 +23,8 @@
     /* fix183: 90% of the screen you can really see (inside the zoomed app, and above the phone keyboard) */
     max-height: calc(var(--app-vh, 100vh) * 0.9);
     overflow-y: auto;
-    background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213e40) 100%);
-    border: 2px solid rgba(238, 140, 58, 0.4);
+    background: linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213e40)) 100%);
+    border: 2px solid rgba(var(--acc-rgb, 238, 140, 58), 0.4);
     border-radius: 14px;
     padding: clamp(20px, 3vw, 32px);
     position: relative;
@@ -34,10 +34,10 @@
         inset 0 1px 0 rgba(255,255,255,0.06);
     animation: slideUp 0.25s cubic-bezier(0.2, 1, 0.3, 1);
     scrollbar-width: thin;
-    scrollbar-color: rgba(238,140,58,0.4) transparent;
+    scrollbar-color: rgba(var(--acc-rgb, 238, 140, 58),0.4) transparent;
 }
 .modalBody::-webkit-scrollbar { width: 4px; }
-.modalBody::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
+.modalBody::-webkit-scrollbar-thumb { background: rgba(var(--acc-rgb, 238, 140, 58),0.4); border-radius: 2px; }
 
 .header {
     display: flex;
@@ -45,12 +45,12 @@
     align-items: center;
     margin-bottom: clamp(16px, 2.5vw, 24px);
     padding-bottom: clamp(10px, 1.5vw, 14px);
-    border-bottom: 1px solid rgba(238, 140, 58, 0.25);
+    border-bottom: 1px solid rgba(var(--acc-rgb, 238, 140, 58), 0.25);
 }
 
 .title {
-    font-family: 'Cinzel', serif;
-    color: var(--orange, var(--tx-accent, #EE8C3A));
+    font-family: var(--font-head, 'Cinzel'), serif;
+    color: var(--orange, var(--tx-accent, var(--acc, #EE8C3A)));
     font-size: clamp(12px, 1.4vw, 16px);
     font-weight: 700;
     letter-spacing: clamp(1px, 0.2vw, 2.5px);
@@ -97,8 +97,8 @@
     left: 10%;
     right: 10%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(238, 140, 58, 0.6), transparent);
-    box-shadow: 0 0 12px rgba(238, 140, 58, 0.3);
+    background: linear-gradient(90deg, transparent, rgba(var(--acc-rgb, 238, 140, 58), 0.6), transparent);
+    box-shadow: 0 0 12px rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     border-radius: 0 0 14px 14px;
 }
 
@@ -125,7 +125,7 @@
     background: rgba(var(--ink-rgb), 0.07);
     border: 1.5px solid rgba(var(--ink-rgb), 0.18);
     color: rgba(var(--ink-rgb), 0.92);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(13px, 1.3vw, 15px);
     font-weight: 700;
     outline: none;
@@ -135,9 +135,9 @@
     margin-top: clamp(5px, 0.6vw, 7px);
 }
 .modalInput:focus {
-    border-color: rgba(238, 140, 58, 0.7);
-    background: rgba(238, 140, 58, 0.06);
-    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.14);
+    border-color: rgba(var(--acc-rgb, 238, 140, 58), 0.7);
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.06);
+    box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58), 0.14);
 }
 
 /* Style number input arrows to match theme */
@@ -162,7 +162,7 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23EE8C3A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='7,11 12,6 17,11' /%3E%3Cpolyline points='7,13 12,18 17,13' /%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
-    border-left: 1px solid rgba(238, 140, 58, 0.3);
+    border-left: 1px solid rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     cursor: pointer;
     opacity: 0.85;
     transition: opacity 0.2s, background-color 0.2s;
@@ -170,7 +170,7 @@
 .modalInput[type="number"]::-webkit-inner-spin-button:hover,
 .modalInput[type="number"]::-webkit-outer-spin-button:hover {
     opacity: 1;
-    background-color: rgba(238, 140, 58, 0.1);
+    background-color: rgba(var(--acc-rgb, 238, 140, 58), 0.1);
 }
 
 /* Textarea inside a modal */
@@ -181,7 +181,7 @@
     background: rgba(var(--ink-rgb), 0.07);
     border: 1.5px solid rgba(var(--ink-rgb), 0.18);
     color: rgba(var(--ink-rgb), 0.92);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(13px, 1.3vw, 15px);
     font-weight: 700;
     resize: vertical;
@@ -193,16 +193,16 @@
     margin-top: clamp(5px, 0.6vw, 7px);
 }
 .modalTextarea:focus {
-    border-color: rgba(238, 140, 58, 0.7);
-    background: rgba(238, 140, 58, 0.06);
-    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.14);
+    border-color: rgba(var(--acc-rgb, 238, 140, 58), 0.7);
+    background: rgba(var(--acc-rgb, 238, 140, 58), 0.06);
+    box-shadow: 0 0 0 3px rgba(var(--acc-rgb, 238, 140, 58), 0.14);
 }
 .modalTextarea::placeholder { color: rgba(var(--ink-rgb), 0.25); font-weight: 500; }
 
 /* Field label inside a modal */
 .modalLabel {
     display: block;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(9px, 0.9vw, 11px);
     font-weight: 900;
     color: rgba(var(--ink-rgb), 0.5);
@@ -226,7 +226,7 @@
     border-radius: 8px;
     padding: clamp(10px, 1.3vw, 14px);
     margin-bottom: clamp(14px, 1.8vw, 18px);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(12px, 1.2vw, 14px);
     font-weight: 700;
     color: rgba(var(--ink-rgb), 0.85);
@@ -257,11 +257,11 @@
     gap: clamp(6px, 0.8vw, 9px);
     padding: 0 clamp(16px, 2vw, 24px);
     height: clamp(38px, 4.8vw, 46px);
-    background: #EE8C3A;
-    color: #1a2e30;
+    background: var(--acc, #EE8C3A);
+    color: var(--brand-ink, #1a2e30);
     border: none;
     border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: clamp(10px, 1vw, 12px);
     text-transform: uppercase;
@@ -272,12 +272,12 @@
     flex-shrink: 0;
 }
 .modalBtnPrimary:hover:not(:disabled) {
-    background: #f0a050;
-    box-shadow: 0 0 20px rgba(238, 140, 58, 0.4);
+    background: var(--acc-hi, #f0a050);
+    box-shadow: 0 0 20px rgba(var(--acc-rgb, 238, 140, 58), 0.4);
     transform: translateY(-1px);
 }
 .modalBtnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
-.modalBtnPrimary:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }
+.modalBtnPrimary:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: 3px; }
 
 /* Cancel / secondary button */
 .modalBtnSecondary {
@@ -290,7 +290,7 @@
     color: rgba(var(--ink-rgb), 0.7);
     border: 1.5px solid rgba(var(--ink-rgb), 0.2);
     border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900;
     font-size: clamp(10px, 1vw, 12px);
     text-transform: uppercase;
@@ -305,7 +305,7 @@
     color: var(--ink-solid);
     border-color: rgba(var(--ink-rgb), 0.35);
 }
-.modalBtnSecondary:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }
+.modalBtnSecondary:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: 3px; }
 
 /* Mobile */
 @media (max-width: 480px) {
@@ -321,9 +321,9 @@
 }
 
 /* INTAKE-PORT v1 — white Intake inputs + proportional buttons in all modals */
-.modalInput,.modalTextarea{font-family:'Inter',sans-serif;font-weight:600;border:1.5px solid rgba(238,140,58,0.3);background:#ffffff;color:#213E40;border-radius:6px;font-size:clamp(11px,1.05vw,13px);padding:clamp(9px,1.2vw,13px);}
+.modalInput,.modalTextarea{font-family:var(--font-body, 'Inter'),sans-serif;font-weight:600;border:1.5px solid rgba(var(--acc-rgb, 238, 140, 58),0.3);background:#ffffff;color:var(--brand-2, #213E40);border-radius:6px;font-size:clamp(11px,1.05vw,13px);padding:clamp(9px,1.2vw,13px);}
 .modalInput::placeholder,.modalTextarea::placeholder{color:#9aa8a6;}
-.modalBtnPrimary,.modalBtnSecondary{height:var(--btn-height,clamp(32px,4vw,38px));padding:0 clamp(10px,1.4vw,16px);font-family:'Inter',sans-serif;font-weight:900;font-size:var(--btn-font,clamp(8px,0.85vw,10px));letter-spacing:1.5px;text-transform:uppercase;border-radius:6px;}
+.modalBtnPrimary,.modalBtnSecondary{height:var(--btn-height,clamp(32px,4vw,38px));padding:0 clamp(10px,1.4vw,16px);font-family:var(--font-body, 'Inter'),sans-serif;font-weight:900;font-size:var(--btn-font,clamp(8px,0.85vw,10px));letter-spacing:1.5px;text-transform:uppercase;border-radius:6px;}
 
 /* fix92: popup keeps scrolling but shows no scrollbar */
 .modalBody, [class*="modalBody"] { scrollbar-width: none; }
@@ -342,7 +342,7 @@
   background: rgba(var(--ink-rgb), 0.12) !important;
 }
 .modalInput:-webkit-autofill, .modalTextarea:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px rgba(33, 62, 64, 0.99) inset;
+  -webkit-box-shadow: 0 0 0 1000px rgba(var(--brand-2-rgb, 33, 62, 64), 0.99) inset;
   -webkit-text-fill-color: var(--ink-solid) !important;
 }
 
@@ -350,4 +350,4 @@
 .backdropStacked { z-index: 100001; background: rgba(10, 20, 25, 0.55); backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 /* fix182: the small grey help line under a popup field */
-.modalHint { display: block; margin-top: 4px; font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px); font-weight: 700; color: rgba(var(--ink-rgb), 0.6); }
+.modalHint { display: block; margin-top: 4px; font-family: var(--font-ui, 'DM Sans'), sans-serif; font-size: clamp(9px, 0.9vw, 11px); font-weight: 700; color: rgba(var(--ink-rgb), 0.6); }

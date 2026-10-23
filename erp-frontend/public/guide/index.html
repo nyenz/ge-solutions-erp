@@ -18,7 +18,7 @@
   /* left: ranks and tasks */
   .side { background: var(--navy); color: #fff; display: flex; flex-direction: column; min-height: 0; }
   .brand { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; }
-  .brand svg { width: 34px; height: 34px; flex-shrink: 0; }
+  .brand .gsLogo { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: #0b2545; border: 2px solid #ea580c; display: grid; place-items: center; font-size: 18px; line-height: 1; }
   .brand b { font-size: 16px; display: block; }
   .brand span { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #fdba8c; }
   .roles { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
@@ -78,7 +78,7 @@
 <div class="app" id="app">
   <aside class="side">
     <div class="brand">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#0b2545" stroke="rgba(255,255,255,.55)" stroke-width=".8"/><circle cx="16" cy="16" r="11" fill="none" stroke="#ea580c" stroke-width="2"/><path d="M20.5 11.5 17.8 17.8 11.5 20.5 14.2 14.2Z" fill="#ea580c"/></svg>
+      <span class="gsLogo" aria-hidden="true">&#127793;</span>
       <div><b>Golden Seed Guide</b><span>GE Solutions</span></div>
     </div>
     <div class="roles" id="roles" role="group" aria-label="Show tasks for"></div>

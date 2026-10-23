@@ -16,7 +16,7 @@
     height: clamp(30px, 3.4vw, 36px);
     padding: 0 clamp(10px, 1.4vw, 16px);
     border-radius: 6px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Inter'), sans-serif;
     font-size: clamp(8px, 0.85vw, 10px);
     font-weight: 900;
     letter-spacing: 1.5px;
@@ -24,26 +24,26 @@
     white-space: nowrap;
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    /* CONTRAST RULE: #1a2e30 on the frosted header (cream at 62% white) is
+    /* CONTRAST RULE: var(--brand-ink, #1a2e30) on the frosted header (cream at 62% white) is
        13.4:1. On hover the fill goes orange and the text goes white, which
        is 2.3:1 -- so hover keeps the navy text instead. */
-    background: rgba(26, 46, 48, 0.08);
-    border: 1.5px solid rgba(26, 46, 48, 0.2);
-    color: #1a2e30;
+    background: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.08);
+    border: 1.5px solid rgba(var(--brand-ink-rgb, 26, 46, 48), 0.2);
+    color: var(--brand-ink, #1a2e30);
 }
-.btn:hover:not(:disabled) { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.btn:hover:not(:disabled) { background: var(--acc, #EE8C3A); border-color: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+.btn:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: 2px; }
 
-.primary { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
-.primary:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; color: #1a2e30; }
+.primary { background: var(--acc, #EE8C3A); border-color: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
+.primary:hover:not(:disabled) { background: var(--acc-dk, #d97a2b); border-color: var(--acc-dk, #d97a2b); color: var(--brand-ink, #1a2e30); }
 
 .danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); color: #991b1b; }
 .danger:hover:not(:disabled) { background: #ef4444; border-color: #ef4444; color: #fff; }
 
 /* Same spec, for a header that sits on a dark panel rather than the frosted bar. */
 .onDark { background: rgba(var(--ink-rgb), 0.06); border-color: rgba(var(--ink-rgb), 0.18); color: rgba(var(--ink-rgb), 0.85); }
-.onDark:hover:not(:disabled) { background: rgba(238, 140, 58, 0.14); border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
+.onDark:hover:not(:disabled) { background: rgba(var(--acc-rgb, 238, 140, 58), 0.14); border-color: var(--acc, #EE8C3A); color: var(--tx-accent, var(--acc, #EE8C3A)); }
 
 .icon { display: inline-flex; align-items: center; font-size: clamp(11px, 1.2vw, 13px); flex-shrink: 0; }
 .spin { animation: hbSpin 0.9s linear infinite; }

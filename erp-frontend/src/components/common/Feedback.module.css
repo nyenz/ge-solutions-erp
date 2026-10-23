@@ -30,7 +30,7 @@
 }
 .toast_success { background: rgba(16,185,129,0.95);  border-left: 4px solid #059669; color: #fff; }
 .toast_error   { background: rgba(239,68,68,0.95);   border-left: 4px solid #b91c1c; color: #fff; }
-.toast_warn    { background: rgba(245,158,11,0.95);  border-left: 4px solid #b45309; color: #1a2e30; }
+.toast_warn    { background: rgba(245,158,11,0.95);  border-left: 4px solid #b45309; color: var(--brand-ink, #1a2e30); }
 .toast_info    { background: rgba(6,182,212,0.95);   border-left: 4px solid #0369a1; color: #fff; }
 .toastIcon { font-size: clamp(14px, 1.6vw, 18px); flex-shrink: 0; margin-top: 1px; display: inline-flex; }
 .toastMsg {
@@ -56,8 +56,8 @@
 }
 .confirmBox {
     position: relative;
-    background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
-    border: 1.5px solid rgba(238, 140, 58, 0.3);
+    background: linear-gradient(160deg, var(--sf-1, var(--brand-1, #1c3335)) 0%, var(--sf-2, var(--brand-2, #213E40)) 100%);
+    border: 1.5px solid rgba(var(--acc-rgb, 238, 140, 58), 0.3);
     border-radius: 12px;
     box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
     width: 100%;
@@ -90,7 +90,7 @@
 .confirmHeaderDanger .confirmTitle { color: var(--tx-red, #fca5a5); }
 .confirmMessage {
     padding: clamp(14px, 2vw, 22px) clamp(16px, 2vw, 24px);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-size: clamp(12px, 1.2vw, 14px);
     font-weight: 600; line-height: 1.6;
     /* CONTRAST RULE: cream 82% on this navy card = 8.56:1. */
@@ -108,7 +108,7 @@
     display: inline-flex; align-items: center; gap: clamp(5px, 0.7vw, 7px);
     padding: clamp(8px, 1vw, 11px) clamp(14px, 1.8vw, 20px);
     border-radius: 6px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif;
     font-weight: 900; font-size: clamp(9px, 0.9vw, 11px);
     text-transform: uppercase; letter-spacing: 1px;
     cursor: pointer; white-space: nowrap;
@@ -123,13 +123,13 @@
     background: rgba(var(--ink-rgb), 0.12); color: var(--ink-solid); border-color: rgba(var(--ink-rgb), 0.35);
 }
 .confirmOkBtn { border: none; }
-/* CONTRAST RULE: navy text on orange/red, never white -- white on #EE8C3A
-   is 2.3:1. Navy #1a2e30 on orange is 6.1:1. */
-.confirmOkWarn   { background: #EE8C3A; color: #1a2e30; }
-.confirmOkWarn:hover   { background: #d97a28; box-shadow: 0 0 14px rgba(238,140,58,0.45); }
+/* CONTRAST RULE: navy text on orange/red, never white -- white on var(--acc, #EE8C3A)
+   is 2.3:1. Navy var(--brand-ink, #1a2e30) on orange is 6.1:1. */
+.confirmOkWarn   { background: var(--acc, #EE8C3A); color: var(--brand-ink, #1a2e30); }
+.confirmOkWarn:hover   { background: #d97a28; box-shadow: 0 0 14px rgba(var(--acc-rgb, 238, 140, 58),0.45); }
 .confirmOkDanger { background: #ef4444; color: #fff; }
 .confirmOkDanger:hover { background: #dc2626; box-shadow: 0 0 14px rgba(239,68,68,0.45); }
-.confirmCancelBtn:focus-visible, .confirmOkBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+.confirmCancelBtn:focus-visible, .confirmOkBtn:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
     .toast { animation: none; }

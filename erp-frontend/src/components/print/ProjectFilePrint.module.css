@@ -33,7 +33,7 @@
         display: block;
         color: #1f2937;
         background: #fff;
-        font-family: 'Inter', Arial, sans-serif;
+        font-family: var(--font-body, 'Inter'), Arial, sans-serif;
         font-size: 9.2pt;
         line-height: 1.45;
         -webkit-print-color-adjust: exact;
@@ -51,16 +51,16 @@
         border-bottom: 1.6mm solid var(--orange);
     }
     .brand { display: flex; align-items: center; gap: 3.5mm; }
-    .mark { width: 12mm; height: 12mm; flex-shrink: 0; display: block; }   /* fix227: the website's compass logo */
+    .mark { width: 12mm; height: 12mm; flex-shrink: 0; display: block; }   /* fix233: the GES globe logo */
     .brand > span:last-child { display: flex; flex-direction: column; }
-    .company { font-family: 'Poppins', 'Inter', Arial, sans-serif; font-weight: 800; font-size: 16pt; letter-spacing: 0.2pt; color: #fff; }
+    .company { font-family: 'Poppins', var(--font-body, 'Inter'), Arial, sans-serif; font-weight: 800; font-size: 16pt; letter-spacing: 0.2pt; color: #fff; }
     .tagline { font-size: 7.2pt; letter-spacing: 1.2pt; text-transform: uppercase; color: #fdba8c; margin-top: 0.6mm; }
     .bannerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 0.8mm; font-size: 7.5pt; letter-spacing: 0.6pt; color: rgba(255, 255, 255, 0.82); }
     .bannerRight span:first-child { font-family: 'Space Mono', monospace; font-size: 9pt; color: #fff; }
 
     /* ── TITLE + REFERENCE DETAILS ──────────────────────────────── */
     .hero { display: grid; grid-template-columns: 0.95fr 1.25fr; gap: 9mm; align-items: end; padding: 5.5mm var(--side) 5mm; border-bottom: 0.5mm solid var(--teal); }
-    .title { font-family: 'Inter', Arial, sans-serif; font-weight: 900; font-size: 30pt; line-height: 0.98; letter-spacing: -0.5pt; text-transform: uppercase; color: var(--navy); }
+    .title { font-family: var(--font-body, 'Inter'), Arial, sans-serif; font-weight: 900; font-size: 30pt; line-height: 0.98; letter-spacing: -0.5pt; text-transform: uppercase; color: var(--navy); }
     .title::first-line { color: var(--orange); }
     .refChip {
         display: inline-block; margin-top: 3mm; padding: 0.8mm 3mm; border-radius: 1mm;
@@ -78,7 +78,7 @@
     .tint { background: var(--tint); border-top: 0.3mm solid var(--tintLine); border-bottom: 0.3mm solid var(--tintLine); }
     .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 9mm; }
     .cols > div { min-width: 0; }
-    .h2 { margin: 0 0 2.5mm; font-family: 'Inter', Arial, sans-serif; font-size: 13pt; font-weight: 800; color: var(--teal); letter-spacing: -0.1pt; break-after: avoid; }
+    .h2 { margin: 0 0 2.5mm; font-family: var(--font-body, 'Inter'), Arial, sans-serif; font-size: 13pt; font-weight: 800; color: var(--teal); letter-spacing: -0.1pt; break-after: avoid; }
     .h2 small { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.8pt; text-transform: uppercase; color: var(--orangeDk); margin-left: 2mm; }
     .lead { margin: 0 0 3mm; color: #4b5563; }
     .miniGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5mm 4mm; }

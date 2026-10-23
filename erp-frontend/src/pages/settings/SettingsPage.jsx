@@ -33,8 +33,8 @@ const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiA
 /* Every option here is wired to real CSS in index.css -- see the note at the
    top of context/PreferencesProvider.jsx for what each one moves. */
 const PREF_GROUPS = [
-  { key: 'theme', group: 'Display', label: 'Page theme', hint: 'CREAM and SLATE change the background and keep navy panels. LIGHT makes the panels light too.',
-    options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }, { value: 'bright', label: 'LIGHT' }] },
+  { key: 'theme', group: 'Display', label: 'Page theme', hint: 'GES DAY and GES NAVY use the company website colours. CLASSIC is the old cream look; SLATE is dark with teal panels; LIGHT makes the old panels light.',
+    options: [{ value: 'ges', label: 'GES DAY' }, { value: 'gesnavy', label: 'GES NAVY' }, { value: 'classic', label: 'CLASSIC' }, { value: 'dark', label: 'SLATE' }, { value: 'bright', label: 'LIGHT' }] },
   { key: 'uiScale', group: 'Display', label: 'Interface size', hint: 'Scales the whole app, not just text.',
     options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },
   { key: 'statSize', group: 'Display', label: 'Summary box size', hint: 'The figures at the top of Recovery, Client Portfolio, Payments, Expenses and Audit.',

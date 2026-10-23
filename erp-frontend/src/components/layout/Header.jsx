@@ -231,7 +231,7 @@ const Header = ({ onToggle }) => {
     const badge = unread;
     const scopeUnread = filter === 'ALL' ? unread : (byGroup[filter] || 0);
     const showDue = dueNow > 0 && (filter === 'ALL' || filter === 'RECOVERY');
-    const accent = filter === 'ALL' ? '#EE8C3A' : GROUP_COLOR[filter];
+    const accent = filter === 'ALL' ? 'var(--acc, #EE8C3A)' : GROUP_COLOR[filter];
 
     const sections = useMemo(() => BUCKETS.map(b => ({
         key: b,
@@ -326,7 +326,7 @@ const Header = ({ onToggle }) => {
                                         return (
                                             <button key={k} type="button" data-empty={!on && n === 0 ? 'true' : undefined}
                                                 className={on ? styles.notifChipOn : styles.notifChip}
-                                                style={{ '--a': k === 'ALL' ? '#EE8C3A' : GROUP_COLOR[k] }}
+                                                style={{ '--a': k === 'ALL' ? 'var(--acc, #EE8C3A)' : GROUP_COLOR[k] }}
                                                 onClick={() => pickFilter(k)} aria-pressed={on}>
                                                 <span className={styles.notifChipDot} aria-hidden="true" />
                                                 <span className={styles.notifChipLabel}>{k}</span>

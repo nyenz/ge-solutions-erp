@@ -3,6 +3,7 @@
 // One chain: dataset -> entity -> period -> columns -> sort -> report ->
 // chart + table + CSV + PDF. Every control recomputes the same row set, so
 // chart, table and downloads can never disagree.
+import { GES_GLOBE } from '../../components/print/GesMark';   // fix233: the real GES logo
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FiSearch, FiX, FiChevronDown, FiAlertCircle } from 'react-icons/fi';
 import { Chart } from '../../components/common/Charts';
@@ -389,6 +390,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     if (!def || !tableCols.length) return;
     const { writeReportPdf } = await import('./reportPdf');
     await writeReportPdf({
+      logoImage: GES_GLOBE,   // fix233
       title: def.title,
       scopeLine: (entity ? entity.type + ' ' + entity.value : 'WHOLE SOURCE') + '  |  ' +
         (def.period ? periodHuman().toUpperCase() : 'AS AT TODAY') + '  |  SORT ' +

@@ -5,8 +5,8 @@
 <style>
 /* Layout: one long column. Sticky page index on top, then each ERP page with its three looks one under the other (side by side on wide screens). */
 :root{
-  --bg:#f7f2e9; --surface:#ffffff; --ink:#1f2937; --body:#4b5563; --line:#e7dccb;
-  --accent:#ea580c; --accentText:#c2440a; --accentSoft:#fff1e6; --onAccent:#ffffff;
+  --bg:#f7f2e9; --surface:#ffffff; --ink:#0b2545; --body:#4b5563; --line:#e7dccb;
+  --accent:#ea580c; --accentText:#c2410c; --accentSoft:#fff1e6; --onAccent:#ffffff;
   --display:'Poppins',ui-sans-serif,system-ui,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
@@ -68,7 +68,7 @@ main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px
 .x-copied{font-size:12px;color:var(--accentText)}
 button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Board styles, each kept inside its own section */
-.s-Main a{color:#c2440a}
+.s-Main a{color:#c2410c}
 .s-Main a:hover{color:#9a3412}
 .s-Main .col{background:var(--page);color:var(--ink);font-family:var(--font);border-radius:22px;padding:26px;display:flex;flex-direction:column;gap:22px;box-shadow:0 1px 0 rgba(0,0,0,.04)}
 .s-Main .sec{display:flex;flex-direction:column;gap:10px}
@@ -116,19 +116,19 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .s-Main .spin{width:30px;height:30px;border-radius:50%;border:3px solid transparent;border-top-color:var(--accent);border-bottom-color:var(--accent);animation:sp 1s linear infinite}
 .s-Main .sk{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--skA) 25%,var(--skB) 50%,var(--skA) 75%);background-size:200% 100%;animation:sh 1.5s ease-in-out infinite}
 .s-Main .motion{margin:0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--body)}
-.s-Main .pickB{height:34px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
-.s-Main .pickB:hover{border-color:#ea580c;color:#c2440a}
+.s-Main .pickB{height:34px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+.s-Main .pickB:hover{border-color:#ea580c;color:#c2410c}
 @keyframes sp{to{transform:rotate(360deg)}}
 @keyframes sh{to{background-position:-200% 0}}
 
-.s-Login a{color:#c2440a}
+.s-Login a{color:#c2410c}
 .s-Login a:hover{color:#9a3412}
-.s-Login .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Login .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Login .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Login .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Login .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Login .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Login .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Login .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Login .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Login .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Login .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Login .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Login .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden;position:relative}
 .s-Login .art{width:560px;flex:none;position:relative;background:var(--artBg);color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:48px;box-sizing:border-box;overflow:hidden}
@@ -157,14 +157,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .s-Login .secure{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11.5px;color:var(--panelMuted);border-top:1px solid var(--panelLine);padding-top:16px}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
-.s-Dashboard a{color:#c2440a}
+.s-Dashboard a{color:#c2410c}
 .s-Dashboard a:hover{color:#9a3412}
-.s-Dashboard .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Dashboard .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Dashboard .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Dashboard .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Dashboard .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Dashboard .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Dashboard .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Dashboard .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Dashboard .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Dashboard .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Dashboard .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Dashboard .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Dashboard .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden}
 .s-Dashboard .side{width:210px;flex:none;background:var(--side);display:flex;flex-direction:column;gap:2px;padding:18px 12px;box-sizing:border-box}
@@ -212,14 +212,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .s-Dashboard .prow{display:grid;grid-template-columns:130px 1fr 70px;gap:12px;align-items:center;font-size:11.5px;font-weight:600}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
-.s-Ledger a{color:#c2440a}
+.s-Ledger a{color:#c2410c}
 .s-Ledger a:hover{color:#9a3412}
-.s-Ledger .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Ledger .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Ledger .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Ledger .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Ledger .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Ledger .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Ledger .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Ledger .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Ledger .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Ledger .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Ledger .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Ledger .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Ledger .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden}
 .s-Ledger .side{width:210px;flex:none;background:var(--side);display:flex;flex-direction:column;gap:2px;padding:18px 12px;box-sizing:border-box}
@@ -270,14 +270,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .s-Ledger .pbar span{display:block;height:100%;background:var(--accent);border-radius:3px}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
-.s-NewProject a{color:#c2440a}
+.s-NewProject a{color:#c2410c}
 .s-NewProject a:hover{color:#9a3412}
-.s-NewProject .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-NewProject .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-NewProject .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-NewProject .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-NewProject .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-NewProject .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-NewProject .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-NewProject .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-NewProject .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-NewProject .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-NewProject .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-NewProject .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-NewProject .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden}
 .s-NewProject .side{width:210px;flex:none;background:var(--side);display:flex;flex-direction:column;gap:2px;padding:18px 12px;box-sizing:border-box}
@@ -336,14 +336,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .s-NewProject .hint{font-size:10.5px;color:var(--panelMuted);margin-top:4px}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
-.s-Folder a{color:#c2440a}
+.s-Folder a{color:#c2410c}
 .s-Folder a:hover{color:#9a3412}
-.s-Folder .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Folder .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Folder .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Folder .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Folder .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Folder .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Folder .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Folder .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Folder .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Folder .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Folder .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Folder .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Folder .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden}
 .s-Folder .side{width:210px;flex:none;background:var(--side);display:flex;flex-direction:column;gap:2px;padding:18px 12px;box-sizing:border-box}
@@ -399,14 +399,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes pu{0%{box-shadow:0 0 0 0 var(--accentSoft)}70%{box-shadow:0 0 0 8px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}}
 
-.s-Popups a{color:#c2440a}
+.s-Popups a{color:#c2410c}
 .s-Popups a:hover{color:#9a3412}
-.s-Popups .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Popups .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Popups .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Popups .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Popups .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Popups .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Popups .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Popups .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Popups .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Popups .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Popups .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Popups .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Popups .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);position:relative;overflow:hidden}
 .s-Popups .ghost{position:absolute;inset:0;display:grid;grid-template-columns:210px 1fr}
@@ -453,14 +453,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 @keyframes sp{to{transform:rotate(360deg)}}
 @keyframes sh{to{background-position:-200% 0}}
 
-.s-Recovery a{color:#c2440a}
+.s-Recovery a{color:#c2410c}
 .s-Recovery a:hover{color:#9a3412}
-.s-Recovery .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Recovery .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Recovery .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Recovery .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Recovery .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Recovery .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Recovery .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Recovery .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Recovery .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Recovery .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Recovery .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Recovery .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Recovery .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden}
 .s-Recovery .side{width:210px;flex:none;background:var(--side);display:flex;flex-direction:column;gap:2px;padding:18px 12px;box-sizing:border-box}
@@ -510,14 +510,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .s-Recovery .lock{font-size:11px;font-weight:600;padding:3px 10px;border-radius:var(--pill);background:var(--warnSoft);color:var(--warn)}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
-.s-Settings a{color:#c2440a}
+.s-Settings a{color:#c2410c}
 .s-Settings a:hover{color:#9a3412}
-.s-Settings .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#1f2937;display:flex;flex-direction:column;gap:28px}
+.s-Settings .board{width:1760px;box-sizing:border-box;padding:40px;background:#f4f1ea;font-family:'Poppins',sans-serif;color:#0b2545;display:flex;flex-direction:column;gap:28px}
 .s-Settings .vh{height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.s-Settings .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2937}
-.s-Settings .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#1f2937;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.s-Settings .vb:hover{border-color:#ea580c;color:#c2440a}
-.s-Settings .vbOn{background:#1f2937;border-color:#1f2937;color:#fff}
+.s-Settings .vl{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0b2545}
+.s-Settings .vb{height:32px;padding:0 14px;border-radius:9999px;border:1.5px solid #d6cfc2;background:#fff;color:#0b2545;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.s-Settings .vb:hover{border-color:#ea580c;color:#c2410c}
+.s-Settings .vbOn{background:#0b2545;border-color:#0b2545;color:#fff}
 .s-Settings .clip{overflow:hidden;border-radius:14px;box-shadow:0 10px 30px rgba(31,41,55,.12);background:#fff}
 .s-Settings .pg{width:1200px;height:var(--h);background:var(--page);color:var(--ink);font-family:var(--font);display:flex;overflow:hidden}
 .s-Settings .side{width:210px;flex:none;background:var(--side);display:flex;flex-direction:column;gap:2px;padding:18px 12px;box-sizing:border-box}
@@ -576,14 +576,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 </div>
 <main>
   <div class="x-intro">
-    <p>Scroll down to move from one ERP page to the next. Each page shows A (today), B (GES Daylight), C (GES Charcoal) and D (the first, lighter GES Daylight). Use + and &minus; on a look to zoom in, or pinch on it. Swipe sideways inside a zoomed look to see the rest. Tap "Pick" on the look you want for that page.</p>
+    <p><b>23 Oct 2026: B and C now use the website's NEW navy blue (#0b2545) and orange (#ea580c).</b> C is renamed GES Navy. Pick B or C per page as before, then tell Claude.</p>
+    <p>Scroll down to move from one ERP page to the next. Each page shows A (today), B (GES Daylight), C (GES Navy) and D (the first, lighter GES Daylight). Use + and &minus; on a look to zoom in, or pinch on it. Swipe sideways inside a zoomed look to see the rest. Tap "Pick" on the look you want for that page.</p>
   </div>
 
   <section class="x-sec s-Main" id="Main" data-title="Foundations — colours, type, buttons, inputs, motion">
     <header class="x-head">
       <span class="x-count">Page 1 of 9</span>
       <h2>Foundations — colours, type, buttons, inputs, motion</h2>
-      <p>A is the app as it is today. B and C are built from the GE Solutions website: its orange #ea580c, charcoal #1f2937, cream #fdfaf4, Poppins type, round pill buttons and soft lifts. Every other board uses these same three looks. Hover the buttons and tiles to see the movement.</p>
+      <p>A is the app as it is today. B and C are built from the GE Solutions website: its orange #ea580c, navy #0b2545, cream #fdfaf4, Poppins type, round pill buttons and soft lifts. Every other board uses these same three looks. Hover the buttons and tiles to see the movement.</p>
     </header>
     <div class="x-looks">
       <article class="x-look" data-w="533"  data-page="Main" data-letter="A">
@@ -703,11 +704,11 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="col" style="--page:#f7f2e8;--ink:#1f2937;--body:#4b5563;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:15px;--h2w:600;--h2Ink:#1f2937;--accentText:#c2440a;--side:#1f2937;--panel:#ffffff;--panelLine:#eadfcf;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fbf7ee;--tileInk:#1f2937;--tileLine:#eadfcf;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--inInk:#1f2937;--phInk:#9ca3af;--btnSBg:#ffffff;--tabBg:#f3ede2;--tabInk:#4b5563;--rowLine:#f0e8db;--tipBg:#1f2937;--tipInk:#f9fafb;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--goodBg:#16a34a;--bad:#b91c1c;--badSoft:rgba(220,38,38,.1);--badBg:#dc2626;--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--info:#0891b2">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="col" style="--page:#f7f2e8;--ink:#0b2545;--body:#4b5563;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:15px;--h2w:600;--h2Ink:#0b2545;--accentText:#c2410c;--side:#0b2545;--panel:#ffffff;--panelLine:#eadfcf;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fbf7ee;--tileInk:#0b2545;--tileLine:#eadfcf;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--inInk:#0b2545;--phInk:#9ca3af;--btnSBg:#ffffff;--tabBg:#f3ede2;--tabInk:#4b5563;--rowLine:#f0e8db;--tipBg:#0b2545;--tipInk:#f9fafb;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--goodBg:#16a34a;--bad:#b91c1c;--badSoft:rgba(220,38,38,.1);--badBg:#dc2626;--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--info:#0891b2">
         <div style="display: flex; flex-direction: column; gap: 4px">
           <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accentText)">B · GES Daylight</div>
-          <div style="font-size: 20px; font-weight: 700; font-family: var(--font)">GES Daylight (cream and charcoal)</div>
-          <div class="bodyT">The website by day: warm cream page, white rounded cards, a charcoal side menu, Poppins, orange pill buttons and soft shadows.</div>
+          <div style="font-size: 20px; font-weight: 700; font-family: var(--font)">GES Daylight (cream and navy)</div>
+          <div class="bodyT">The website by day: warm cream page, white rounded cards, a navy side menu, Poppins, orange pill buttons and soft shadows.</div>
         </div>
 
         <div class="sec">
@@ -802,19 +803,19 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="533"  data-page="Main" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="col" style="--page:#0f141c;--ink:#f9fafb;--body:#d1d5db;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:15px;--h2w:600;--h2Ink:#f9fafb;--accentText:#f4a57a;--side:#0b0f15;--panel:#1f2937;--panelLine:#2d3748;--shadow:0 10px 30px rgba(0,0,0,.35);--shadowHi:0 18px 36px rgba(0,0,0,.5);--tile:#273244;--tileInk:#f9fafb;--tileLine:#374151;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 18px rgba(234,88,12,.35);--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#111827;--inLine:#374151;--inInk:#f3f4f6;--phInk:#6b7280;--btnSBg:transparent;--tabBg:#111827;--tabInk:#9ca3af;--rowLine:#2d3748;--tipBg:#f9fafb;--tipInk:#1f2937;--skA:#1f2937;--skB:#2d3748;--good:#4ade80;--goodSoft:rgba(74,222,128,.14);--goodBg:#15803d;--bad:#f87171;--badSoft:rgba(248,113,113,.14);--badBg:#b91c1c;--warn:#fbbf24;--warnSoft:rgba(251,191,36,.14);--info:#22d3ee">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="col" style="--page:#0f141c;--ink:#f9fafb;--body:#d1d5db;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:15px;--h2w:600;--h2Ink:#f9fafb;--accentText:#f4a57a;--side:#05101f;--panel:#0b2545;--panelLine:#13355e;--shadow:0 10px 30px rgba(0,0,0,.35);--shadowHi:0 18px 36px rgba(0,0,0,.5);--tile:#273244;--tileInk:#f9fafb;--tileLine:#1b3a63;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 18px rgba(234,88,12,.35);--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#071a33;--inLine:#1b3a63;--inInk:#f3f4f6;--phInk:#6b7280;--btnSBg:transparent;--tabBg:#071a33;--tabInk:#9ca3af;--rowLine:#13355e;--tipBg:#f9fafb;--tipInk:#0b2545;--skA:#0b2545;--skB:#13355e;--good:#4ade80;--goodSoft:rgba(74,222,128,.14);--goodBg:#15803d;--bad:#f87171;--badSoft:rgba(248,113,113,.14);--badBg:#b91c1c;--warn:#fbbf24;--warnSoft:rgba(251,191,36,.14);--info:#22d3ee">
         <div style="display: flex; flex-direction: column; gap: 4px">
-          <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accentText)">C · GES Charcoal</div>
-          <div style="font-size: 20px; font-weight: 700; font-family: var(--font)">GES Charcoal (the website by night)</div>
-          <div class="bodyT">The website footer and stats band as a whole app: charcoal panels, frosted glass menus, cream text and the same orange.</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accentText)">C · GES Navy</div>
+          <div style="font-size: 20px; font-weight: 700; font-family: var(--font)">GES Navy (the website by night)</div>
+          <div class="bodyT">The website footer and stats band as a whole app: navy panels, frosted glass menus, cream text and the same orange.</div>
         </div>
 
         <div class="sec">
@@ -917,11 +918,11 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="col" style="--page:#fdfaf4;--ink:#1f2937;--body:#4b5563;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:15px;--h2w:600;--h2Ink:#1f2937;--accentText:#c2440a;--side:#1f2937;--panel:#ffffff;--panelLine:#f0e8da;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fdfaf4;--tileInk:#1f2937;--tileLine:#f0e8da;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--inInk:#1f2937;--phInk:#9ca3af;--btnSBg:#ffffff;--tabBg:#f3ede2;--tabInk:#4b5563;--rowLine:#f3ede2;--tipBg:#1f2937;--tipInk:#f9fafb;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--goodBg:#16a34a;--bad:#b91c1c;--badSoft:rgba(220,38,38,.1);--badBg:#dc2626;--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--info:#0891b2">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="col" style="--page:#fdfaf4;--ink:#0b2545;--body:#4b5563;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:15px;--h2w:600;--h2Ink:#0b2545;--accentText:#c2410c;--side:#0b2545;--panel:#ffffff;--panelLine:#f0e8da;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fdfaf4;--tileInk:#0b2545;--tileLine:#f0e8da;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--inInk:#0b2545;--phInk:#9ca3af;--btnSBg:#ffffff;--tabBg:#f3ede2;--tabInk:#4b5563;--rowLine:#f3ede2;--tipBg:#0b2545;--tipInk:#f9fafb;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--goodBg:#16a34a;--bad:#b91c1c;--badSoft:rgba(220,38,38,.1);--badBg:#dc2626;--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--info:#0891b2">
         <div style="display: flex; flex-direction: column; gap: 4px">
           <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accentText)">D · GES Daylight (first)</div>
-          <div style="font-size: 20px; font-weight: 700; font-family: var(--font)">GES Daylight (cream and charcoal)</div>
-          <div class="bodyT">The website by day: warm cream page, white rounded cards, a charcoal side menu, Poppins, orange pill buttons and soft shadows.</div>
+          <div style="font-size: 20px; font-weight: 700; font-family: var(--font)">GES Daylight (cream and navy)</div>
+          <div class="bodyT">The website by day: warm cream page, white rounded cards, a navy side menu, Poppins, orange pill buttons and soft shadows.</div>
         </div>
 
         <div class="sec">
@@ -1068,7 +1069,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.4px;--headTt:none;--h1s:28px;--h1w:700;--formTitle:#1f2937;--artTs:44px;--artBg:linear-gradient(150deg,#1f2937 0%,#111827 60%,#3b1d0b 100%);--rings:repeating-radial-gradient(circle at 78% 82%, transparent 0 24px, rgba(234,88,12,.16) 24px 25px);--tagBg:rgba(234,88,12,.92);--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 20px 50px rgba(31,41,55,.13);--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.3);--accentText:#c2440a;--btnLs:0;--btnTt:none;--pill:9999px;--r:24px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--inInk:#1f2937;--phInk:#9ca3af;--h:760px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.4px;--headTt:none;--h1s:28px;--h1w:700;--formTitle:#0b2545;--artTs:44px;--artBg:linear-gradient(150deg,#0b2545 0%,#071a33 60%,#3b1d0b 100%);--rings:repeating-radial-gradient(circle at 78% 82%, transparent 0 24px, rgba(234,88,12,.16) 24px 25px);--tagBg:rgba(234,88,12,.92);--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 20px 50px rgba(31,41,55,.13);--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.3);--accentText:#c2410c;--btnLs:0;--btnTt:none;--pill:9999px;--r:24px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--inInk:#0b2545;--phInk:#9ca3af;--h:760px">
               <div class="art">
                 <div class="rings" aria-hidden="true"></div>
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
@@ -1094,15 +1095,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="760" data-page="Login" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.4px;--headTt:none;--h1s:28px;--h1w:700;--formTitle:#f9fafb;--artTs:44px;--artBg:linear-gradient(150deg,#111827 0%,#0b0f15 70%);--rings:repeating-radial-gradient(circle at 78% 82%, transparent 0 24px, rgba(234,88,12,.20) 24px 25px);--tagBg:rgba(234,88,12,.92);--panel:#1f2937;--panelLine:#2d3748;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 24px 60px rgba(0,0,0,.5);--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.25);--accentGlow:0 4px 18px rgba(234,88,12,.4);--accentText:#f4a57a;--btnLs:0;--btnTt:none;--pill:9999px;--r:24px;--rin:12px;--inBg:#111827;--inLine:#374151;--inInk:#f3f4f6;--phInk:#6b7280;--h:760px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.4px;--headTt:none;--h1s:28px;--h1w:700;--formTitle:#f9fafb;--artTs:44px;--artBg:linear-gradient(150deg,#071a33 0%,#05101f 70%);--rings:repeating-radial-gradient(circle at 78% 82%, transparent 0 24px, rgba(234,88,12,.20) 24px 25px);--tagBg:rgba(234,88,12,.92);--panel:#0b2545;--panelLine:#13355e;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 24px 60px rgba(0,0,0,.5);--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.25);--accentGlow:0 4px 18px rgba(234,88,12,.4);--accentText:#f4a57a;--btnLs:0;--btnTt:none;--pill:9999px;--r:24px;--rin:12px;--inBg:#071a33;--inLine:#1b3a63;--inInk:#f3f4f6;--phInk:#6b7280;--h:760px">
               <div class="art">
                 <div class="rings" aria-hidden="true"></div>
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
@@ -1136,7 +1137,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.4px;--headTt:none;--h1s:28px;--h1w:700;--formTitle:#1f2937;--artTs:44px;--artBg:linear-gradient(150deg,#1f2937 0%,#111827 60%,#3b1d0b 100%);--rings:repeating-radial-gradient(circle at 78% 82%, transparent 0 24px, rgba(234,88,12,.16) 24px 25px);--tagBg:rgba(234,88,12,.92);--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 20px 50px rgba(31,41,55,.10);--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.3);--accentText:#c2440a;--btnLs:0;--btnTt:none;--pill:9999px;--r:24px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--inInk:#1f2937;--phInk:#9ca3af;--h:760px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.4px;--headTt:none;--h1s:28px;--h1w:700;--formTitle:#0b2545;--artTs:44px;--artBg:linear-gradient(150deg,#0b2545 0%,#071a33 60%,#3b1d0b 100%);--rings:repeating-radial-gradient(circle at 78% 82%, transparent 0 24px, rgba(234,88,12,.16) 24px 25px);--tagBg:rgba(234,88,12,.92);--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 20px 50px rgba(31,41,55,.10);--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.3);--accentText:#c2410c;--btnLs:0;--btnTt:none;--pill:9999px;--r:24px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--inInk:#0b2545;--phInk:#9ca3af;--h:760px">
               <div class="art">
                 <div class="rings" aria-hidden="true"></div>
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
@@ -1269,7 +1270,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:14.5px;--h2w:600;--h2Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(250,246,238,.93);--topInk:#1f2937;--line:#e9dfcc;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--welBg:#1f2937;--welInk:#fff;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fbf7ee;--tileInk:#1f2937;--tileLine:#eadfcf;--tileMuted:#6b7280;--ringTrack:#efe7d9;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e2d7c4;--phInk:#9ca3af;--good:#16a34a;--bad:#dc2626;--warn:#d97706;--info:#0891b2;--h:860px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:14.5px;--h2w:600;--h2Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(250,246,238,.93);--topInk:#0b2545;--line:#e9dfcc;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--welBg:#0b2545;--welInk:#fff;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fbf7ee;--tileInk:#0b2545;--tileLine:#eadfcf;--tileMuted:#6b7280;--ringTrack:#efe7d9;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e2d7c4;--phInk:#9ca3af;--good:#16a34a;--bad:#dc2626;--warn:#d97706;--info:#0891b2;--h:860px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav navOn" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -1350,15 +1351,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="860" data-page="Dashboard" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:14.5px;--h2w:600;--h2Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#0b0f15;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--top:rgba(20,20,20,.75);--topInk:#f3f4f6;--line:#1f2937;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--welBg:#1f2937;--welInk:#fff;--panel:#1f2937;--panelLine:#2d3748;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--shadowHi:0 18px 36px rgba(0,0,0,.5);--tile:#273244;--tileInk:#f9fafb;--tileLine:#374151;--tileMuted:#9ca3af;--ringTrack:#374151;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 18px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#374151;--pill:9999px;--r:18px;--rs:14px;--inBg:#111827;--inLine:#374151;--phInk:#6b7280;--good:#4ade80;--bad:#f87171;--warn:#fbbf24;--info:#22d3ee;--h:860px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:14.5px;--h2w:600;--h2Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#05101f;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--top:rgba(20,20,20,.75);--topInk:#f3f4f6;--line:#0b2545;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--welBg:#0b2545;--welInk:#fff;--panel:#0b2545;--panelLine:#13355e;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--shadowHi:0 18px 36px rgba(0,0,0,.5);--tile:#273244;--tileInk:#f9fafb;--tileLine:#1b3a63;--tileMuted:#9ca3af;--ringTrack:#1b3a63;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 18px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#1b3a63;--pill:9999px;--r:18px;--rs:14px;--inBg:#071a33;--inLine:#1b3a63;--phInk:#6b7280;--good:#4ade80;--bad:#f87171;--warn:#fbbf24;--info:#22d3ee;--h:860px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav navOn" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -1447,7 +1448,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:14.5px;--h2w:600;--h2Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(253,250,244,.9);--topInk:#1f2937;--line:#efe7d8;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--welBg:#1f2937;--welInk:#fff;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fdfaf4;--tileInk:#1f2937;--tileLine:#f0e8da;--tileMuted:#6b7280;--ringTrack:#f3ede2;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e7dfd0;--phInk:#9ca3af;--good:#16a34a;--bad:#dc2626;--warn:#d97706;--info:#0891b2;--h:860px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:14.5px;--h2w:600;--h2Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(253,250,244,.9);--topInk:#0b2545;--line:#efe7d8;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--welBg:#0b2545;--welInk:#fff;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--shadowHi:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);--tile:#fdfaf4;--tileInk:#0b2545;--tileLine:#f0e8da;--tileMuted:#6b7280;--ringTrack:#f3ede2;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.13);--accentGlow:0 4px 15px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e7dfd0;--phInk:#9ca3af;--good:#16a34a;--bad:#dc2626;--warn:#d97706;--info:#0891b2;--h:860px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav navOn" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -1639,7 +1640,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(250,246,238,.93);--topInk:#1f2937;--line:#e9dfcc;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--sheetBg:#ffffff;--sheetLine:#f0e8da;--sheetInk:#1f2937;--sheetMuted:#6b7280;--thBg:#1f2937;--thInk:#f9fafb;--thLine:0;--rowLine:#f0e8db;--rowHover:#fff7ed;--rowBad:#fef2f2;--stgOff:#f0e8da;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--tabBg:#f3ede2;--tabInk:#4b5563;--tabsR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e2d7c4;--phInk:#9ca3af;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(250,246,238,.93);--topInk:#0b2545;--line:#e9dfcc;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--sheetBg:#ffffff;--sheetLine:#f0e8da;--sheetInk:#0b2545;--sheetMuted:#6b7280;--thBg:#0b2545;--thInk:#f9fafb;--thLine:0;--rowLine:#f0e8db;--rowHover:#fff7ed;--rowBad:#fef2f2;--stgOff:#f0e8da;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--tabBg:#f3ede2;--tabInk:#4b5563;--tabsR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e2d7c4;--phInk:#9ca3af;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--h:820px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -1724,15 +1725,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="820" data-page="Ledger" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#0b0f15;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--top:rgba(20,20,20,.75);--topInk:#f3f4f6;--line:#1f2937;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--sheetBg:#1f2937;--sheetLine:#2d3748;--sheetInk:#f3f4f6;--sheetMuted:#9ca3af;--thBg:#111827;--thInk:#f4a57a;--thLine:0;--rowLine:#2d3748;--rowHover:rgba(234,88,12,.08);--rowBad:rgba(248,113,113,.08);--stgOff:#374151;--shadow:0 10px 30px rgba(0,0,0,.35);--tabBg:#1f2937;--tabInk:#9ca3af;--tabsR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#374151;--pill:9999px;--r:18px;--rs:14px;--inBg:#111827;--inLine:#374151;--phInk:#6b7280;--good:#4ade80;--goodSoft:rgba(74,222,128,.14);--bad:#f87171;--badSoft:rgba(248,113,113,.14);--warn:#fbbf24;--warnSoft:rgba(251,191,36,.14);--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#05101f;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--top:rgba(20,20,20,.75);--topInk:#f3f4f6;--line:#0b2545;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--sheetBg:#0b2545;--sheetLine:#13355e;--sheetInk:#f3f4f6;--sheetMuted:#9ca3af;--thBg:#071a33;--thInk:#f4a57a;--thLine:0;--rowLine:#13355e;--rowHover:rgba(234,88,12,.08);--rowBad:rgba(248,113,113,.08);--stgOff:#1b3a63;--shadow:0 10px 30px rgba(0,0,0,.35);--tabBg:#0b2545;--tabInk:#9ca3af;--tabsR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#1b3a63;--pill:9999px;--r:18px;--rs:14px;--inBg:#071a33;--inLine:#1b3a63;--phInk:#6b7280;--good:#4ade80;--goodSoft:rgba(74,222,128,.14);--bad:#f87171;--badSoft:rgba(248,113,113,.14);--warn:#fbbf24;--warnSoft:rgba(251,191,36,.14);--h:820px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -1825,7 +1826,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(253,250,244,.9);--topInk:#1f2937;--line:#efe7d8;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--sheetBg:#ffffff;--sheetLine:#f0e8da;--sheetInk:#1f2937;--sheetMuted:#6b7280;--thBg:#1f2937;--thInk:#f9fafb;--thLine:0;--rowLine:#f3ede2;--rowHover:#fff7ed;--rowBad:#fef2f2;--stgOff:#f0e8da;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--tabBg:#f3ede2;--tabInk:#4b5563;--tabsR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e7dfd0;--phInk:#9ca3af;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--top:rgba(253,250,244,.9);--topInk:#0b2545;--line:#efe7d8;--hdrBg:transparent;--hdrEdge:0;--hdrPad:4px 0;--hdrShadow:none;--sheetBg:#ffffff;--sheetLine:#f0e8da;--sheetInk:#0b2545;--sheetMuted:#6b7280;--thBg:#0b2545;--thInk:#f9fafb;--thLine:0;--rowLine:#f3ede2;--rowHover:#fff7ed;--rowBad:#fef2f2;--stgOff:#f0e8da;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--tabBg:#f3ede2;--tabInk:#4b5563;--tabsR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:14px;--inBg:#ffffff;--inLine:#e7dfd0;--phInk:#9ca3af;--good:#15803d;--goodSoft:rgba(22,163,74,.12);--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.13);--h:820px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2031,7 +2032,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:14px;--h2w:600;--h2Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--line:#e9dfcc;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--shadowHi:0 20px 25px -5px rgba(0,0,0,.12), 0 10px 10px -5px rgba(0,0,0,.05);--numBg:#ea580c;--numInk:#ffffff;--typeBg:#fdfaf4;--rowBg:#fbf7ee;--rowLine:#eadfcf;--popBg:#ffffff;--popInk:#1f2937;--popMuted:#9ca3af;--popLine:#f3ede2;--calInBg:#fdfaf4;--barBg:rgba(253,250,244,.92);--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--inInk:#1f2937;--phInk:#9ca3af;--h:1000px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:14px;--h2w:600;--h2Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--line:#e9dfcc;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--shadowHi:0 20px 25px -5px rgba(0,0,0,.12), 0 10px 10px -5px rgba(0,0,0,.05);--numBg:#ea580c;--numInk:#ffffff;--typeBg:#fdfaf4;--rowBg:#fbf7ee;--rowLine:#eadfcf;--popBg:#ffffff;--popInk:#0b2545;--popMuted:#9ca3af;--popLine:#f3ede2;--calInBg:#fdfaf4;--barBg:rgba(253,250,244,.92);--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--inInk:#0b2545;--phInk:#9ca3af;--h:1000px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2126,15 +2127,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="1000" data-page="NewProject" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:14px;--h2w:600;--h2Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#0b0f15;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--line:#1f2937;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#1f2937;--panelLine:#2d3748;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--shadowHi:0 18px 36px rgba(0,0,0,.55);--numBg:rgba(234,88,12,.2);--numInk:#f4a57a;--typeBg:#111827;--rowBg:#111827;--rowLine:#2d3748;--popBg:#273244;--popInk:#f3f4f6;--popMuted:#9ca3af;--popLine:#374151;--calInBg:#1f2937;--barBg:rgba(20,20,20,.8);--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#374151;--pill:9999px;--r:18px;--rs:12px;--rin:12px;--inBg:#111827;--inLine:#374151;--inInk:#f3f4f6;--phInk:#6b7280;--h:1000px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:14px;--h2w:600;--h2Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#05101f;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--line:#0b2545;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#0b2545;--panelLine:#13355e;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--shadowHi:0 18px 36px rgba(0,0,0,.55);--numBg:rgba(234,88,12,.2);--numInk:#f4a57a;--typeBg:#071a33;--rowBg:#071a33;--rowLine:#13355e;--popBg:#273244;--popInk:#f3f4f6;--popMuted:#9ca3af;--popLine:#1b3a63;--calInBg:#0b2545;--barBg:rgba(20,20,20,.8);--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#1b3a63;--pill:9999px;--r:18px;--rs:12px;--rin:12px;--inBg:#071a33;--inLine:#1b3a63;--inInk:#f3f4f6;--phInk:#6b7280;--h:1000px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2237,7 +2238,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:14px;--h2w:600;--h2Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--line:#efe7d8;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--shadowHi:0 20px 25px -5px rgba(0,0,0,.12), 0 10px 10px -5px rgba(0,0,0,.05);--numBg:#ea580c;--numInk:#ffffff;--typeBg:#fdfaf4;--rowBg:#fdfaf4;--rowLine:#f0e8da;--popBg:#ffffff;--popInk:#1f2937;--popMuted:#9ca3af;--popLine:#f3ede2;--calInBg:#fdfaf4;--barBg:rgba(253,250,244,.92);--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--inInk:#1f2937;--phInk:#9ca3af;--h:1000px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:14px;--h2w:600;--h2Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--line:#efe7d8;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--shadowHi:0 20px 25px -5px rgba(0,0,0,.12), 0 10px 10px -5px rgba(0,0,0,.05);--numBg:#ea580c;--numInk:#ffffff;--typeBg:#fdfaf4;--rowBg:#fdfaf4;--rowLine:#f0e8da;--popBg:#ffffff;--popInk:#0b2545;--popMuted:#9ca3af;--popLine:#f3ede2;--calInBg:#fdfaf4;--barBg:rgba(253,250,244,.92);--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--inInk:#0b2545;--phInk:#9ca3af;--h:1000px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2432,7 +2433,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h2s:14px;--h2w:600;--h2Ink:#1f2937;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdBg:#ffffff;--hdLine:#f0e8da;--hdInk:#1f2937;--hdMuted:#6b7280;--hdrEdge:1px solid #f0e8da;--shadowSoft:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--rowBg:#fbf7ee;--rowLine:#eadfcf;--cbLine:#d6cfc2;--doneInk:#9ca3af;--doneLine:rgba(234,88,12,.5);--tile:#fbf7ee;--tileInk:#1f2937;--tileLine:#eadfcf;--tileMuted:#6b7280;--trk:#f3ede2;--tabBg:#f3ede2;--tabInk:#4b5563;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--good:#15803d;--bad:#dc2626;--info:#0e7490;--h:1040px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h2s:14px;--h2w:600;--h2Ink:#0b2545;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdBg:#ffffff;--hdLine:#f0e8da;--hdInk:#0b2545;--hdMuted:#6b7280;--hdrEdge:1px solid #f0e8da;--shadowSoft:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--rowBg:#fbf7ee;--rowLine:#eadfcf;--cbLine:#d6cfc2;--doneInk:#9ca3af;--doneLine:rgba(234,88,12,.5);--tile:#fbf7ee;--tileInk:#0b2545;--tileLine:#eadfcf;--tileMuted:#6b7280;--trk:#f3ede2;--tabBg:#f3ede2;--tabInk:#4b5563;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--good:#15803d;--bad:#dc2626;--info:#0e7490;--h:1040px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2506,15 +2507,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="1040" data-page="Folder" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h2s:14px;--h2w:600;--h2Ink:#f9fafb;--accentText:#f4a57a;--side:#0b0f15;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--hdBg:#1f2937;--hdLine:#2d3748;--hdInk:#f9fafb;--hdMuted:#9ca3af;--hdrEdge:1px solid #2d3748;--shadowSoft:0 10px 30px rgba(0,0,0,.35);--panel:#1f2937;--panelLine:#2d3748;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--rowBg:#111827;--rowLine:#2d3748;--cbLine:#4b5563;--doneInk:#6b7280;--doneLine:rgba(234,88,12,.6);--tile:#273244;--tileInk:#f9fafb;--tileLine:#374151;--tileMuted:#9ca3af;--trk:#374151;--tabBg:#1f2937;--tabInk:#9ca3af;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#374151;--pill:9999px;--r:18px;--rs:12px;--good:#4ade80;--bad:#f87171;--info:#22d3ee;--h:1040px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h2s:14px;--h2w:600;--h2Ink:#f9fafb;--accentText:#f4a57a;--side:#05101f;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--hdBg:#0b2545;--hdLine:#13355e;--hdInk:#f9fafb;--hdMuted:#9ca3af;--hdrEdge:1px solid #13355e;--shadowSoft:0 10px 30px rgba(0,0,0,.35);--panel:#0b2545;--panelLine:#13355e;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--rowBg:#071a33;--rowLine:#13355e;--cbLine:#4b5563;--doneInk:#6b7280;--doneLine:rgba(234,88,12,.6);--tile:#273244;--tileInk:#f9fafb;--tileLine:#1b3a63;--tileMuted:#9ca3af;--trk:#1b3a63;--tabBg:#0b2545;--tabInk:#9ca3af;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#1b3a63;--pill:9999px;--r:18px;--rs:12px;--good:#4ade80;--bad:#f87171;--info:#22d3ee;--h:1040px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2596,7 +2597,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h2s:14px;--h2w:600;--h2Ink:#1f2937;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdBg:#ffffff;--hdLine:#f0e8da;--hdInk:#1f2937;--hdMuted:#6b7280;--hdrEdge:1px solid #f0e8da;--shadowSoft:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--rowBg:#fdfaf4;--rowLine:#f0e8da;--cbLine:#d6cfc2;--doneInk:#9ca3af;--doneLine:rgba(234,88,12,.5);--tile:#fdfaf4;--tileInk:#1f2937;--tileLine:#f0e8da;--tileMuted:#6b7280;--trk:#f3ede2;--tabBg:#f3ede2;--tabInk:#4b5563;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--good:#15803d;--bad:#dc2626;--info:#0e7490;--h:1040px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h2s:14px;--h2w:600;--h2Ink:#0b2545;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdBg:#ffffff;--hdLine:#f0e8da;--hdInk:#0b2545;--hdMuted:#6b7280;--hdrEdge:1px solid #f0e8da;--shadowSoft:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--rowBg:#fdfaf4;--rowLine:#f0e8da;--cbLine:#d6cfc2;--doneInk:#9ca3af;--doneLine:rgba(234,88,12,.5);--tile:#fdfaf4;--tileInk:#0b2545;--tileLine:#f0e8da;--tileMuted:#6b7280;--trk:#f3ede2;--tabBg:#f3ede2;--tabInk:#4b5563;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--pill:9999px;--r:18px;--rs:12px;--good:#15803d;--bad:#dc2626;--info:#0e7490;--h:1040px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -2740,7 +2741,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--accentText:#c2440a;--side:#1f2937;--ghostCard:#ffffff;--veil:rgba(15,23,42,.45);--r:18px;--rs:12px;--rin:12px;--pill:9999px;--xR:9999px;--toastR:14px;--mBg:#ffffff;--mBorder:1px solid #f0e8da;--mR:24px;--mShadow:0 30px 60px -12px rgba(15,23,42,.35);--mInk:#1f2937;--mMuted:#6b7280;--mLine:#f0e8da;--mTitle:#1f2937;--mTs:19px;--dangerSoft:#fef2f2;--dangerLine:#fecaca;--dangerInk:#991b1b;--pickLine:#e7dfd0;--fileBg:#fdfaf4;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--inBg:#ffffff;--inInk:#1f2937;--optLine:#f3ede2;--listShadow:0 20px 25px -5px rgba(0,0,0,.1);--tipBg:#1f2937;--tipInk:#f9fafb;--okBg:#16a34a;--errBg:#dc2626;--infoBg:#1f2937;--spinTrack:#f3ede2;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--accentText:#c2410c;--side:#0b2545;--ghostCard:#ffffff;--veil:rgba(15,23,42,.45);--r:18px;--rs:12px;--rin:12px;--pill:9999px;--xR:9999px;--toastR:14px;--mBg:#ffffff;--mBorder:1px solid #f0e8da;--mR:24px;--mShadow:0 30px 60px -12px rgba(15,23,42,.35);--mInk:#0b2545;--mMuted:#6b7280;--mLine:#f0e8da;--mTitle:#0b2545;--mTs:19px;--dangerSoft:#fef2f2;--dangerLine:#fecaca;--dangerInk:#991b1b;--pickLine:#e7dfd0;--fileBg:#fdfaf4;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--inBg:#ffffff;--inInk:#0b2545;--optLine:#f3ede2;--listShadow:0 20px 25px -5px rgba(0,0,0,.1);--tipBg:#0b2545;--tipInk:#f9fafb;--okBg:#16a34a;--errBg:#dc2626;--infoBg:#0b2545;--spinTrack:#f3ede2;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--h:820px">
               <div class="ghost" aria-hidden="true">
                 <div class="gs"></div>
                 <div class="gm"><div class="gb" style="height: 70px"></div><div class="gb" style="height: 200px"></div><div class="gb" style="height: 260px"></div></div>
@@ -2784,15 +2785,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="820" data-page="Popups" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--accentText:#f4a57a;--side:#0b0f15;--ghostCard:#1f2937;--veil:rgba(0,0,0,.55);--r:18px;--rs:12px;--rin:12px;--pill:9999px;--xR:9999px;--toastR:14px;--mBg:rgba(31,41,55,.92);--mBorder:1px solid #374151;--mR:24px;--mShadow:0 30px 70px rgba(0,0,0,.6);--mInk:#f3f4f6;--mMuted:#9ca3af;--mLine:#374151;--mTitle:#f9fafb;--mTs:19px;--dangerSoft:rgba(248,113,113,.1);--dangerLine:rgba(248,113,113,.35);--dangerInk:#fecaca;--pickLine:#4b5563;--fileBg:#111827;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#4b5563;--inBg:#111827;--inInk:#f3f4f6;--optLine:#2d3748;--listShadow:0 18px 36px rgba(0,0,0,.5);--tipBg:#f9fafb;--tipInk:#1f2937;--okBg:#15803d;--errBg:#b91c1c;--infoBg:#374151;--spinTrack:#374151;--skA:#1f2937;--skB:#2d3748;--good:#4ade80;--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--accentText:#f4a57a;--side:#05101f;--ghostCard:#0b2545;--veil:rgba(0,0,0,.55);--r:18px;--rs:12px;--rin:12px;--pill:9999px;--xR:9999px;--toastR:14px;--mBg:rgba(31,41,55,.92);--mBorder:1px solid #1b3a63;--mR:24px;--mShadow:0 30px 70px rgba(0,0,0,.6);--mInk:#f3f4f6;--mMuted:#9ca3af;--mLine:#1b3a63;--mTitle:#f9fafb;--mTs:19px;--dangerSoft:rgba(248,113,113,.1);--dangerLine:rgba(248,113,113,.35);--dangerInk:#fecaca;--pickLine:#4b5563;--fileBg:#071a33;--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--btnSBg:transparent;--btnSInk:#f3f4f6;--btnSLine:#4b5563;--inBg:#071a33;--inInk:#f3f4f6;--optLine:#13355e;--listShadow:0 18px 36px rgba(0,0,0,.5);--tipBg:#f9fafb;--tipInk:#0b2545;--okBg:#15803d;--errBg:#b91c1c;--infoBg:#1b3a63;--spinTrack:#1b3a63;--skA:#0b2545;--skB:#13355e;--good:#4ade80;--h:820px">
               <div class="ghost" aria-hidden="true">
                 <div class="gs"></div>
                 <div class="gm"><div class="gb" style="height: 70px"></div><div class="gb" style="height: 200px"></div><div class="gb" style="height: 260px"></div></div>
@@ -2844,7 +2845,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--accentText:#c2440a;--side:#1f2937;--ghostCard:#ffffff;--veil:rgba(15,23,42,.45);--r:18px;--rs:12px;--rin:12px;--pill:9999px;--xR:9999px;--toastR:14px;--mBg:#ffffff;--mBorder:1px solid #f0e8da;--mR:24px;--mShadow:0 30px 60px -12px rgba(15,23,42,.35);--mInk:#1f2937;--mMuted:#6b7280;--mLine:#f0e8da;--mTitle:#1f2937;--mTs:19px;--dangerSoft:#fef2f2;--dangerLine:#fecaca;--dangerInk:#991b1b;--pickLine:#e7dfd0;--fileBg:#fdfaf4;--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#1f2937;--btnSLine:#e7dfd0;--inBg:#ffffff;--inInk:#1f2937;--optLine:#f3ede2;--listShadow:0 20px 25px -5px rgba(0,0,0,.1);--tipBg:#1f2937;--tipInk:#f9fafb;--okBg:#16a34a;--errBg:#dc2626;--infoBg:#1f2937;--spinTrack:#f3ede2;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--accentText:#c2410c;--side:#0b2545;--ghostCard:#ffffff;--veil:rgba(15,23,42,.45);--r:18px;--rs:12px;--rin:12px;--pill:9999px;--xR:9999px;--toastR:14px;--mBg:#ffffff;--mBorder:1px solid #f0e8da;--mR:24px;--mShadow:0 30px 60px -12px rgba(15,23,42,.35);--mInk:#0b2545;--mMuted:#6b7280;--mLine:#f0e8da;--mTitle:#0b2545;--mTs:19px;--dangerSoft:#fef2f2;--dangerLine:#fecaca;--dangerInk:#991b1b;--pickLine:#e7dfd0;--fileBg:#fdfaf4;--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--btnSBg:#ffffff;--btnSInk:#0b2545;--btnSLine:#e7dfd0;--inBg:#ffffff;--inInk:#0b2545;--optLine:#f3ede2;--listShadow:0 20px 25px -5px rgba(0,0,0,.1);--tipBg:#0b2545;--tipInk:#f9fafb;--okBg:#16a34a;--errBg:#dc2626;--infoBg:#0b2545;--spinTrack:#f3ede2;--skA:#f0f0f0;--skB:#e0e0e0;--good:#15803d;--h:820px">
               <div class="ghost" aria-hidden="true">
                 <div class="gs"></div>
                 <div class="gm"><div class="gb" style="height: 70px"></div><div class="gb" style="height: 200px"></div><div class="gb" style="height: 260px"></div></div>
@@ -2962,7 +2963,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--subLs:0;--subTt:none;--nameFont:'Poppins',sans-serif;--nameLs:0;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--cBg:#ffffff;--cLine:#f0e8da;--cInk:#1f2937;--cMuted:#6b7280;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--posBg:#fff7ed;--posInk:#c2440a;--tabBg:#f3ede2;--tabInk:#4b5563;--badgeBg:rgba(31,41,55,.08);--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--phInk:#4b5563;--good:#15803d;--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.12);--info:#0891b2;--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--subLs:0;--subTt:none;--nameFont:'Poppins',sans-serif;--nameLs:0;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--cBg:#ffffff;--cLine:#f0e8da;--cInk:#0b2545;--cMuted:#6b7280;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--posBg:#fff7ed;--posInk:#c2410c;--tabBg:#f3ede2;--tabInk:#4b5563;--badgeBg:rgba(31,41,55,.08);--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e2d7c4;--phInk:#4b5563;--good:#15803d;--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.12);--info:#0891b2;--h:820px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -3010,15 +3011,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="820" data-page="Recovery" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--subLs:0;--subTt:none;--nameFont:'Poppins',sans-serif;--nameLs:0;--side:#0b0f15;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--cBg:#1f2937;--cLine:#2d3748;--cInk:#f9fafb;--cMuted:#9ca3af;--panel:#1f2937;--panelLine:#2d3748;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--posBg:rgba(234,88,12,.18);--posInk:#f4a57a;--tabBg:#1f2937;--tabInk:#9ca3af;--badgeBg:rgba(255,255,255,.08);--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#111827;--inLine:#374151;--phInk:#d1d5db;--good:#4ade80;--bad:#f87171;--badSoft:rgba(248,113,113,.14);--warn:#fbbf24;--warnSoft:rgba(251,191,36,.14);--info:#22d3ee;--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--subLs:0;--subTt:none;--nameFont:'Poppins',sans-serif;--nameLs:0;--side:#05101f;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--cBg:#0b2545;--cLine:#13355e;--cInk:#f9fafb;--cMuted:#9ca3af;--panel:#0b2545;--panelLine:#13355e;--panelInk:#f3f4f6;--panelMuted:#9ca3af;--shadow:0 10px 30px rgba(0,0,0,.35);--posBg:rgba(234,88,12,.18);--posInk:#f4a57a;--tabBg:#0b2545;--tabInk:#9ca3af;--badgeBg:rgba(255,255,255,.08);--accent:#ea580c;--accentHi:#f97316;--accentInk:#ffffff;--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#071a33;--inLine:#1b3a63;--phInk:#d1d5db;--good:#4ade80;--bad:#f87171;--badSoft:rgba(248,113,113,.14);--warn:#fbbf24;--warnSoft:rgba(251,191,36,.14);--info:#22d3ee;--h:820px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -3074,7 +3075,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--subLs:0;--subTt:none;--nameFont:'Poppins',sans-serif;--nameLs:0;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--cBg:#ffffff;--cLine:#f0e8da;--cInk:#1f2937;--cMuted:#6b7280;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#1f2937;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--posBg:#fff7ed;--posInk:#c2440a;--tabBg:#f3ede2;--tabInk:#4b5563;--badgeBg:rgba(31,41,55,.08);--accent:#ea580c;--accentHi:#c2440a;--accentInk:#ffffff;--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--phInk:#4b5563;--good:#15803d;--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.12);--info:#0891b2;--h:820px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--num:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--subLs:0;--subTt:none;--nameFont:'Poppins',sans-serif;--nameLs:0;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--cBg:#ffffff;--cLine:#f0e8da;--cInk:#0b2545;--cMuted:#6b7280;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#0b2545;--panelMuted:#6b7280;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--posBg:#fff7ed;--posInk:#c2410c;--tabBg:#f3ede2;--tabInk:#4b5563;--badgeBg:rgba(31,41,55,.08);--accent:#ea580c;--accentHi:#c2410c;--accentInk:#ffffff;--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--rin:12px;--inBg:#ffffff;--inLine:#e7dfd0;--phInk:#4b5563;--good:#15803d;--bad:#dc2626;--badSoft:rgba(220,38,38,.1);--warn:#b45309;--warnSoft:rgba(217,119,6,.12);--info:#0891b2;--h:820px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -3160,8 +3161,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
                           <div class="bl">Theme</div>
                           <div class="themes">
                             <div class="th"><div class="thp" style="background: #1a2e30"><span style="background: #0f1d1f"></span><span></span></div>Golden Seed</div>
-                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #1f2937"></span><span></span></div>GES Daylight</div>
-                            <div class="th"><div class="thp" style="background: #1f2937"><span style="background: #0b0f15"></span><span></span></div>GES Charcoal</div>
+                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #0b2545"></span><span></span></div>GES Daylight</div>
+                            <div class="th"><div class="thp" style="background: #0b2545"><span style="background: #05101f"></span><span></span></div>GES Navy</div>
                           </div>
                         </div>
                         <div class="box">
@@ -3197,7 +3198,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="B">Pick B</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:14.5px;--h2w:600;--h2Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#1f2937;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--boxBg:#fdfaf4;--boxLine:#f0e8da;--boxInk:#1f2937;--boxLbl:#c2440a;--boxRule:#f3ede2;--boxMuted:#6b7280;--swOff:#e5e0d5;--rankBg:#fff7ed;--rankInk:#c2440a;--tabBg:#f3ede2;--tabInk:#4b5563;--ibR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--h:780px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#f7f2e8;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:14.5px;--h2w:600;--h2Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#eadfcf;--panelInk:#0b2545;--shadow:0 1px 2px rgba(31,41,55,.055), 0 9px 25px rgba(31,41,55,.08);--boxBg:#fdfaf4;--boxLine:#f0e8da;--boxInk:#0b2545;--boxLbl:#c2410c;--boxRule:#f3ede2;--boxMuted:#6b7280;--swOff:#e5e0d5;--rankBg:#fff7ed;--rankInk:#c2410c;--tabBg:#f3ede2;--tabInk:#4b5563;--ibR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--h:780px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -3217,8 +3218,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
                           <div class="bl">Theme</div>
                           <div class="themes">
                             <div class="th"><div class="thp" style="background: #1a2e30"><span style="background: #0f1d1f"></span><span></span></div>Golden Seed</div>
-                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #1f2937"></span><span></span></div>GES Daylight</div>
-                            <div class="th"><div class="thp" style="background: #1f2937"><span style="background: #0b0f15"></span><span></span></div>GES Charcoal</div>
+                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #0b2545"></span><span></span></div>GES Daylight</div>
+                            <div class="th"><div class="thp" style="background: #0b2545"><span style="background: #05101f"></span><span></span></div>GES Navy</div>
                           </div>
                         </div>
                         <div class="box">
@@ -3246,15 +3247,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       </article>
       <article class="x-look" data-w="1200" data-h="780" data-page="Settings" data-letter="C">
         <div class="x-bar">
-          <span class="x-name">C · GES Charcoal</span>
-          <div class="x-zoom" role="group" aria-label="Zoom C · GES Charcoal">
+          <span class="x-name">C · GES Navy</span>
+          <div class="x-zoom" role="group" aria-label="Zoom C · GES Navy">
             <button type="button" class="x-zb" data-z="out" aria-label="Zoom out">&minus;</button>
             <span class="x-zv">100%</span>
             <button type="button" class="x-zb" data-z="in" aria-label="Zoom in">+</button>
           </div>
           <button type="button" class="x-pick" data-pick="C">Pick C</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:14.5px;--h2w:600;--h2Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#0b0f15;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#1f2937;--panelLine:#2d3748;--panelInk:#f3f4f6;--shadow:0 10px 30px rgba(0,0,0,.35);--boxBg:#111827;--boxLine:#2d3748;--boxInk:#f3f4f6;--boxLbl:#f4a57a;--boxRule:#2d3748;--boxMuted:#9ca3af;--swOff:#374151;--rankBg:rgba(234,88,12,.16);--rankInk:#f4a57a;--tabBg:#1f2937;--tabInk:#9ca3af;--ibR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--h:780px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#0f141c;--ink:#f9fafb;--muted:#9ca3af;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#f9fafb;--h2s:14.5px;--h2w:600;--h2Ink:#f9fafb;--subLs:0;--subTt:none;--accentText:#f4a57a;--side:#05101f;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.05);--sideOn:rgba(234,88,12,.16);--sideOnInk:#f4a57a;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#0b2545;--panelLine:#13355e;--panelInk:#f3f4f6;--shadow:0 10px 30px rgba(0,0,0,.35);--boxBg:#071a33;--boxLine:#13355e;--boxInk:#f3f4f6;--boxLbl:#f4a57a;--boxRule:#13355e;--boxMuted:#9ca3af;--swOff:#1b3a63;--rankBg:rgba(234,88,12,.16);--rankInk:#f4a57a;--tabBg:#0b2545;--tabInk:#9ca3af;--ibR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.22);--accentGlow:0 4px 16px rgba(234,88,12,.35);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--h:780px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -3274,8 +3275,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
                           <div class="bl">Theme</div>
                           <div class="themes">
                             <div class="th"><div class="thp" style="background: #1a2e30"><span style="background: #0f1d1f"></span><span></span></div>Golden Seed</div>
-                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #1f2937"></span><span></span></div>GES Daylight</div>
-                            <div class="th"><div class="thp" style="background: #1f2937"><span style="background: #0b0f15"></span><span></span></div>GES Charcoal</div>
+                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #0b2545"></span><span></span></div>GES Daylight</div>
+                            <div class="th"><div class="thp" style="background: #0b2545"><span style="background: #05101f"></span><span></span></div>GES Navy</div>
                           </div>
                         </div>
                         <div class="box">
@@ -3311,7 +3312,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
           </div>
           <button type="button" class="x-pick" data-pick="D">Pick D</button>
         </div>
-        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#1f2937;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#1f2937;--h2s:14.5px;--h2w:600;--h2Ink:#1f2937;--subLs:0;--subTt:none;--accentText:#c2440a;--side:#1f2937;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#1f2937;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--boxBg:#fdfaf4;--boxLine:#f0e8da;--boxInk:#1f2937;--boxLbl:#c2440a;--boxRule:#f3ede2;--boxMuted:#6b7280;--swOff:#e5e0d5;--rankBg:#fff7ed;--rankInk:#c2440a;--tabBg:#f3ede2;--tabInk:#4b5563;--ibR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--h:780px">
+        <div class="x-frame"><div class="x-sizer"><div class="x-stage"><div class="pg" style="--page:#fdfaf4;--ink:#0b2545;--muted:#6b7280;--font:'Poppins',sans-serif;--head:'Poppins',sans-serif;--headLs:-0.3px;--headTt:none;--h1s:26px;--h1w:700;--h1Ink:#0b2545;--h2s:14.5px;--h2w:600;--h2Ink:#0b2545;--subLs:0;--subTt:none;--accentText:#c2410c;--side:#0b2545;--sideInk:#9ca3af;--sideInkHi:#f9fafb;--sideHover:rgba(255,255,255,.06);--sideOn:#ea580c;--sideOnInk:#ffffff;--brandInk:#f9fafb;--hdrBg:transparent;--hdrEdge:0;--hdrPad:2px 0;--hdrShadow:none;--panel:#ffffff;--panelLine:#f0e8da;--panelInk:#0b2545;--shadow:0 1px 2px rgba(31,41,55,.04), 0 8px 24px rgba(31,41,55,.06);--boxBg:#fdfaf4;--boxLine:#f0e8da;--boxInk:#0b2545;--boxLbl:#c2410c;--boxRule:#f3ede2;--boxMuted:#6b7280;--swOff:#e5e0d5;--rankBg:#fff7ed;--rankInk:#c2410c;--tabBg:#f3ede2;--tabInk:#4b5563;--ibR:9999px;--accent:#ea580c;--accentInk:#ffffff;--accentSoft:rgba(234,88,12,.12);--accentGlow:0 4px 14px rgba(194,68,10,.28);--btnLs:0;--btnTt:none;--pill:9999px;--r:18px;--rs:14px;--h:780px">
               <nav class="side" aria-label="Main menu">
                 <div class="brand"><span class="mark">GE</span>Golden Seed</div>
                 <a class="nav" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -3331,8 +3332,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
                           <div class="bl">Theme</div>
                           <div class="themes">
                             <div class="th"><div class="thp" style="background: #1a2e30"><span style="background: #0f1d1f"></span><span></span></div>Golden Seed</div>
-                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #1f2937"></span><span></span></div>GES Daylight</div>
-                            <div class="th"><div class="thp" style="background: #1f2937"><span style="background: #0b0f15"></span><span></span></div>GES Charcoal</div>
+                            <div class="th thOn"><div class="thp" style="background: #fdfaf4"><span style="background: #0b2545"></span><span></span></div>GES Daylight</div>
+                            <div class="th"><div class="thp" style="background: #0b2545"><span style="background: #05101f"></span><span></span></div>GES Navy</div>
                           </div>
                         </div>
                         <div class="box">
