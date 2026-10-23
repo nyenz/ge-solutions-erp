@@ -209,6 +209,7 @@ export const EXPLAIN = {
     'FORGOT YOUR KEY?': 'How to get a new key: ask the Director (the Director asks the Admin).',
     'NOTIFICATION SETTINGS': 'Choose which alerts you see.',
     'RELOAD TERMINAL': 'Load the app again.',
+    'GUIDE': 'How to use the system: short guides that play by themselves, for your rank.',
 };
 
 /** "PENDING 3" -> "PENDING", "DATE PAID ↕" -> "DATE PAID" */
