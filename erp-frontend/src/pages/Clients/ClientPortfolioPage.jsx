@@ -409,7 +409,7 @@ const ClientPortfolioPage = () => {
                 {isJoint(p) && <span className={styles.noteAuthor}>paid by this client: UGX {fmt(p.paidByThisClient)}</span>}
                 <ul className={styles.payList}>
                   {p.payments.map(pay => (
-                    <li key={pay.id} style={{ textDecoration: pay.reversed ? 'line-through' : 'none' }}>
+                    <li key={pay.id} data-strike={pay.reversed ? '' : undefined}>
                       <span className={styles.mono}>UGX {fmt(pay.amount)}</span> {pay.allocation === 'STORAGE' ? '(storage fees)' : ''}
                       {' - '}{pay.paidOn ? String(pay.paidOn).slice(0, 10) : 'date not recorded'}
                       {' - '}{pay.payerName}{' - '}{methodLine(pay.paymentMethod, pay.paymentReference)}{pay.reversal ? ' - REVERSAL' : ''}{pay.reversed ? ' (reversed)' : ''}

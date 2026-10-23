@@ -23,7 +23,7 @@
 .btn:hover { background: rgba(var(--ink-rgb), 0.07); border-color: rgba(var(--ink-rgb), 0.22); color: var(--ink-solid); }
 .btn:focus-visible { outline: 2px solid var(--orange, #EE8C3A); outline-offset: 2px; }
 .btnDel { border-color: rgba(239,68,68,0.3); color: rgba(239,68,68,0.7); }
-.btnDel:hover { background: rgba(239,68,68,0.15); border-color: #ef4444; color: #ef4444; }
+.btnDel:hover, .btnDel:focus-visible, .btnDel:active { background: #b91c1c; border-color: #b91c1c; color: #fff; }   /* fix228: solid dark red, white icon */
 .lock { font-size: clamp(7px, 0.75vw, 9px); font-weight: 900; letter-spacing: 1px; color: rgba(var(--ink-rgb), 0.45); border: 1px dashed rgba(var(--ink-rgb), 0.25); border-radius: 4px; padding: 1px 6px; cursor: help; }
 
 /* upload zone (moved here from the Intake page so both pages share it) */

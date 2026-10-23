@@ -59,8 +59,7 @@
 
 /* Inline jargon -- the dotted underline is the affordance. Without it
    nobody knows there is anything to hover over. */
-.term {
-    border-bottom: 1px dotted currentColor;
+.term {   /* fix228 (David): no underline of any kind -- a hover word is shown by the help cursor and its bubble */
     cursor: help;
     outline: none;
 }

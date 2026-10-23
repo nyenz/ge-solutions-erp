@@ -262,3 +262,6 @@
 /* fix146: same table scroll behaviour as the Project Ledger */
 .tableScroll { max-height: calc(var(--app-vh) - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
 .ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }
+
+/* fix228: delete buttons turn solid dark red with a white icon on hover / press */
+.deleteIconBtn:hover:not(:disabled), .deleteIconBtn:focus-visible, .deleteIconBtn:active { background: #b91c1c; border-color: #b91c1c; color: #fff; }

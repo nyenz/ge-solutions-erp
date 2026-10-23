@@ -39,7 +39,6 @@ const TABS = [
     { key: 'REVERSALS', label: 'REVERSALS', accent: 'red' },
 ];
 const KIND_LABEL = { OPENING_DEPOSIT: 'OPENING DEPOSIT', IN_RECEIVABLES: 'PAYMENT IN RECEIVABLES', REVERSAL: 'REVERSAL', PAYMENT: '' };
-const PURPOSE_COLOR = { TITLE: '#22c55e', STORAGE: '#eab308' };
 const PAGE = 50;
 // fix214 (David): the method buttons -- every method, then "Not recorded" for payments saved before methods were asked for
 const METHOD_FILTERS = PAY_METHODS.map(m => ({ key: m.value, label: m.label })).concat([{ key: 'NONE', label: 'Not recorded' }]);
@@ -222,22 +221,24 @@ const PaymentsPage = () => {
                     {fullView && <label className={`${styles.checkToggle} ${includeDeleted ? styles.checkToggleOn : ''}`}>
                         <input type="checkbox" checked={includeDeleted} onChange={e => set({ deleted: e.target.checked })} /> Include deleted projects
                     </label>}
-                </div>
-                {/* fix214: filter by HOW the money was paid; the Director also sees the net amount of each method */}
-                <div className={styles.methodRow} role="group" aria-label="Payment method">
-                    <span className={styles.methodLabel}>PAID WITH</span>
-                    {METHOD_FILTERS.filter(m => m.key !== 'NONE' || !totals || (totals.byMethod || []).some(b => b.method === 'NONE')).map(m => {
-                        const on = method === m.key;
-                        const sum = totals && (totals.byMethod || []).find(b => b.method === m.key);
-                        return (
-                            <button key={m.key} type="button" aria-pressed={on} className={`${styles.methodChip} ${on ? styles.methodChipOn : ''} ${m.key === 'NONE' ? styles.methodChipNone : ''}`}
-                                title={on ? 'Show every method again' : 'Show only payments made with ' + m.label}
-                                onClick={() => set({ method: on ? '' : m.key })}>
-                                <span>{m.label}</span>
-                                {fullView && sum && <strong>UGX {fmt(sum.net)}</strong>}
-                            </button>
-                        );
-                    })}
+                    {/* fix228 (David): one tidy filter bar -- dates, toggles and PAID WITH on the same line, one height */}
+                    {/* fix214: filter by HOW the money was paid; the Director also sees the net amount of each method */}
+                    <span className={styles.filterSep} aria-hidden="true" />
+                        <div className={styles.methodRow} role="group" aria-label="Payment method">
+                        <span className={styles.methodLabel}>PAID WITH</span>
+                        {METHOD_FILTERS.filter(m => m.key !== 'NONE' || !totals || (totals.byMethod || []).some(b => b.method === 'NONE')).map(m => {
+                            const on = method === m.key;
+                            const sum = totals && (totals.byMethod || []).find(b => b.method === m.key);
+                            return (
+                                <button key={m.key} type="button" aria-pressed={on} className={`${styles.methodChip} ${on ? styles.methodChipOn : ''} ${m.key === 'NONE' ? styles.methodChipNone : ''}`}
+                                    title={on ? 'Show every method again' : 'Show only payments made with ' + m.label}
+                                    onClick={() => set({ method: on ? '' : m.key })}>
+                                    <span>{m.label}</span>
+                                    {fullView && sum && <strong>UGX {fmt(sum.net)}</strong>}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
                 <div className={styles.legendRow}>
                     <span className={styles.legendItem}>Deleted projects are never in the totals. A line can be in two tabs (for example an opening deposit that paid the title).</span>
@@ -277,7 +278,6 @@ const PaymentsPage = () => {
                                             <span>{q ? `No payment matches "${q}"` : 'No payment lines for these filters'}</span></div></td></tr>
                                     ) : rows.map((pay) => {
                                         const day = fmtDay(pay.paidOn);
-                                        const color = PURPOSE_COLOR[pay.allocation] || '#22c55e';
                                         return (
                                             <tr key={pay.id} id={'pay-' + pay.id} onClick={() => openRow(pay)} tabIndex={0} role="row"
                                                 className={`${styles.dataRow} ${String(pay.id) === highlight ? styles.rowHighlight : ''}`}
@@ -293,16 +293,13 @@ const PaymentsPage = () => {
                                                 <td className="gsStickyCol">
                                                     <strong className={styles.plotNum}>#{pay.projectIndex || '---'}</strong>
                                                     <div className={styles.time}>{pay.projectTypeLabel || ''}{pay.plotNumber ? ' - plot ' + pay.plotNumber : ''}</div>
-                                                    {pay.deleted && <span className={styles.typeBadge} style={{ color: '#ef4444' }}>DELETED</span>}
+                                                    {pay.deleted && <div className={`${styles.time} ${styles.bad}`}>Deleted project</div>}
                                                 </td>
                                                 <td className={styles.ownerCell}>{pay.clientName}{pay.payerPhone && <div className={styles.time}>{pay.payerPhone}</div>}</td>
                                                 <td>
-                                                    <span className={styles.typeBadge} style={{ color }}>
-                                                        <i className={styles.legendDot} style={{ background: color }} aria-hidden="true" />
-                                                        {pay.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}
-                                                    </span>
+                                                    <span className={styles.forCell}>{pay.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}</span>
                                                     {KIND_LABEL[pay.kind] && <div className={styles.time}>{KIND_LABEL[pay.kind]}</div>}
-                                                    {pay.reversed && <div className={styles.time} style={{ color: '#ef4444' }}>REVERSED</div>}
+                                                    {pay.reversed && <div className={`${styles.time} ${styles.bad}`}>Reversed</div>}
                                                     {pay.kind === 'REVERSAL' && pay.reversalOf && (
                                                         <button type="button" className={styles.linkBtn} onClick={e => { e.stopPropagation(); const el = document.getElementById('pay-' + pay.reversalOf); if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'center' }); }}>
                                                             reverses payment of {fmtDay(pay.reversalOfDate) || 'an earlier day'}</button>
@@ -313,15 +310,15 @@ const PaymentsPage = () => {
                                                     {pay.paymentReference && <div className={styles.time}>{pay.paymentReference}</div>}
                                                 </td>
                                                 <td>
-                                                    <strong className={styles.amount} style={{ color: Number(pay.amountPaid) < 0 ? '#ef4444' : color, textDecoration: pay.reversed ? 'line-through' : 'none' }}>
+                                                    <strong className={`${styles.amount} ${Number(pay.amountPaid) < 0 ? styles.bad : ''}`} data-strike={pay.reversed ? '' : undefined}>
                                                         UGX {fmt(pay.amountPaid)}</strong>
                                                     {pay.balanceAfter != null && <div className={styles.time}>owed after: UGX {fmt(pay.balanceAfter)}</div>}
                                                 </td>
                                                 <td>
                                                     {pay.kind === 'REVERSAL' ? null : pay.hasReceipt
-                                                        ? <button type="button" className={styles.linkBtn} title="Open the receipt in the project folder"
-                                                            onClick={e => { e.stopPropagation(); openRow(pay); }}><FiFileText aria-hidden="true" /> receipt</button>
-                                                        : <span className={styles.typeBadge} style={{ color: '#ef4444' }}>NO RECEIPT</span>}
+                                                        ? <button type="button" className={styles.receiptBtn} title="Open the receipt in the project folder" aria-label="Open the receipt"
+                                                            onClick={e => { e.stopPropagation(); openRow(pay); }}><FiFileText aria-hidden="true" /></button>
+                                                        : <span className={`${styles.time} ${styles.bad}`}>No receipt</span>}
                                                 </td>
                                                 <td><span className={styles.recorder}><FiUser size={10} /> {pay.recordedBy}</span></td>
                                                 <td className={styles.notesCell}>{pay.notes || '---'}</td>

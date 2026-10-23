@@ -657,3 +657,15 @@
 .histSection .histDelete:active { background: #b91c1c; color: #ffffff; }
 .histSection .histDelete:focus-visible { outline: 2px solid #b91c1c; outline-offset: 2px; }
 .histSection .histDelete:disabled { cursor: progress; opacity: 0.85; }
+
+/* fix228 (David): the CALL LOG history reads like the Expenses "Recent entries" table -- one cream card, every second
+   row a shade darker, thin lines, no gaps */
+.histSection { background: #e3dac8; border: 2px solid #f2ede4; border-radius: 8px; padding: 0; gap: 0; overflow: hidden; }
+.histSection > .wallLabel { padding: 8px 12px 6px; margin: 0; border-bottom: 1px solid rgba(26, 46, 48, 0.16); }
+.histRow { padding: 8px 12px; border-bottom: 1px solid rgba(26, 46, 48, 0.16); transition: background 0.15s; }
+.histRow:nth-of-type(even) { background: rgba(26, 46, 48, 0.1); }
+.histRow:hover { background: rgba(238, 140, 58, 0.18); }
+.histRow:last-child { border-bottom: none; }
+.histSection .histMeta { color: rgba(26, 46, 48, 0.72); font-weight: 600; }
+.histSection .histText { color: #1a2e30; }
+.histEmpty { padding: 10px 12px; }
