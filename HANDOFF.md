@@ -84,11 +84,23 @@
   Client File will then use the website colours too. Comparison page (all 9 pages x A/B/C/D, scroll + zoom + Pick):
   https://claude.ai/artifact/TZgKyTqCtANzT4pFDG6ScY (source: `docs/design/erp-design-comparison.html`).
   D (the first, lighter Daylight) is dropped. Later David wants a second theme study based on today's Settings page.
-- **Hosting move** (Netcup VPS Lite 1 was the pick; Hetzner CX was not available): brainstorm only. Do NOT start until
-  David says "move now". He also floated an in-house/offline mode with a portable SSD -- brainstorm only.
+- **HOSTING MOVE -- DECIDED, ON HOLD.** The whole app (Render + Neon + Cloudinary) moves onto ONE rented server:
+  **Netcup VPS Lite 1 G12.5s** -- 2 vCore, 4 GB RAM, 80 GB SSD, IPv4 included, **EUR 4.92 a month on a 6-month
+  contract (EUR 29.52 paid at once, about EUR 59 a year)**, no setup fee, Ubuntu 24.04, free DuckDNS address first.
+  Hetzner's cheap servers could not be ordered (14 Oct 2026). Move only BEFORE real client data goes in, and only when
+  David says "move now". Full details, the agreed step-by-step walkthrough, costs, risks and the rejected options are in
+  **LLM_CONTEXT_GUIDE.md section 18.0** -- read it before answering any hosting question.
+- **IN-HOUSE MODE -- brainstorm only:** if his employer wants the app in the office, one office computer runs it for
+  everyone on the Wi-Fi, with a "storage mode: Cloud or Disk" setting and a portable SSD as the backup disk.
+  Guide section 18.0a. Not started.
 - **Before go-live:** remove the FRESH START tick box, reset the Neon password, make the repo private.
 - Waiting for David: Dashboard look notes (note 5), "D1 - I want all entries" (note 18), Secretary + Pending tile (note 2).
 - Still TO DO in code: the STAGE/STATUS rename inside the code and database (fix184 note).
+- **Earlier design board** (the first try at the comparison, a canvas): https://claude.ai/artifact/EvmVcSKuo5WKaGKb7Hxnht --
+  replaced by the scrolling comparison page above; keep only for reference.
+- **If the live site will not open for David:** the free Render app sleeps (wait one full minute, then reload). His own
+  computer once had a DNS problem (Brave "Secure DNS" / Windows DNS); switching Brave's Secure DNS to another provider
+  fixed it.
 
 ## 7. Other projects of David (not this repo, for context only)
 GES website (`nyenz/ges-website`, the company site), a Three.js portfolio, a video-editing app (EditForge), a code-built
