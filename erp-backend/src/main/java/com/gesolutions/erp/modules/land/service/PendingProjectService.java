@@ -91,13 +91,30 @@ public class PendingProjectService {
         return sent;
     }
 
+    /** fix224 (David): the money boxes by the names on the page, never the code names ("isStartAsReceivable"). */
+    private static final java.util.Map<String, String> PLAIN_MONEY = java.util.Map.ofEntries(
+            java.util.Map.entry("totalCost", "Total Cost"), java.util.Map.entry("initialPayment", "Initial Payment"),
+            java.util.Map.entry("isStartAsReceivable", "Start in receivables"), java.util.Map.entry("monthlyStorageFee", "Monthly Storage Fee"),
+            java.util.Map.entry("initialStorageFee", "Initial Storage Fee"), java.util.Map.entry("initialStorageFeePaid", "Storage Fees Already Paid"),
+            java.util.Map.entry("lastPaidDate", "Date Last Paid"), java.util.Map.entry("receivablesSince", "In Receivables Since"),
+            java.util.Map.entry("initialPaymentPayerNin", "Who paid"), java.util.Map.entry("initialStorageFeePaidPayerNin", "Who paid the fees"),
+            java.util.Map.entry("paymentMethod", "Payment Method"), java.util.Map.entry("paymentReference", "Payment reference"),
+            java.util.Map.entry("weeklyInstallment", "Weekly installment"), java.util.Map.entry("planType", "Payment plan"),
+            java.util.Map.entry("status costs", "stage costs"));
+
+    public static String plainMoney(List<String> codes) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        for (String c : codes) out.add(PLAIN_MONEY.getOrDefault(c, c));
+        return String.join(", ", out);
+    }
+
     private static boolean positive(BigDecimal v) { return v != null && v.signum() != 0; }
     private static boolean notBlank(String v) { return v != null && !v.isBlank(); }
 
     private static void refuseMoney(LandEntryRequest r) {
         List<String> sent = pricingFieldsSent(r);
         if (!sent.isEmpty()) {
-            throw new BusinessException("PRICING_NOT_ALLOWED: Prices and payments are added by the office, not on a field entry. Remove: " + String.join(", ", sent) + ".");
+            throw new BusinessException("PRICING_NOT_ALLOWED: Prices and payments are added by the office, not on a field entry. Remove: " + plainMoney(sent) + ".");
         }
     }
 
@@ -221,6 +238,7 @@ public class PendingProjectService {
                 && p.getProjectType() != null && !request.getProjectType().equals(p.getProjectType())) {
             throw new BusinessException("PENDING_EDIT_DENIED: The project type cannot be changed while starting a project.");
         }
+        if (p.isLegacy()) request.setStartAsReceivable(true);   // fix224: a Legacy Title starts in receivables, also from Pending
         LandService.IntakeMoney money = landService.checkIntakeMoney(request);
         if (money.totalCost().signum() <= 0) {
             throw new BusinessException("PRICE_REQUIRED: Enter the total cost (more than 0) before starting the project.");
@@ -278,7 +296,7 @@ public class PendingProjectService {
         moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs", "paymentMethod", "paymentReference"));   // fix214: a picked method alone is not money
         if (!moneySent.isEmpty()) {
             throw new BusinessException("MONEY_NEEDS_START: Money received is recorded when the project starts (it needs the invoice number, "
-                    + "the contract number and the price). Fill in all three, or clear: " + String.join(", ", moneySent) + ".");
+                    + "the contract number and the price). Fill in all three, or clear: " + plainMoney(moneySent) + ".");
         }
         if (cost != null && cost.signum() < 0) throw new BusinessException("AMOUNT_INVALID: The price cannot be negative.");
         String[] n = projectNumbers.checkEach(p.getId(), inv, con);

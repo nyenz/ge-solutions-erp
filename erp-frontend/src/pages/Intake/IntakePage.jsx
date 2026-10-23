@@ -315,7 +315,7 @@ export default function IntakePage() {
     const handleAddStatus = () => {
         if (!canAddStatus) { toast('Only an Admin, Manager or Director can add a stage.', 'error'); return; }
         const name = newStatusName.trim();
-        if (!name) { toast('Enter a stage name first.', 'error'); return; }
+        if (!name) { toast('Enter a stage name first.', 'error'); flagField('New stage name'); return; }
         if (statusList.some(s => s.name.toLowerCase() === name.toLowerCase())) { toast('That stage is already on the list.', 'error'); return; }
         let k = statusList.length;
         const idx = statusList.findIndex(s => s.name === insertAfterName);
@@ -549,7 +549,9 @@ export default function IntakePage() {
             if (isSubdivision) payload.subdivisionCount = Number(subdivisionCount);
             if (transferFrom) { payload.parentProjectId = transferFrom.id; payload.parentSubdivisionNo = transferFrom.plot; }
             if (isLegacy) {
-                payload.isStartAsReceivable = true;
+                // fix224: a Legacy draft (no invoice / contract / price yet) is saved Pending and starts in receivables
+                // when the office starts it; sending the flag now made the server refuse the save
+                if (!officeDraft) payload.isStartAsReceivable = true;
                 payload.initialStorageFee = Number(initialStorageFee) || 0;
                 payload.initialStorageFeePaid = Number(initialStorageFeePaid) || 0;
                 // fix173: send a rate only when one was typed that differs from the system default, so a project entered at the
@@ -912,7 +914,7 @@ export default function IntakePage() {
                     {addingStatus && canAddStatus && (
                         <div className={styles.inlineAddRow}>
                             <span className={styles.insertCtx}>{insertAfterName ? `Insert under: ${insertAfterName}` : 'Add at the end'}</span>
-                            <input className={styles.input} placeholder="New stage name" value={newStatusName} onChange={e => setNewStatusName(e.target.value)} />
+                            <input className={styles.input} placeholder="New stage name" aria-label="New stage name" value={newStatusName} onChange={e => setNewStatusName(e.target.value)} />
                             <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStatus}>Add</button>
                             <button type="button" className={styles.xBtn} onClick={() => { setAddingStatus(false); setNewStatusName(''); setInsertAfterName(''); }} aria-label="Close"><FiX /></button>
                         </div>

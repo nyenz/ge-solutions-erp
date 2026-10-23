@@ -487,7 +487,7 @@ public class LandService {
             moneySent.removeAll(List.of("totalCost", "lastPaidDate", "status costs", "paymentMethod", "paymentReference"));
             if (!moneySent.isEmpty()) {
                 throw new BusinessException("MONEY_NEEDS_START: Money received is recorded once the project has its invoice number, "
-                        + "contract number and price. Fill in all three, or clear: " + String.join(", ", moneySent) + ".");
+                        + "contract number and price. Fill in all three, or clear: " + PendingProjectService.plainMoney(moneySent) + ".");
             }
             request.setLastPaidDate(null);
             request.setPaymentMethod(null);      // fix214: no money, so no method

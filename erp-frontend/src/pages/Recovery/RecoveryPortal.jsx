@@ -6,6 +6,7 @@ import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/P
 import ReactDOM from 'react-dom';
 import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
+import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
 import { splitPhones, telHref, prettyPhone, phoneSearchText } from '../../utils/phone';
 import HardwareModal from '../../components/common/HardwareModal';
@@ -138,7 +139,7 @@ export default function RecoveryPortal() {
     setBusy(true);
     recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text })
       .then((r) => { setBusy(false); setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(true); })
-      .catch((e) => { setBusy(false); toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error'); });
+      .catch((e) => { setBusy(false); toast(errorText(e), 'error'); });   // fix224: plain words, never a code word
   };
   // fix223 (David): DELETE opens the shared "why?" window; the reason goes to the audit log. While it is deleting the
   // button says DELETING... and cannot be pressed again; the history and the queue reload afterwards.

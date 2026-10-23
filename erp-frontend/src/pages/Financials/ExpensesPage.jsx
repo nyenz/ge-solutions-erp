@@ -22,6 +22,7 @@ import { Tooltip, IconButton, Term } from '../../components/common/Tooltip';
 import { GLOSSARY } from '../../components/common/glossary';
 import { useToasts } from '../../components/common/useFeedback';
 import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
+import { flagField } from '../../utils/fieldError';   // fix224
 import { useReasonPrompt, DELETE_PICKS } from '../../components/common/useReasonPrompt';
 import { ToastStack } from '../../components/common/Feedback';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
@@ -138,7 +139,7 @@ const ExpensesPage = () => {
 
     const submitLog = async () => {
         if (logModal.isOther && !logCategory.trim()) { toast('What is this expense for?', 'error'); return; }
-        if (!logAmount || Number(logAmount) <= 0) { toast('Enter an amount.', 'error'); return; }
+        if (!logAmount || Number(logAmount) <= 0) { toast('Enter an amount.', 'error'); flagField('Expense amount'); return; }
         setLogging(true);
         try {
             await expenseService.create({
@@ -163,7 +164,7 @@ const ExpensesPage = () => {
     const [savingPreset, setSavingPreset] = useState(false);
 
     const submitPreset = async () => {
-        if (!newPresetName.trim()) { toast('Enter a name for this preset.', 'error'); return; }
+        if (!newPresetName.trim()) { toast('Enter a name for this preset.', 'error'); flagField('Preset name'); return; }
         setSavingPreset(true);
         try {
             await expenseService.createPreset(newPresetName.trim());
@@ -195,7 +196,7 @@ const ExpensesPage = () => {
     };
 
     const submitEdit = async () => {
-        if (!editAmount || Number(editAmount) <= 0) { toast('Enter an amount.', 'error'); return; }
+        if (!editAmount || Number(editAmount) <= 0) { toast('Enter an amount.', 'error'); flagField('Edit amount'); return; }
         setSaving(true);
         try {
             await expenseService.update(editModal.expense.id, {
@@ -415,6 +416,7 @@ const ExpensesPage = () => {
                         inputMode="decimal"
                         className={styles.amountInput}
                         placeholder="0"
+                        aria-label="Expense amount"
                         autoFocus
                         value={logAmount}
                         onChange={e => setLogAmount(e.target.value)}
@@ -453,6 +455,7 @@ const ExpensesPage = () => {
                         type="text"
                         className={modalStyles.modalInput}
                         placeholder="e.g. Generator Fuel"
+                        aria-label="Preset name"
                         autoFocus
                         value={newPresetName}
                         onChange={e => setNewPresetName(e.target.value)}
@@ -483,6 +486,7 @@ const ExpensesPage = () => {
                         min="0"
                         inputMode="decimal"
                         className={styles.amountInput}
+                        aria-label="Edit amount"
                         value={editAmount}
                         onChange={e => setEditAmount(e.target.value)}
                     />
