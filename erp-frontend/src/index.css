@@ -685,3 +685,12 @@ section[data-field-error] { box-shadow: 0 0 0 2px var(--field-err-glow), 0 0 0 1
    line through it with data-strike. */
 *:not([data-strike]), *:not([data-strike])::before, *:not([data-strike])::after { text-decoration-line: none !important; }
 [data-strike] { text-decoration: line-through; }
+
+/* fix230 (David): phone pass -- "not oversized, not over-worded". On a phone the long grey line under each page title
+   is left out (the title says enough; the explainers still explain), and short info lines may wrap instead of being cut. */
+@media (max-width: 560px) {
+    header[class*="pageHeader"] p[class*="subtitle"],
+    header[class*="pageHeader"] [class*="subtitle"]:not(h1) { display: none; }
+    [class*="legendRow"] { flex-wrap: wrap !important; overflow: visible !important; }
+    [class*="legendItem"] { white-space: normal !important; }
+}

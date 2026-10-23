@@ -505,7 +505,9 @@ const FolderPage = () => {
         const t = setTimeout(() => {
             const aside = document.querySelector('aside');
             const toggle = document.querySelector('[class*="sidebarToggle"]');
-            if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();
+            // fix230: never on a phone -- there the menu is a hidden drawer, and pressing the toggle OPENED it over the page
+            const r = aside && aside.getBoundingClientRect();
+            if (window.innerWidth > 768 && r && toggle && r.width > 120 && r.right > 120) toggle.click();
         }, 150);
         return () => clearTimeout(t);
     }, []);
@@ -1523,7 +1525,7 @@ const FolderPage = () => {
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                             <CornerDecor hideTop />
                             <NotesTimeline scope="project" id={id} canWrite={!isDeleted} refreshKey={binder}
-                                onToast={(t, k) => toast(t, k === 'error' ? 'error' : k, 3500)} onCount={setNoteCount}
+                                onToast={(t, k) => toast(t, k === 'error' ? 'error' : k, 3500)} onCount={setNoteCount} onChanged={loadFolderData}
                                 onOpenDoc={(docId) => { const d = docsById.get(docId); if (d) handleOpenDoc(d.filePath, d.fileName); else toast('The file is in Documents.', 'info', 3000); }} />
                         </div></div>
                     </section>

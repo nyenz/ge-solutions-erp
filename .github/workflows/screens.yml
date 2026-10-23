@@ -6,9 +6,11 @@ name: screens
 
 on:
   workflow_dispatch:
+  push:
+    branches: [screens]   # pushing the branch "screens" also runs it (Claude cannot press Run workflow)
 
 permissions:
-  contents: read
+  contents: write   # to save the pictures on the branch screens-out (the file store cannot be reached from Claude's workspace)
 
 jobs:
   screens:
@@ -32,7 +34,7 @@ jobs:
       - name: Start the server (in-memory demo data)
         working-directory: erp-backend
         run: |
-          nohup java -jar target/*.jar --spring.profiles.active=test --ge.solutions.seed-demo-data=true > server.log 2>&1 &
+          nohup java -jar target/*.jar --spring.profiles.active=test --ge.solutions.seed-demo-data=true "--spring.datasource.hikari.connection-init-sql=SELECT 1" > server.log 2>&1 &
           for i in $(seq 1 90); do curl -s -o /dev/null http://localhost:8080/api/v1/auth/login -X POST -H 'Content-Type: application/json' -d '{}' && break; sleep 2; done
           tail -5 server.log
       - name: Build and serve the pages
@@ -42,20 +44,29 @@ jobs:
         run: |
           npm ci
           npm run build
-          nohup npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
-          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:4173/ && break; sleep 1; done
+          nohup npx vite preview --port 5173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:5173/ && break; sleep 1; done
       - name: Take the pictures
         working-directory: erp-frontend
         run: |
           npm i --no-save playwright@1.48.2
           npx playwright install --with-deps chromium
-          node e2e/screens.mjs
+          WEB=http://localhost:5173 node e2e/screens.mjs
       - name: Keep the server log with the pictures
         if: always()
         run: cp erp-backend/server.log erp-frontend/screens/ 2>/dev/null || true
-      - uses: actions/upload-artifact@v4
+      - name: Show the report on the run page
         if: always()
-        with:
-          name: screens
-          path: erp-frontend/screens
-          retention-days: 14
+        run: |
+          (tail -40 erp-frontend/screens/report.txt 2>/dev/null || echo "no report") | sed 's/^/::notice::/' | head -40
+          grep -m 15 -E "ERROR|Exception" erp-backend/server.log | sed 's/^/::warning::/' || true
+      - name: Save the pictures on the branch screens-out
+        if: always()
+        run: |
+          mkdir -p /tmp/out && cp -r erp-frontend/screens/. /tmp/out/ 2>/dev/null || true
+          cp erp-backend/server.log /tmp/out/ 2>/dev/null || true
+          cd /tmp/out
+          git init -q -b screens-out
+          git config user.name "screens-bot"; git config user.email "screens-bot@users.noreply.github.com"
+          git add -A && git commit -q -m "screens of ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" screens-out
