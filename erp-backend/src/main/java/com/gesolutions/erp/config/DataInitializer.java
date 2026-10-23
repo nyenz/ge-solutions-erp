@@ -248,6 +248,9 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS follow_up_on DATE",
             "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS topic VARCHAR(60)",
             "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS document_id UUID",
+            // fix225: a note may be about a client alone (no project)
+            "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS client_id UUID",
+            "ALTER TABLE follow_up_logs ALTER COLUMN project_id DROP NOT NULL",
             "ALTER TABLE follow_up_logs ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP",
             "UPDATE payment_records SET paid_on = timestamp WHERE paid_on IS NULL AND NOT (payment_type = 'INITIAL_DEPOSIT' AND (notes IS NULL OR notes NOT LIKE '%paid on%'))",
             // fix181 (17.2, 17.14, 17.1): alert group, who caused it, repeat key; indexes for the bell queries

@@ -53,6 +53,11 @@ public class TimelineJobs {
     public void remindToday() {
         LocalDate today = LocalDate.now();
         for (FollowUpLog n : noteRepository.findByFollowUpOn(today)) {
+            if (n.getProjectId() == null) {   // fix225: a note about a client alone
+                if (n.getClientId() != null) notificationService.emitToAudience("FOLLOW_UP_DUE",
+                        "Follow-up today on a client note (by " + n.getRecordedBy() + "). Open the client's Notes to read it.", "CLIENT", n.getClientId(), today);
+                continue;
+            }
             LandProject p = projectRepository.findById(n.getProjectId()).orElse(null);
             if (p == null || p.isDeleted()) continue;
             notificationService.emitToAudience("FOLLOW_UP_DUE",

@@ -69,6 +69,7 @@ public final class NotificationTypes {
         add("PROJECT_GRADUATED",     Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, MGR, DIR);   // 17.15a
         add("NEGOTIATION_DEADLINE",  Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, MGR);
         add("FOLLOW_UP_DUE",         Group.PIPELINE, "INFO",     Repeat.ONCE_PER_EVENT_DATE, SEC, MGR, DIR);   // fix215: a note's follow-up day
+        add("NOTE_PINNED",           Group.PIPELINE, "INFO",     Repeat.EVERY_TIME, SEC, MGR, DIR);   // fix225: a note pinned to the top
         // RECOVERY
         add("LOCKED",                Group.RECOVERY, "INFO", Repeat.EVERY_TIME, SEC, MGR);
         add("UNLOCK",                Group.RECOVERY, "INFO", Repeat.ONCE_PER_EVENT_DATE, SEC, MGR);

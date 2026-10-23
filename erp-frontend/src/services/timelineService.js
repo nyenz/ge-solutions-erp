@@ -13,6 +13,9 @@ const timelineService = {
         if (file) fd.append('file', file, file.name);
         return api.post('/timeline/project/' + projectId + '/notes', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
     },
+    // fix225: a note about the client alone (no project, no file)
+    addClientNote: (clientId, { content, topic, followUpOn, pinned }) =>
+        api.post('/timeline/client/' + clientId + '/notes', { content, topic: topic || '', followUpOn: followUpOn || '', pinned: !!pinned }).then(r => r.data),
     editNote: (noteId, { content, topic, followUpOn }) => api.put('/timeline/notes/' + noteId, { content, topic: topic || '', followUpOn: followUpOn || '' }).then(r => r.data),
     pin: (noteId, pinned) => api.patch('/timeline/notes/' + noteId + '/pin', { pinned }).then(r => r.data),
     remove: (noteId, reason) => api.delete('/timeline/notes/' + noteId, { params: { reason } }),   // fix223

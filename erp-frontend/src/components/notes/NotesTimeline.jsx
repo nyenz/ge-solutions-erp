@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiSearch, FiX, FiChevronDown, FiEdit3, FiTrash2, FiPaperclip, FiClock, FiDollarSign, FiFileText, FiFlag,
     FiPhoneCall, FiCheckCircle, FiStar, FiAlertTriangle, FiExternalLink } from 'react-icons/fi';
-import TabDock, { accentOf } from '../common/TabDock';
 import HardwareModal from '../common/HardwareModal';
 import HardwareDatePicker from '../common/HardwareDatePicker';
 import modalStyles from '../common/HardwareModal.module.css';
@@ -24,7 +23,7 @@ const NOTE_MAX = 2000;
 const PAGE = 30;
 const ICON = { NOTE: FiFileText, MONEY: FiDollarSign, REASON: FiFlag, EVENT: FiCheckCircle, CALL: FiPhoneCall };
 const plusDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return todayISO(d); };
-const EMPTY_FORM = { id: null, content: '', topic: '', followUpOn: '', pinned: false, file: null, fileNote: '' };
+const EMPTY_FORM = { id: null, content: '', topic: '', followUpOn: '', pinned: false, file: null, fileNote: '', about: '' };
 
 /**
  * scope     'project' | 'client'
@@ -33,8 +32,15 @@ const EMPTY_FORM = { id: null, content: '', topic: '', followUpOn: '', pinned: f
  * refreshKey  anything that changes when the page reloads its data (a payment or a reason was just saved)
  * onOpenDoc   (documentId) => void -- opens an attached file (the Folder has the preview window)
  * onToast     (text, kind) => void
+ * onCount     (number) => void -- fix225: the panel heading shows the real number, updated after every change
+ *
+ * fix225 (David): the look of the Expenses "Recent entries" table -- filters first (small chips whose numbers follow the
+ * search and the project picked), then search + ADD NOTE on one line, then ONE light card with every second row a
+ * shade darker, quiet icons, the same colours for every kind, small icon-only buttons on the right of a note.
+ * A note can also be about the CLIENT alone (client page: ABOUT = This client); it shows on each of their projects too.
  */
-const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onOpenDoc, onToast }) => {
+const CLIENT = '__client';
+const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onOpenDoc, onToast, onCount }) => {
     const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [loadErr, setLoadErr] = useState('');
@@ -60,20 +66,26 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
     useEffect(() => { load(); }, [load, refreshKey]);
 
     const rows = useMemo(() => (data && data.entries) || [], [data]);
+    useEffect(() => { if (data && onCount) onCount(rows.length); }, [data, rows, onCount]);   // fix225
     const canSeeMoney = !!(data && data.canSeeMoney);
-    const counts = useMemo(() => countKinds(rows), [rows]);
+    // fix225: the rows of the chosen project (or the client's own notes) -- the filter numbers follow it and the search
+    const scoped = useMemo(() => (projectFilter === CLIENT ? rows.filter(r => r.clientNote) : rows), [rows, projectFilter]);
+    const counts = useMemo(() => {
+        const both = visibleRows(scoped, 'ALL', search, projectFilter === CLIENT ? '' : projectFilter);
+        return countKinds([...both.pinned, ...both.rest]);
+    }, [scoped, search, projectFilter]);
     const pills = KINDS.filter(k => !k.money || canSeeMoney).map(k => ({ ...k, count: counts[k.key] || 0 }));
-    const { pinned, rest } = useMemo(() => visibleRows(rows, kind, search, projectFilter), [rows, kind, search, projectFilter]);
+    const { pinned, rest } = useMemo(() => visibleRows(scoped, kind, search, projectFilter === CLIENT ? '' : projectFilter), [scoped, kind, search, projectFilter]);
     const projects = (data && data.projects) || [];
     const today = todayISO();
     const dueCount = rows.filter(r => r.kind === 'NOTE' && followUpState(r.followUpOn, today) === 'due').length;
-    // the client page writes a note on one of the client's projects: the one picked in the filter, else the only one
-    const writeProject = scope === 'project' ? id : (projectFilter || (projects.length === 1 ? projects[0].id : ''));
+    // fix225: on the client page a note is about the client (default) or one of their projects (ABOUT in the window)
+    const defaultAbout = scope === 'project' ? id : (projectFilter && projectFilter !== CLIENT ? projectFilter : CLIENT);
 
     const toggle = (key) => setOpen(s => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
     // ── add / edit ──────────────────────────────────────────────────────────
-    const startAdd = () => { setFormErr(''); setForm({ ...EMPTY_FORM }); };
+    const startAdd = () => { setFormErr(''); setForm({ ...EMPTY_FORM, about: defaultAbout }); };
     const startEdit = (r) => { setFormErr(''); setForm({ ...EMPTY_FORM, id: r.id, content: r.text || '', topic: r.topic || '', followUpOn: r.followUpOn ? String(r.followUpOn).slice(0, 10) : '' }); };
     const closeForm = () => { if (!busy) { setForm(null); setFormErr(''); } };
     const pickFile = async (f) => {
@@ -88,11 +100,11 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
         if (text.length < 2) { setFormErr('WRITE THE NOTE FIRST (AT LEAST 2 CHARACTERS).'); return; }
         if (text.length > NOTE_MAX) { setFormErr('TOO LONG: ' + text.length + ' CHARACTERS. THE LIMIT IS ' + NOTE_MAX + '.'); return; }
         if (form.followUpOn && form.followUpOn < today && (!form.id)) { setFormErr('THE FOLLOW-UP DAY CANNOT BE IN THE PAST.'); return; }
-        if (!form.id && !writeProject) { setFormErr('PICK THE PROJECT THIS NOTE IS ABOUT (THE PROJECT BUTTONS ABOVE THE LIST).'); return; }
         setBusy(true); setFormErr('');
         try {
             if (form.id) await timelineService.editNote(form.id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn });
-            else await timelineService.addNote(writeProject, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned, file: form.file });
+            else if (form.about === CLIENT) await timelineService.addClientNote(id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned });
+            else await timelineService.addNote(form.about || id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned, file: form.file });
             setForm(null);
             await load();
             toast(form.id ? 'Note changed' : 'Note saved', 'success');
@@ -109,54 +121,59 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
         run: async (reason) => { await timelineService.remove(r.id, reason); await load(); toast('Note deleted', 'warn'); },
     });
 
-    // ── one line ────────────────────────────────────────────────────────────
+    // ── one line (fix225: one row of a light table; the buttons sit on the right, icon only) ──
     const renderRow = (r) => {
         const key = r.source + ':' + r.id;
         const isOpen = open.has(key);
         const Icon = ICON[r.kind] || FiFileText;
         const fu = r.kind === 'NOTE' ? followUpState(r.followUpOn, today) : '';
-        const negative = r.kind === 'MONEY' && Number(r.amount) < 0;
+        const bad = r.tone === 'bad' || (r.kind === 'MONEY' && Number(r.amount) < 0);
+        const sum = summaryOf(r);
+        const parts = r.kind === 'MONEY' && sum ? sum.split(' · ') : null;
+        const note = r.kind === 'NOTE' && canWrite;
         return (
-            <li key={key} className={`${styles.row} ${styles['k_' + r.kind] || ''} ${isOpen ? styles.rowOpen : ''}`} data-tone={r.tone || undefined}>
-                <button type="button" className={styles.rowHead} aria-expanded={isOpen} onClick={() => toggle(key)}
-                    title={isOpen ? 'Hide the details' : 'Show the details'}>
-                    <span className={styles.icon} aria-hidden="true">{r.kind === 'EVENT' && r.tone === 'bad' ? <FiAlertTriangle /> : <Icon />}</span>
-                    <span className={styles.main}>
-                        <span className={styles.titleLine}>
-                            <strong className={styles.title}>{r.title}</strong>
-                            {r.pinned && <span className={styles.chipPin} title="Pinned: stays at the top"><FiStar aria-hidden="true" /> PINNED</span>}
-                            {fu && <span className={fu === 'due' ? styles.chipDue : styles.chipSoon} title={fu === 'due' ? 'The follow-up day is today (or has passed).' : 'The day to follow this up.'}>
-                                <FiClock aria-hidden="true" /> {fu === 'due' ? 'FOLLOW UP NOW' : 'FOLLOW UP ' + fmtWhen(r.followUpOn).toUpperCase()}</span>}
-                            {r.documentId && <span className={styles.chipFile} title="A file is attached"><FiPaperclip aria-hidden="true" /></span>}
-                            {scope === 'client' && r.projectIndex && <span className={styles.chipProject} title="The project this line is about">#{r.projectIndex}</span>}
+            <li key={key} className={`${styles.row} ${isOpen ? styles.rowOpen : ''}`}>
+                <div className={styles.rowLine}>
+                    <button type="button" className={styles.rowHead} aria-expanded={isOpen} onClick={() => toggle(key)}
+                        title={isOpen ? 'Hide the details' : 'Show the details'}>
+                        <span className={`${styles.icon} ${bad ? styles.iconBad : ''}`} aria-hidden="true">{r.kind === 'EVENT' && r.tone === 'bad' ? <FiAlertTriangle /> : <Icon />}</span>
+                        <span className={styles.main}>
+                            <span className={styles.titleLine}>
+                                {r.pinned && <FiStar className={styles.pinMark} aria-label="Pinned" />}
+                                <strong className={`${styles.title} ${bad ? styles.titleBad : ''}`}>{r.title}</strong>
+                                {r.clientNote && <span className={styles.tag} title="A note about the client, not one project">CLIENT</span>}
+                                {scope === 'client' && r.projectIndex && <span className={styles.tag} title="The project this line is about">#{r.projectIndex}</span>}
+                                {fu && <span className={fu === 'due' ? styles.tagDue : styles.tag} title={fu === 'due' ? 'The follow-up day is today (or has passed).' : 'The day to follow this up.'}>
+                                    <FiClock aria-hidden="true" /> {fu === 'due' ? 'FOLLOW UP NOW' : fmtWhen(r.followUpOn)}</span>}
+                                {r.documentId && <FiPaperclip className={styles.clip} aria-label="A file is attached" />}
+                            </span>
+                            {!isOpen && sum && (parts
+                                ? <span className={styles.summary}><b>{parts[0]}</b>{parts.length > 1 ? ' · ' + parts.slice(1).join(' · ') : ''}</span>
+                                : <span className={styles.summary}>{sum}</span>)}
                         </span>
-                        {!isOpen && summaryOf(r) && <span className={`${styles.summary} ${negative ? styles.summaryNeg : ''}`}>{summaryOf(r)}</span>}
-                    </span>
-                    <span className={styles.meta}>
-                        <time dateTime={r.at} title={fmtWhen(r.at, true)}>{fmtWhen(r.at)}</time>
-                        <span className={styles.by}>{kindWord(r.kind)} · {r.by || 'SYSTEM'}</span>
-                    </span>
-                    <FiChevronDown className={styles.chev} aria-hidden="true" />
-                </button>
+                        <span className={styles.meta}>
+                            <time dateTime={r.at} title={fmtWhen(r.at, true)}>{fmtWhen(r.at)}</time>
+                            <span className={styles.by}>{kindWord(r.kind)} · {r.by || 'SYSTEM'}</span>
+                        </span>
+                        <FiChevronDown className={styles.chev} aria-hidden="true" />
+                    </button>
+                    {/* fix225: always drawn (empty when nothing applies), so the dates line up like a table column */}
+                    {(
+                        <span className={styles.acts}>
+                            {r.documentId && onOpenDoc && <button type="button" className={styles.ib} onClick={() => onOpenDoc(r.documentId)} title="Open the attached file" aria-label="Open the attached file"><FiPaperclip aria-hidden="true" /></button>}
+                            {scope === 'client' && r.projectId && <button type="button" className={styles.ib} onClick={() => navigate('/folder/' + r.projectId + '#notes')} title="Open this project's folder" aria-label="Open this project's folder"><FiExternalLink aria-hidden="true" /></button>}
+                            {note && <button type="button" className={`${styles.ib} ${r.pinned ? styles.ibOn : ''}`} onClick={() => pin(r)}
+                                title={r.pinned ? 'Unpin: let it move down with the others' : 'Pin to the top (the bell tells the office)'} aria-label={r.pinned ? 'Unpin this note' : 'Pin this note to the top'} aria-pressed={!!r.pinned}><FiStar aria-hidden="true" /></button>}
+                            {note && r.editable && <button type="button" className={styles.ib} onClick={() => startEdit(r)} title="Change the words, topic or follow-up day" aria-label="Edit this note"><FiEdit3 aria-hidden="true" /></button>}
+                            {note && r.editable && <button type="button" className={`${styles.ib} ${styles.ibDanger}`} onClick={() => askDelete(r)} title="Delete this note (you are asked why)" aria-label="Delete this note"><FiTrash2 aria-hidden="true" /></button>}
+                        </span>
+                    )}
+                </div>
                 {isOpen && (
                     <div className={styles.body}>
                         {r.text && <p className={styles.text}>{r.kind === 'REASON' ? <><span className={styles.lbl}>Reason: </span>{r.text}</> : r.text}</p>}
                         {r.detail && <p className={styles.detail}>{r.detail}</p>}
                         <p className={styles.small}>{fmtWhen(r.at, true)} · {r.by || 'SYSTEM'}{r.edited ? ' · changed later' : ''}{r.locked ? ' · kept as a record (cannot be changed)' : ''}</p>
-                        <div className={styles.actions}>
-                            {r.documentId && (onOpenDoc
-                                ? <button type="button" className={styles.act} onClick={() => onOpenDoc(r.documentId)} title="Open the attached file"><FiPaperclip aria-hidden="true" /> OPEN FILE</button>
-                                : r.projectId && <button type="button" className={styles.act} onClick={() => navigate('/folder/' + r.projectId + '#notes')} title="The file is in the project's Documents"><FiExternalLink aria-hidden="true" /> OPEN PROJECT</button>)}
-                            {scope === 'client' && r.projectId && !r.documentId && (
-                                <button type="button" className={styles.act} onClick={() => navigate('/folder/' + r.projectId + '#notes')} title="Open this project's folder"><FiExternalLink aria-hidden="true" /> OPEN PROJECT</button>)}
-                            {r.kind === 'NOTE' && canWrite && (
-                                <button type="button" className={styles.act} onClick={() => pin(r)} title={r.pinned ? 'Let it move down with the others' : 'Keep this note at the top'}>
-                                    <FiStar aria-hidden="true" /> {r.pinned ? 'UNPIN' : 'PIN TO TOP'}</button>)}
-                            {r.kind === 'NOTE' && r.editable && canWrite && (<>
-                                <button type="button" className={styles.act} onClick={() => startEdit(r)} title="Change the words, topic or follow-up day"><FiEdit3 aria-hidden="true" /> EDIT</button>
-                                <button type="button" className={`${styles.act} ${styles.actDanger}`} onClick={() => askDelete(r)} title="Delete this note. The audit trail keeps its words."><FiTrash2 aria-hidden="true" /> DELETE</button>
-                            </>)}
-                        </div>
                     </div>
                 )}
             </li>
@@ -165,7 +182,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
 
     if (loadErr && !data) {
         return (<div className={styles.wrap}><div className={styles.err} role="alert">{loadErr}
-            <button type="button" className={styles.act} onClick={load} title="Load the notes again">TRY AGAIN</button></div></div>);
+            <button type="button" onClick={load} title="Load the notes again">TRY AGAIN</button></div></div>);
     }
     if (!data) return <div className={styles.wrap}><p className={styles.loading}>Loading the notes...</p></div>;
 
@@ -173,7 +190,22 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
     return (
         <div className={styles.wrap}>
             <div className={styles.top}>
-                <TabDock items={pills} value={kind} onChange={v => { setKind(v); setShown(PAGE); }} label="Show only" />
+                {/* fix225: the filters first -- small chips, their numbers follow the search and the project picked */}
+                <div className={styles.filters} role="group" aria-label="Show only">
+                    {pills.map(k => (
+                        <button key={k.key} type="button" className={kind === k.key ? styles.chipOn : styles.chip} aria-pressed={kind === k.key}
+                            onClick={() => { setKind(k.key); setShown(PAGE); }} title={k.title}>{k.label}<span className={styles.n}>{k.count}</span></button>
+                    ))}
+                    {scope === 'client' && (projects.length > 0 || rows.some(r => r.clientNote)) && (<>
+                        <span className={styles.sep} aria-hidden="true" />
+                        <button type="button" className={!projectFilter ? styles.chipOn : styles.chip} aria-pressed={!projectFilter} onClick={() => setProjectFilter('')} title="The client and every one of their projects">EVERYTHING</button>
+                        <button type="button" className={projectFilter === CLIENT ? styles.chipOn : styles.chip} aria-pressed={projectFilter === CLIENT} onClick={() => setProjectFilter(projectFilter === CLIENT ? '' : CLIENT)} title="Only the notes about the client alone">CLIENT</button>
+                        {projects.map(p => (
+                            <button key={p.id} type="button" className={projectFilter === p.id ? styles.chipOn : styles.chip} aria-pressed={projectFilter === p.id}
+                                onClick={() => setProjectFilter(projectFilter === p.id ? '' : p.id)} title={'Only project #' + p.index}>#{p.index}</button>
+                        ))}
+                    </>)}
+                </div>
                 <div className={styles.tools}>
                     <label className={styles.search}>
                         <FiSearch aria-hidden="true" />
@@ -182,35 +214,42 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                     </label>
                     {canWrite && <button type="button" className={styles.add} onClick={startAdd} title="Write a note: what happened, what was agreed, what comes next."><FiPlus aria-hidden="true" /> ADD NOTE</button>}
                 </div>
-                {scope === 'client' && projects.length > 1 && (
-                    <div className={styles.projects} role="group" aria-label="Project">
-                        <button type="button" aria-pressed={!projectFilter} className={!projectFilter ? styles.projOn : styles.proj} onClick={() => setProjectFilter('')} title="Every project of this client">ALL PROJECTS</button>
-                        {projects.map(p => (
-                            <button key={p.id} type="button" aria-pressed={projectFilter === p.id} className={projectFilter === p.id ? styles.projOn : styles.proj}
-                                onClick={() => setProjectFilter(projectFilter === p.id ? '' : p.id)} title={'Only project #' + p.index + ' (a new note goes on this project)'}>#{p.index}</button>
-                        ))}
-                    </div>
+                {(dueCount > 0 || !canSeeMoney) && (
+                    <p className={styles.hint}>
+                        {dueCount > 0 && <span className={styles.dueText}><FiClock aria-hidden="true" /> {dueCount} to follow up today.</span>}
+                        {!canSeeMoney && <span>Payments and money decisions show for the Manager and above.</span>}
+                    </p>
                 )}
-                {dueCount > 0 && <p className={styles.due} role="status"><FiClock aria-hidden="true" /> {dueCount} note{dueCount === 1 ? '' : 's'} to follow up today.</p>}
-                {!canSeeMoney && <p className={styles.hint}>Payments and money decisions are shown to the Manager and above.</p>}
             </div>
 
-            <div data-tab-accent={accentOf(pills, kind)}>
-                {pinned.length > 0 && (<>
-                    <div className={styles.groupLbl}>PINNED</div>
-                    <ul className={styles.list}>{pinned.map(renderRow)}</ul>
-                </>)}
-                {pinned.length > 0 && rest.length > 0 && <div className={styles.groupLbl}>EVERYTHING ELSE</div>}
+            <div className={styles.card}>
                 {rest.length === 0 && pinned.length === 0
                     ? <p className={styles.empty}>{search ? 'Nothing matches "' + search + '".' : kind === 'ALL' ? 'Nothing written yet. Press ADD NOTE to write the first note.' : 'Nothing of this kind yet.'}</p>
-                    : <ul className={styles.list}>{list.map(renderRow)}</ul>}
-                {rest.length > shown && (
-                    <button type="button" className={styles.more} onClick={() => setShown(s => s + PAGE)} title="Show older lines">SHOW {Math.min(PAGE, rest.length - shown)} OLDER</button>
-                )}
+                    : (<>
+                        {pinned.length > 0 && <ul className={styles.list} aria-label="Pinned">{pinned.map(renderRow)}</ul>}
+                        {pinned.length > 0 && rest.length > 0 && <div className={styles.split} aria-hidden="true" />}
+                        <ul className={styles.list}>{list.map(renderRow)}</ul>
+                    </>)}
             </div>
+            {rest.length > shown && (
+                <button type="button" className={styles.more} onClick={() => setShown(s => s + PAGE)} title="Show older lines">SHOW {Math.min(PAGE, rest.length - shown)} OLDER</button>
+            )}
 
             <HardwareModal isOpen={!!form} lockBackdrop onClose={closeForm} title={form && form.id ? 'CHANGE NOTE' : 'ADD NOTE'}>
                 {form && (<>
+                    {scope === 'client' && !form.id && (
+                        <div className={modalStyles.modalField}>
+                            <label className={modalStyles.modalLabel}>ABOUT</label>
+                            <div className={styles.topics}>
+                                <button type="button" className={form.about === CLIENT ? styles.topicOn : styles.topic} aria-pressed={form.about === CLIENT}
+                                    onClick={() => setForm(x => ({ ...x, about: CLIENT, file: null, fileNote: '' }))} title="A note about the client: shows here and on every one of their projects">THIS CLIENT</button>
+                                {projects.map(p => (
+                                    <button key={p.id} type="button" className={form.about === p.id ? styles.topicOn : styles.topic} aria-pressed={form.about === p.id}
+                                        onClick={() => setForm(x => ({ ...x, about: p.id }))} title={'A note about project #' + p.index}>#{p.index}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <div className={modalStyles.modalField}>
                         <label className={modalStyles.modalLabel}>TOPIC (OPTIONAL)</label>
                         <div className={styles.topics}>
@@ -240,7 +279,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                         <small className={modalStyles.modalHint}>That morning the bell reminds the office, and the note shows FOLLOW UP NOW.</small>
                     </div>
                     {!form.id && (<>
-                        <div className={modalStyles.modalField}>
+                        {form.about !== CLIENT && <div className={modalStyles.modalField}>
                             <label className={modalStyles.modalLabel}>FILE (OPTIONAL)</label>
                             <input ref={fileRef} type="file" accept={DOC_ACCEPT} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}
                                 onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; pickFile(f); }} />
@@ -249,10 +288,10 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                                     <button type="button" onClick={() => setForm(x => ({ ...x, file: null, fileNote: '' }))} aria-label="Remove the file" title="Remove the file"><FiX aria-hidden="true" /></button></div>
                                 : <button type="button" className={`${styles.topic} ${styles.fileBtn}`} onClick={() => fileRef.current && fileRef.current.click()} title="A letter, a photo, a screenshot of a message..."><FiPaperclip aria-hidden="true" /> ATTACH A FILE</button>}
                             <small className={modalStyles.modalHint}>Also filed in Documents under Note Attachments.</small>
-                        </div>
-                        <label className={styles.pinBox} title="Keep this note at the top of the list">
-                            <input type="checkbox" checked={form.pinned} onChange={e => setForm(x => ({ ...x, pinned: e.target.checked }))} /> Pin to the top
-                        </label>
+                        </div>}
+                        <button type="button" className={form.pinned ? styles.topicOn : styles.topic} aria-pressed={form.pinned}
+                            onClick={() => setForm(x => ({ ...x, pinned: !x.pinned }))} title="Keep this note at the top; the bell tells the office">
+                            <FiStar aria-hidden="true" /> {form.pinned ? 'PINNED TO THE TOP' : 'PIN TO THE TOP'}</button>
                     </>)}
                     {formErr && <div className={styles.err} role="alert">{formErr}</div>}
                     <div className={modalStyles.modalFooter}>

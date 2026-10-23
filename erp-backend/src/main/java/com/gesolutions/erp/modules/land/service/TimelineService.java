@@ -134,14 +134,7 @@ public class TimelineService {
                     m.put("tone", "PROBLEM".equals(tag) || "HAND-OVER UNDONE".equals(tag) ? "bad" : "good");
                     m.put("locked", true);
                 } else {
-                    m.put("title", n.getTopic() != null && !n.getTopic().isBlank() ? n.getTopic() : "Note");
-                    m.put("text", text);
-                    m.put("topic", n.getTopic());
-                    m.put("pinned", Boolean.TRUE.equals(n.getPinned()));
-                    m.put("followUpOn", n.getFollowUpOn());
-                    m.put("documentId", n.getDocumentId());
-                    m.put("edited", n.getEditedAt() != null);
-                    m.put("editable", manage || (me != null && me.equals(n.getRecordedBy())));
+                    typedNote(m, n, text, manage, me);
                 }
                 rows.add(m);
             }
@@ -162,6 +155,22 @@ public class TimelineService {
                 for (UUID pid : indexOf.keySet()) {
                     for (PaymentRecord r : paymentRepository.findByProjectIdOrderByTimestampDesc(pid)) rows.add(moneyRow(r, indexOf));
                 }
+            }
+        }
+        // fix225 (David): notes about the clients themselves (not about one project), marked CLIENT
+        Map<UUID, Client> byId = new LinkedHashMap<>();
+        for (Client c : callPeople) if (c != null && c.getId() != null) byId.put(c.getId(), c);
+        if (!byId.isEmpty()) {
+            for (FollowUpLog n : noteRepository.findByClientIdInOrderByTimestampDesc(byId.keySet())) {
+                if (n.getProjectId() != null) continue;
+                String text = n.getNotes() == null ? "" : n.getNotes().trim();
+                Map<String, Object> m = row("NOTE", "NOTE", n.getId(), null, indexOf, n.getRecordedBy(), n.getTimestamp());
+                typedNote(m, n, text, manage, me);
+                Client c = byId.get(n.getClientId());
+                m.put("clientNote", true);
+                m.put("clientId", n.getClientId());
+                m.put("clientName", c == null ? null : c.getFullName());
+                rows.add(m);
             }
         }
         // calls
@@ -185,6 +194,17 @@ public class TimelineService {
             return y.compareTo(x);
         });
         return rows;
+    }
+
+    private static void typedNote(Map<String, Object> m, FollowUpLog n, String text, boolean manage, String me) {
+        m.put("title", n.getTopic() != null && !n.getTopic().isBlank() ? n.getTopic() : "Note");
+        m.put("text", text);
+        m.put("topic", n.getTopic());
+        m.put("pinned", Boolean.TRUE.equals(n.getPinned()));
+        m.put("followUpOn", n.getFollowUpOn());
+        m.put("documentId", n.getDocumentId());
+        m.put("edited", n.getEditedAt() != null);
+        m.put("editable", manage || (me != null && me.equals(n.getRecordedBy())));
     }
 
     private Map<String, Object> moneyRow(PaymentRecord r, Map<UUID, String> indexOf) {
