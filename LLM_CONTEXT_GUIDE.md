@@ -5,7 +5,8 @@
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
 > ##############################################################
-> David has DECIDED to move the app onto ONE Hetzner server, but it is NOT DONE yet.
+> David has DECIDED to move the app onto ONE rented server -- the pick since 14 Oct 2026 is **Netcup VPS Lite 1**
+> (Hetzner's cheap servers could not be ordered). It is NOT DONE yet; it starts only when he says "move now".
 > Nothing has been bought or moved. The full plan is in SECTION 18 at the bottom.
 >
 > RULES FOR EVERY LLM THAT READS THIS GUIDE:
@@ -1477,9 +1478,63 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 ---
 ## 18. HOSTING + BACKUP PLAN
 
-**STATUS: PENDING -- decided September 2026, NOT started.** (Change to "STATUS: DONE" only when the move is finished and tested.)
+**STATUS: PENDING -- decided September 2026, server pick changed to Netcup VPS Lite 1 on 14 Oct 2026 (see 18.0), NOT started.** (Change to "STATUS: DONE" only when the move is finished and tested.)
 
-### 18.1 What David decided
+
+### 18.0 LATEST DECISION (14 Oct 2026) -- READ THIS BEFORE 18.1-18.3
+- **Hetzner is off for now:** on 14 Oct 2026 every cheap Hetzner server (CX23, CX33, CX43, CX53) said "currently
+  unavailable, check back later". The bigger Hetzner servers break the budget (about USD 200 a year). If CX23 can be
+  ordered again on the day of the move, it is still fine.
+- **The pick: Netcup "VPS Lite 1 G12.5s"** (netcup.com > Server > VPS Lite). David found it himself on their site.
+  - 2 vCore (shared), 4 GB RAM, 80 GB SSD, IPv4 + IPv6 included (keep that choice, NOT "IPv6 only"), 500 Mbps line
+    (slowed to 100 Mbps only after heavy all-day use), snapshots + remote console + backup system included.
+  - **EUR 4.92 a month on a 6-month contract = EUR 29.52 paid at once** (about EUR 59 a year). Setup fee EUR 0.00.
+    After the 6 months it goes month by month; cancel in the Netcup account with about one month's notice.
+    Existing contracts keep their price (Netcup raised prices for NEW orders in September 2026 -- recheck the price).
+  - Location is chosen automatically (Nuremberg, Vienna or Amsterdam) -- all fine for Uganda.
+  - Do NOT add the .com domain (EUR 1.15 a month); use a free DuckDNS address first.
+  - Payment: card, PayPal, bank transfer, direct debit. An ID check MAY be asked -- David sends it if so.
+  - Disk: about 60 GB left for data + documents + backup files after Ubuntu, Docker and the app. Extra disk
+    ("Local Block Storage") costs about EUR 0.012 per GB a month (100 GB = about EUR 1.20) and can be added later.
+  - Why not the cheaper plans: VPS pico (1 GB RAM) and nano (2 GB) are too small for Java + database + website.
+    VPS Lite 2-4 work but cost more than needed. Fallback: **VPS 500** (2 CPU, 4 GB, 64 GB) at EUR 6.94 a month on
+    12 months, or EUR 7.98 month-by-month to test first.
+  - Weak points (told to David): mixed customer reviews (billing, slow German-first ticket support), no uptime promise
+    on VPS plans, shared CPU. The 6-month contract keeps the risk to about EUR 30.
+- **Why move at all (David asked "is it worth the hustle?"):** the free services sleep (first page takes a minute),
+  Neon free is only 1 GB and stops saving when full, Cloudinary free is about 25 GB, and the data sits in three places
+  he does not control. Paying for Render + Neon + Cloudinary instead would cost about USD 30-130 a month. The one
+  server does all three jobs for about EUR 59 a year. **Not worth it while the app holds only test data; worth it
+  BEFORE real client data goes in.**
+- **Free servers were rejected for real data:** Oracle Always Free (account can be deleted without warning, often "out
+  of capacity"), AWS free (1 GB RAM, 12 months), Google ($300 credit for 90 days). Fine for tests only.
+- **The walkthrough agreed (when David says "move now"):**
+  1. David: Netcup account, order VPS Lite 1 for 6 months with Ubuntu 24.04, pay, send the ID if asked. Netcup emails
+     the server address + password; David sends the address (agree a safe way for the password).
+  2. Together, one step at a time with copy-paste commands: free DuckDNS address, firewall + updates, Docker,
+     copy the app and start it.
+  3. Claude: move the data from Neon and the files from Cloudinary, HTTPS padlock, nightly backups, a down-alert.
+  4. David tests on the new address while the old Render app keeps running until he is happy.
+  5. Routine: weekly (about 10 minutes) copy the backup to the office computer + external drive; monthly updates.
+  6. Before real data: reset the Neon password, make the GitHub repo private, close the database's public port on
+     the server and use a strong password.
+
+### 18.0a IN-HOUSE / OFFICE MODE (brainstorm only, 14 Oct 2026 -- "maybe one day, not now")
+- David's idea: if his employer wants the app IN-HOUSE, many staff still use it at once, and the data can sit on a
+  portable plug-in SSD.
+- Answer given: possible, and the app is close. One office computer runs the app (Docker: server + database +
+  website); staff open it on the office Wi-Fi at an address like http://192.168.1.20; no internet needed.
+- To build when asked: a **"storage mode" setting -- Cloud or Disk** -- so uploads go to a folder on the computer or
+  SSD instead of Cloudinary (moderate work, not started). Best design: ONE app that can run either way (rented server
+  or in-house), the employer chooses.
+- SSD advice: best as the nightly BACKUP disk (plug into another computer if the main one dies). As the main data disk
+  it works but pulling it out while running can break the database; format it properly first.
+- In-house needs: a UPS (battery backup), a computer kept on and used only for this, backups on a second disk in a
+  second place, a strong database password. Staff outside the office cannot reach it easily.
+- "True offline" (phones keep working with no signal, then sync) is a big rebuild (weeks; payments risky). Only if field
+  staff need it, and then only a small offline Pending entry form for the Employee.
+
+### 18.1 What David decided (September 2026 -- the SERVER part is replaced by 18.0)
 - Host the WHOLE app on ONE rented server (a "VPS") at **Hetzner**. Location: **Germany or Finland** (US locations have a tiny traffic allowance).
 - **Backups: kept at the office for now.** The server makes a backup file every night. David copies it down to the office computer and to an external hard drive. Later, add the Hetzner backup add-on so a copy also exists off-site.
 - **Domain: a FREE subdomain for now** (for example a DuckDNS address), NOT a bare IP address like http://95.216.x.x. The padlock (HTTPS) is set up for free. A paid domain (about $10-15 a year) comes later; staff will then switch to the new address.
