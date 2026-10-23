@@ -95,10 +95,15 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       cacheRef.current[key] = list;
       setRows(list);
       setLoadNote((data && data.note) || '');
-    } catch {
+    } catch (err) {
       cacheRef.current[key] = [];
       setRows([]);
-      setError('Could not load ' + ds.label.toLowerCase() + '. You may not have access, or the connection dropped.');
+      // fix222: say what really happened instead of guessing
+      const status = err && err.response && err.response.status;
+      const what = ds.label.toLowerCase();
+      setError(!status ? 'No reply from the server while loading ' + what + ' (the internet is down, or the server is waking up). Press REFRESH in a few seconds.'
+        : status === 401 || status === 403 ? 'Your rank cannot open ' + what + ' in Reports.'
+        : 'The server could not load ' + what + ' this time. Press REFRESH to try again.');
     } finally {
       setLoading(false);
     }

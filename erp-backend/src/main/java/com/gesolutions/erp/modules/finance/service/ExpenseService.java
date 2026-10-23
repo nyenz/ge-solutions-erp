@@ -10,7 +10,11 @@ import com.gesolutions.erp.modules.finance.repository.ExpenseRepository;
 import com.gesolutions.erp.modules.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -215,7 +219,27 @@ public class ExpenseService {
     public Page<Expense> search(LocalDateTime from, LocalDateTime to, String category,
                                  String recordedBy, String spentBy, BigDecimal minAmount, BigDecimal maxAmount,
                                  Pageable pageable) {
-        return expenseRepository.search(from, to, category, recordedBy, spentBy, minAmount, maxAmount, pageable);
+        // fix222: built only from the filters that were given. The old single query with "(:x IS NULL OR ...)" failed on
+        // Postgres when a filter was empty (it cannot tell the type of an empty value), so Reports could not load expenses.
+        return expenseRepository.findAll(filter(from, to, category, recordedBy, spentBy, minAmount, maxAmount),
+                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
+
+    static Specification<Expense> filter(LocalDateTime from, LocalDateTime to, String category,
+                                         String recordedBy, String spentBy, BigDecimal minAmount, BigDecimal maxAmount) {
+        return (root, query, cb) -> {
+            List<Predicate> all = new ArrayList<>();
+            if (from != null) all.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
+            if (to != null) all.add(cb.lessThanOrEqualTo(root.get("createdAt"), to));
+            if (category != null && !category.isBlank()) all.add(cb.equal(root.get("category"), category.trim()));
+            if (recordedBy != null && !recordedBy.isBlank())
+                all.add(cb.like(cb.lower(root.get("recordedBy")), "%" + recordedBy.trim().toLowerCase() + "%"));
+            if (spentBy != null && !spentBy.isBlank())
+                all.add(cb.like(cb.lower(cb.coalesce(root.get("spentBy"), root.get("recordedBy"))), "%" + spentBy.trim().toLowerCase() + "%"));
+            if (minAmount != null) all.add(cb.greaterThanOrEqualTo(root.get("amount"), minAmount));
+            if (maxAmount != null) all.add(cb.lessThanOrEqualTo(root.get("amount"), maxAmount));
+            return cb.and(all.toArray(new Predicate[0]));
+        };
     }
 
     // -- DIRECTOR ANALYSIS: SUMMARY (TOTALS + CATEGORY BREAKDOWN) ----
