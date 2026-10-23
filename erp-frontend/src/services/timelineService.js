@@ -15,6 +15,6 @@ const timelineService = {
     },
     editNote: (noteId, { content, topic, followUpOn }) => api.put('/timeline/notes/' + noteId, { content, topic: topic || '', followUpOn: followUpOn || '' }).then(r => r.data),
     pin: (noteId, pinned) => api.patch('/timeline/notes/' + noteId + '/pin', { pinned }).then(r => r.data),
-    remove: (noteId) => api.delete('/timeline/notes/' + noteId),
+    remove: (noteId, reason) => api.delete('/timeline/notes/' + noteId, { params: { reason } }),   // fix223
 };
 export default timelineService;

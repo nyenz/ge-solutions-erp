@@ -42,7 +42,7 @@ function showIdleWarning() {
     if (warnBox || typeof document === 'undefined') return;
     warnBox = document.createElement('div');
     warnBox.setAttribute('role', 'alertdialog');
-    warnBox.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;background:#0f172a;color:#f8fafc;'
+    warnBox.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200100;background:#0f172a;color:#f8fafc;'
         + 'border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;font:14px system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.4);'
         + 'display:flex;gap:14px;align-items:center;max-width:calc(100vw - 32px)';
     const text = document.createElement('span');

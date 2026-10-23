@@ -173,7 +173,7 @@
 .modalText { color: rgba(var(--ink-rgb), 0.75); font-size: var(--fs-value); font-weight: 600; margin: 0; }
 .modalBtns { display: flex; gap: var(--gap-md); justify-content: flex-end; flex-wrap: wrap; }
 .modalHint { font-size: var(--fs-meta); color: rgba(var(--ink-rgb), 0.4); font-weight: 700; margin: 0; text-align: right; }
-.toastStack { position: fixed; bottom: clamp(16px,2.5vh,28px); right: clamp(16px,2vw,28px); z-index: 99999; display: flex; flex-direction: column; gap: 8px; max-width: min(420px,90vw); pointer-events: none; }
+.toastStack { position: fixed; bottom: clamp(16px,2.5vh,28px); right: clamp(16px,2vw,28px); z-index: 200100; display: flex; flex-direction: column; gap: 8px; max-width: min(420px,90vw); pointer-events: none; }
 .toast { background: var(--sf-navy, #1a2e30); color: var(--ink-solid); border: 1px solid rgba(238,140,58,0.28); padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; animation: slideIn 0.3s ease-out; pointer-events: all; }
 .toast_error { background: #ef4444; border-color: #ef4444; }
 .toast_success { background: #10b981; border-color: #10b981; }

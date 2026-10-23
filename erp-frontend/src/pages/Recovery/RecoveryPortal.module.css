@@ -145,7 +145,7 @@
 .histText { color: rgba(var(--ink-rgb), 0.8); }
 
 /* toasts - verbatim Intake values */
-.toastStack { position: fixed; bottom: clamp(16px,2.5vh,28px); right: clamp(16px,2vw,28px); z-index: 99999; display: flex; flex-direction: column; gap: 8px; max-width: min(420px,90vw); pointer-events: none; }
+.toastStack { position: fixed; bottom: clamp(16px,2.5vh,28px); right: clamp(16px,2vw,28px); z-index: 200100; display: flex; flex-direction: column; gap: 8px; max-width: min(420px,90vw); pointer-events: none; }
 .toast { background: var(--sf-navy, #1a2e30); color: var(--ink-solid); border: 1px solid rgba(238,140,58,0.28); padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); font-family: 'Inter',sans-serif; font-size: 12px; font-weight: 700; animation: slideIn 0.3s ease-out; pointer-events: all; }
 .toast_error { background: #ef4444; border-color: #ef4444; }
 .toast_success { background: #10b981; border-color: #10b981; }
@@ -165,7 +165,7 @@
 .recvLegacy { color: #cbd5e1; background: rgba(100,116,139,0.12); border-color: rgba(100,116,139,0.35); }
 .histDelete { background: transparent; border: none; color: rgba(239,68,68,0.6); cursor: pointer; padding: 2px 4px; font-size: 12px; margin-left: auto; }
 .histDelete:hover { color: #ef4444; }
-.coWarnBanner { position: fixed; bottom: clamp(70px, 10vh, 110px); right: clamp(16px, 2vw, 28px); z-index: 99998; display: flex; align-items: center; gap: 10px; background: rgba(238,140,58,0.14); border: 1px solid rgba(238,140,58,0.45); border-radius: 8px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; color: rgba(var(--ink-rgb), 0.9); max-width: min(420px, 90vw); }
+.coWarnBanner { position: fixed; bottom: clamp(70px, 10vh, 110px); right: clamp(16px, 2vw, 28px); z-index: 200050; display: flex; align-items: center; gap: 10px; background: rgba(238,140,58,0.14); border: 1px solid rgba(238,140,58,0.45); border-radius: 8px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; color: rgba(var(--ink-rgb), 0.9); max-width: min(420px, 90vw); }
 .coWarnDismiss { background: none; border: none; color: rgba(var(--ink-rgb), 0.6); font-size: 16px; cursor: pointer; }
 .coWarnDismiss:hover { color: var(--ink-solid); }
 

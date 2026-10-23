@@ -87,8 +87,8 @@ const statusTemplateService = {
         return response.data;
     },
 
-    removeStatus: async (projectId, statusId) => {
-        await api.delete(`/land/projects/${projectId}/statuses/${statusId}`);
+    removeStatus: async (projectId, statusId, reason) => {   // fix223: reason needed
+        await api.delete(`/land/projects/${projectId}/statuses/${statusId}`, { params: { reason } });
     },
 };
 

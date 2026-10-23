@@ -32,8 +32,8 @@ const expenseService = {
         return response.data;
     },
 
-    remove: async (id) => {
-        await api.delete(`/finance/expenses/${id}`);
+    remove: async (id, reason) => {   // fix223: reason needed
+        await api.delete(`/finance/expenses/${id}`, { params: { reason } });
     },
 
     search: async (filters = {}, page = 0, size = 50) => {

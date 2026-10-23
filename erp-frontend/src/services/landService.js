@@ -73,8 +73,8 @@ const landService = {
         return response.data;
     },
 
-    deleteDocument: async (docId) => {
-        await api.delete(`/land/documents/${docId}`);
+    deleteDocument: async (docId, reason) => {   // fix223: reason needed
+        await api.delete(`/land/documents/${docId}`, { params: { reason } });
     },
 
     addStandaloneNote: async (projectId, content) => {

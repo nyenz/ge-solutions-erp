@@ -20,8 +20,10 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import { LoadingRow } from '../../components/common/LoadingState';
 import { Tooltip, IconButton, Term } from '../../components/common/Tooltip';
 import { GLOSSARY } from '../../components/common/glossary';
-import { useToasts, useConfirm } from '../../components/common/useFeedback';
-import { ToastStack, ConfirmDialog } from '../../components/common/Feedback';
+import { useToasts } from '../../components/common/useFeedback';
+import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
+import { useReasonPrompt, DELETE_PICKS } from '../../components/common/useReasonPrompt';
+import { ToastStack } from '../../components/common/Feedback';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import SuggestInput from '../../components/common/SuggestInput';
 import { suggestValues } from '../../utils/entryMemory';
@@ -51,7 +53,7 @@ const ExpensesPage = () => {
     const isDirector = roleFlags(user).isOwnerLevel;
 
     const { toasts, toast, dismissToast } = useToasts();
-    const { confirmState, confirm, handleAnswer } = useConfirm();
+    const { reasonState, askReason, closeReason } = useReasonPrompt();   // fix223
 
     const [presets, setPresets] = useState([]);
     const [recent, setRecent] = useState([]);
@@ -215,24 +217,18 @@ const ExpensesPage = () => {
     // F2: deletingId guards against a double-click firing two deletes.
     const [deletingId, setDeletingId] = useState(null);
 
-    const handleDelete = async (expense) => {
+    // fix223: deleting an expense asks WHY; the reason goes to the audit log and the bell alert
+    const handleDelete = (expense) => {
         if (deletingId) return;
-        const ok = await confirm(
-            'DELETE EXPENSE',
-            `Delete the ${expense.category} entry of UGX ${fmt(expense.amount)}? This cannot be undone.`,
-            'danger',
-        );
-        if (!ok) return;
-        setDeletingId(expense.id);
-        try {
-            await expenseService.remove(expense.id);
-            await loadAll();
-            toast('Entry deleted.', 'warn');
-        } catch {
-            toast('Could not delete this entry.', 'error');
-        } finally {
-            setDeletingId(null);
-        }
+        askReason({
+            title: 'DELETE EXPENSE', okLabel: 'DELETE EXPENSE', picks: DELETE_PICKS.EXPENSE,
+            message: `Delete the ${expense.category} entry of UGX ${fmt(expense.amount)}? This cannot be undone.`,
+            run: async (reason) => {
+                setDeletingId(expense.id);
+                try { await expenseService.remove(expense.id, reason); await loadAll(); toast('Entry deleted.', 'warn'); }
+                finally { setDeletingId(null); }
+            },
+        });
     };
 
     return (
@@ -518,7 +514,7 @@ const ExpensesPage = () => {
 
             <BackToTopButton />
             <ToastStack toasts={toasts} onDismiss={dismissToast} />
-            <ConfirmDialog state={confirmState} onAnswer={handleAnswer} />
+            <ReasonPrompt state={reasonState} onClose={closeReason} />
         </div>
     );
 };
