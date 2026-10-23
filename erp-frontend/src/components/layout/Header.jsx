@@ -39,7 +39,7 @@
 import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiShield } from 'react-icons/fi';
+import { FiBell, FiLogOut, FiCheck, FiRefreshCw, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
 import recoveryService from '../../services/recoveryService';
@@ -245,18 +245,19 @@ const Header = ({ onToggle }) => {
     return (
         <header className={styles.header}>
             <div className={styles.headerLeft}>
-                <button type="button" className={styles.sidebarToggle} onClick={onToggle} aria-label="Toggle sidebar navigation">
-                    <FiMenu aria-hidden="true" />
+                {/* fix234b (David): no burger -- the Golden Seed logo itself opens and closes the menu. The seedling sits over
+                    the side bar icons and the name over the menu words. (Class kept as sidebarToggle: FolderPage and the
+                    print rules find the toggle by it.) */}
+                <button type="button" className={`${styles.sidebarToggle} ${styles.brandToggle}`} onClick={onToggle}
+                        aria-label="Golden Seed - open or close the menu" title="Open or close the menu">
+                    <span className={styles.logoSmallPulse} aria-hidden="true">
+                        <span className={styles.pulseInner}>🌱</span>
+                        <span className={styles.pulseRing} />
+                    </span>
+                    <span className={styles.brandName}>GOLDEN SEED</span>
                 </button>
                 {/* fix181 (15.2j): never mistake a test copy for the live system */}
                 {IS_LOCAL_API && <span className={styles.localStrip} title="This page is not using the live server">LOCAL</span>}
-                <div className={styles.logoSection} aria-label="Golden Seed ERP">
-                    <div className={styles.logoSmallPulse} aria-hidden="true">
-                        <div className={styles.pulseInner}>🌱</div>
-                        <div className={styles.pulseRing} />
-                    </div>
-                    <span className={styles.brandName}>GOLDEN SEED</span>
-                </div>
             </div>
 
             <div className={styles.headerRight}>

@@ -109,26 +109,39 @@
 
 /* Desktop: the button sits right above the collapsed sidebar column (52px wide,
    2px border, so the icon centre is 25px from the left edge) and is centred on it. */
-/* fix234: the top-left corner lines up with the side bar under it, for the open AND the closed side bar:
-   the button is centred on the side bar's icon column, and the seedling starts exactly where the menu words start.
-   --sb-pad / --sb-icon are the side bar's own row padding and icon width (Sidebar.module.css .navItem / .navIcon),
-   and 3px is its left bar. */
+/* fix234b: the brand IS the menu button (no burger). On a computer the seedling is centred on the side bar's icon column
+   and GOLDEN SEED starts exactly where the menu words start -- open or closed side bar. --sb-pad / --sb-icon are the side
+   bar's own row padding and icon width (Sidebar.module.css .navItem / .navIcon); 3px is its left bar; 26px the seedling. */
+.brandToggle.brandToggle {
+    width: auto;
+    height: 44px;
+    padding: 0 12px 0 7px;
+    gap: 10px;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    justify-content: flex-start;
+    font-size: inherit;
+}
+.brandToggle.brandToggle:hover { background: rgba(var(--ink-rgb), 0.06); }
+.brandToggle:hover .pulseInner { transform: rotate(-12deg) scale(1.08); }
+.brandToggle .pulseInner { transition: transform 0.25s ease; }
 @media (min-width: 769px) {
     .header {
         --sb-pad: clamp(9px, 1.1vw, 13px);
         --sb-icon: clamp(19px, 2vw, 23px);
         padding-left: 0;
     }
-    .headerLeft { gap: 0; }
-    .sidebarToggle {
-        width: 36px;
-        height: 36px;
-        margin-left: calc(3px + var(--sb-pad) + var(--sb-icon) / 2 - 18px);
-        margin-right: max(5px, calc(var(--sb-icon) / 2 + var(--sb-pad) - 18px - 3px));
+    .headerLeft { gap: 12px; }
+    .brandToggle.brandToggle {
+        margin-left: calc(3px + var(--sb-pad) + var(--sb-icon) / 2 - 13px - 7px);
+        gap: calc(var(--sb-pad) + var(--sb-icon) / 2 - 13px);
     }
-    .logoSmallPulse { width: 26px; height: 26px; margin-left: -1px; }
-    .logoSmallPulse .pulseInner { font-size: 22px; }
-    .logoSection { gap: 10px; }
+    .logoSmallPulse { width: 26px; height: 26px; }
+    .logoSmallPulse .pulseInner { font-size: 21px; }
+}
+@media (max-width: 768px) {
+    .brandToggle.brandToggle { padding-left: 4px; }
 }
 
 /* ── LOGO SECTION ───────────────────────────────────────────────── */
