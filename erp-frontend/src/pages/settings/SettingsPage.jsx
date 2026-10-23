@@ -11,6 +11,7 @@ import { portalRoot } from '../../components/common/portalRoot';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor, FiChevronDown, FiArchive, FiCopy } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
+import { flagId } from '../../utils/fieldError';   // fix224
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
@@ -147,7 +148,7 @@ const SettingsPage = () => {
       if (locked) { navigate('/', { replace: true }); return; }   // 14.1a: unlocked -> the person's start page
       toast('Your key was changed. Other devices were signed out.', 'success');
     }
-    catch (err) { toast(err.message, 'error'); }
+    catch (err) { toast(err.message, 'error'); if (/current|old|wrong/i.test(String(err.message))) flagId('current-key'); }   // fix224
     finally { setSavingPw(false); }
   };
   const newUserOk = USERNAME_RULE.test(newOp.username.trim());

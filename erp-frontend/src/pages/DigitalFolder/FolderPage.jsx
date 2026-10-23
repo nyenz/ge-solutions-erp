@@ -66,6 +66,8 @@ const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.
 // fix213: the box ids of the EDIT panel, by the key validateBuffer uses (people rows use the key itself as the id)
 const EDIT_IDS = { plotNumber: 'inp-plot-number', block: 'inp-block', areaHectares: 'inp-area--hectares-', area: 'inp-area--hectares-',
     district: 'inp-district', subdivisionCount: 'inp-number-of-subdivisions', costChangeReason: 'inp-reason-for-cost-change' };
+// fix224: the closed panel that holds the box (opened before the box is marked)
+const editPanelOf = (key) => (/^clients_/.test(key) ? 'CLIENTS' : /^owners_/.test(key) ? 'OWNERS' : /^neighbors_/.test(key) ? 'NEIGHBORS' : key === 'costChangeReason' ? 'BALANCE' : 'PLOT DETAILS');
 const editTabOf = (key) => (/^(clients|owners|neighbors)_/.test(key) ? 'PEOPLE' : key === 'costChangeReason' ? 'FINANCIALS' : 'OVERVIEW');
 const errText = (err) => (err && err.response ? errorText(err) : cleanMessage((err && err.message) || 'Something went wrong. Try again.'));
 // fix165/167: red error box INSIDE a popup. When a popup shows its own error, no toast is shown as well.
@@ -236,7 +238,7 @@ const StatusChecklistPanel = ({ projectId, canEdit, canTick = canEdit, needsNumb
     const cancelInsert = () => { setAddingStatus(false); setNewStatusName(''); setInsertAfterId(null); setInsertAfterName(''); };
     const handleAddStatus = async () => {
         const name = newStatusName.trim();
-        if (!name) { toast && toast('Enter a stage name first.', 'error'); return; }
+        if (!name) { toast && toast('Enter a stage name first.', 'error'); flagField('New stage name'); return; }
         if (statuses.some(s => (s.statusName || '').toLowerCase() === name.toLowerCase())) { toast && toast('That stage is already on the list.', 'error'); return; }
         setSaving(true);
         let created;
@@ -624,7 +626,7 @@ const FolderPage = () => {
             setFieldErrors(fe); toast('NOT SAVED: ' + errors[0], 'error', 6000);
             // fix213: open the tab that holds the first wrong box, scroll to it, cursor in it
             const first = Object.keys(fe)[0];
-            if (first) { setActiveTab(editTabOf(first)); setTimeout(() => flagId(EDIT_IDS[first] || first), 80); }
+            if (first) { setActiveTab(editTabOf(first)); setTimeout(() => flagId(EDIT_IDS[first] || first, { section: editPanelOf(first) }), 80); }
             return;
         }
         if (!readShillings(buffer.totalCost).ok) { toast('TOTAL COST: ' + MONEY_BAD, 'error'); setActiveTab('FINANCIALS'); setTimeout(() => flagField('Total Cost'), 80); return; }   // fix199
@@ -651,7 +653,7 @@ const FolderPage = () => {
             // fix213: point at the box the server refused (plot taken in that block and district, NIN used ...)
             const code = errorCode(err);
             if (code) { setActiveTab(/NIN|PHONE|EMAIL|CLIENT|OWNER/.test(code) ? 'PEOPLE' : 'OVERVIEW');
-                setTimeout(() => flagServerError(err, { NIN_TAKEN: 'NIN', NIN_CONFLICT: 'NIN', NIN_REQUIRED: 'NIN', PHONE_INVALID: 'PHONE', PLOT_TAKEN: 'Plot Number', PLOT_REQUIRED: 'Plot Number' }), 80); }
+                setTimeout(() => flagServerError(err, { NIN_TAKEN: ['NIN', 'CLIENTS'], NIN_CONFLICT: ['NIN', 'CLIENTS'], NIN_REQUIRED: ['NIN', 'CLIENTS'], PHONE_INVALID: ['PHONE', 'CLIENTS'], PLOT_TAKEN: ['Plot Number', 'PLOT DETAILS'], PLOT_REQUIRED: ['Plot Number', 'PLOT DETAILS'] }), 80); }
         }
         finally { setCommitting(false); }
     };
@@ -1335,8 +1337,8 @@ const FolderPage = () => {
                                             <div className={styles.pausePick}><HardwareDatePicker value={pauseUntil} onChange={v => setPauseUntil(v)} ariaLabel="Pause storage fees until" /></div>
                                             <button type="button" className={styles.ghostBtn} title="Pause the fees until the chosen date (reason required)."
                                                 onClick={() => {
-                                                    if (!pauseUntil) { toast('PICK THE DATE THE PAUSE ENDS FIRST.', 'error'); return; }
-                                                    if (pauseUntil <= todayISO()) { toast('THE PAUSE MUST END AFTER TODAY.', 'error'); return; }
+                                                    if (!pauseUntil) { toast('PICK THE DATE THE PAUSE ENDS FIRST.', 'error'); flagField('Pause storage fees until'); return; }
+                                                    if (pauseUntil <= todayISO()) { toast('THE PAUSE MUST END AFTER TODAY.', 'error'); flagField('Pause storage fees until'); return; }
                                                     openReasonModal({ kind: 'PAUSE', title: 'PAUSE STORAGE FEES', confirmLabel: 'PAUSE FEES', info: 'No storage fees are added until ' + fmtDate(pauseUntil + 'T12:00:00') + ' (at most 365 days). The paused days are never charged. Write why.' });
                                                 }}><FiCheckCircle aria-hidden="true" /> PAUSE FEES</button>
                                             <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(false)} title="Close without pausing"><FiX aria-hidden="true" /></button>

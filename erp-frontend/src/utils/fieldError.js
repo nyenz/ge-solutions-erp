@@ -84,10 +84,10 @@ export function flagField(name, { section, root = document } = {}) {
         if (el) return mark(el);
         if (section && openSection(section, root)) {
             // the panel draws its boxes on the next paint
-            requestAnimationFrame(() => requestAnimationFrame(() => {
+            later(() => {
                 const again = name ? findControl(name, root) : null;
                 if (again) mark(again); else markSection(section, root);
-            }));
+            });
             return true;
         }
         if (section) return markSection(section, root);
@@ -95,9 +95,26 @@ export function flagField(name, { section, root = document } = {}) {
     return false;
 }
 
-/** Marks the box with this element id (for pages whose boxes already have ids). */
-export function flagId(id) {
-    try { const el = id && document.getElementById(id); return el ? mark(el) : false; } catch { return false; }
+/** Marks the box with this element id (for pages whose boxes already have ids). fix224: when the box is inside a
+ *  closed panel, `section` (words of the panel heading) opens it first, then the box is marked. */
+export function flagId(id, { section } = {}) {
+    try {
+        const el = id && document.getElementById(id);
+        if (el) return mark(el);
+        if (section && openSection(section, document)) {
+            later(() => { const again = document.getElementById(id); if (again) mark(again); else markSection(section, document); });
+            return true;
+        }
+    } catch { /* never block the message itself */ }
+    return false;
+}
+
+/** fix224: run after the opened panel has drawn its boxes (two paints, then once more a little later if needed). */
+function later(fn) {
+    let done = false;
+    const once = () => { if (!done) { done = true; fn(); } };
+    requestAnimationFrame(() => requestAnimationFrame(() => { try { once(); } catch { /* ignore */ } }));
+    setTimeout(() => { if (!done) once(); }, 250);
 }
 
 /** The code word at the front of a server answer ("PLOT_TAKEN: ..."), or ''. */
@@ -118,6 +135,7 @@ export const FIELD_FOR_CODE = {
     SUBDIVISIONS_REQUIRED: ['Number of Subdivisions'], NIN_TAKEN: ['NIN of Client 1', 'Client'], NIN_CONFLICT: ['NIN of Client 1', 'Client'],
     NIN_REQUIRED: ['NIN of Client 1', 'Client'], PHONE_INVALID: ['Phone of Client 1', 'Client'], EMAIL_INVALID: ['Email of Client 1', 'Client'],
     PAYMENT_METHOD_REQUIRED: ['Payment Method', 'Financ'], PAYMENT_METHOD_INVALID: ['Payment Method', 'Financ'],   // fix214
+    MONEY_NEEDS_START: ['Invoice Number', 'Financ'], AREA_NOT_A_NUMBER: ['Area (hectares)', 'Location'],   // fix224
 };
 
 /** Marks the box a server refusal is about (when the code points at one). */
