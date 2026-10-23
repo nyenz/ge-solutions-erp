@@ -293,8 +293,8 @@ const LedgerPage = () => {
                                                     {/* fix228 (David): the plot number right after the index (no line when there is none); no NIN here */}
                                                     {proj.landTitle?.plotNumber && <span className={styles.stackPlot} title="Plot number on the title">PLOT {proj.landTitle.plotNumber}</span>}
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
-                                                    {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">INV {proj.invoiceNumber}</span>}
-                                                    {proj.contractNumber && <span className={styles.stackSub} title="Contract number">CON {proj.contractNumber}</span>}
+                                                    {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">{/^INV/i.test(proj.invoiceNumber) ? '' : 'INV '}{proj.invoiceNumber}</span>}
+                                                    {proj.contractNumber && <span className={styles.stackSub} title="Contract number">{/^(CON|CTR)/i.test(proj.contractNumber) ? '' : 'CON '}{proj.contractNumber}</span>}
                                                     {proj.pending && <span className={styles.stackSub} title="How long this entry has been waiting for the office">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                 </div>

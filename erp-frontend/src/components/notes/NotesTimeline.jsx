@@ -40,7 +40,7 @@ const EMPTY_FORM = { id: null, content: '', topic: '', followUpOn: '', pinned: f
  * A note can also be about the CLIENT alone (client page: ABOUT = This client); it shows on each of their projects too.
  */
 const CLIENT = '__client';
-const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onOpenDoc, onToast, onCount }) => {
+const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onOpenDoc, onToast, onCount, onChanged }) => {
     const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [loadErr, setLoadErr] = useState('');
@@ -107,6 +107,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
             else await timelineService.addNote(form.about || id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned, file: form.file });
             setForm(null);
             await load();
+            if (onChanged && form.file) onChanged();   // fix230: a file was filed in Documents too -- the page counts follow
             toast(form.id ? 'Note changed' : 'Note saved', 'success');
         } catch (e) { setFormErr(errorText(e)); }
         finally { setBusy(false); }
