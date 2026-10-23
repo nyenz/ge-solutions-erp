@@ -264,3 +264,34 @@
   .container > :not(.printDocWrap) { display: none !important; }
   .container { padding: 0 !important; margin: 0 !important; max-width: none !important; background: #fff !important; }
 }
+
+/* fix227 (David): the print button is the icon alone, the same as on the Folder page */
+.printBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(32px, 4vw, 38px);
+    height: clamp(32px, 4vw, 38px);
+    padding: 0;
+    background: rgba(var(--sf-navy-rgb), 0.75);
+    border: 1.5px solid rgba(var(--ink-rgb), 0.18);
+    color: rgba(var(--ink-rgb), 0.65);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    line-height: 1;
+    font-size: clamp(16px, 1.8vw, 20px);
+}
+.printBtn svg {
+    width: clamp(16px, 1.8vw, 20px);
+    height: clamp(16px, 1.8vw, 20px);
+}
+.printBtn:hover {
+    background: rgba(var(--sf-navy-rgb), 0.95);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: var(--ink-solid);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.printBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+

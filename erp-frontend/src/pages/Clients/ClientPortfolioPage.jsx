@@ -208,7 +208,7 @@ const ClientPortfolioPage = () => {
             <button type="button" className={styles.cancelBtn} onClick={cancelEdit} disabled={saving}><FiX aria-hidden="true" /> CANCEL</button>
             <button type="button" className={styles.saveBtn} onClick={saveEdit} disabled={saving}><FiSave aria-hidden="true" /> {saving ? 'SAVING...' : 'SAVE'}</button>
           </div>)}
-          {!isEditing && (<button type="button" className={styles.editBtn} onClick={() => window.print()} title="Print this client's file"><FiPrinter aria-hidden="true" /> PRINT</button>)}
+          {!isEditing && (<button type="button" className={styles.printBtn} onClick={() => window.print()} aria-label="Print this client's file" title="Print this client's file"><FiPrinter aria-hidden="true" /></button>)}   {/* fix227: icon only, like the Folder page */}
           {backBtn}
         </div>
       </header>
