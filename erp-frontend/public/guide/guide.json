@@ -1,5 +1,5 @@
 {
- "made": "2026-10-23T09:37:56.176Z",
+ "made": "2026-10-23T11:56:52.747Z",
  "size": {
   "width": 1280,
   "height": 720
@@ -36,9 +36,9 @@
      "cap": "The Dashboard: today’s work first. Press a box to jump to that list.",
      "box": {
       "x": 224,
-      "y": 237,
+      "y": 247,
       "w": 1032,
-      "h": 212
+      "h": 221
      }
     },
     {
@@ -46,9 +46,9 @@
      "cap": "Hold the mouse on any button, tab or column for a short explainer. Turn them FAST or OFF in Settings > Appearance.",
      "box": {
       "x": 598,
-      "y": 389,
+      "y": 406,
       "w": 283,
-      "h": 31
+      "h": 34
      }
     }
    ]
@@ -64,9 +64,9 @@
      "cap": "New Project. Pick the project type first. The index number is given by the app.",
      "box": {
       "x": 255,
-      "y": 173,
-      "w": 148,
-      "h": 34
+      "y": 176,
+      "w": 145,
+      "h": 36
      }
     },
     {
@@ -74,9 +74,9 @@
      "cap": "Clients: the people who pay. Type the NIN first — a person already saved is filled in for you.",
      "box": {
       "x": 255,
-      "y": 470,
-      "w": 113,
-      "h": 34
+      "y": 519,
+      "w": 111,
+      "h": 36
      }
     },
     {
@@ -84,9 +84,9 @@
      "cap": "Location: district down to village, and the size in hectares (digits only).",
      "box": {
       "x": 255,
-      "y": 375,
-      "w": 129,
-      "h": 34
+      "y": 374,
+      "w": 131,
+      "h": 36
      }
     },
     {
@@ -94,9 +94,9 @@
      "cap": "Stages: the steps of the work. The usual list is ready; tick what is already done.",
      "box": {
       "x": 255,
-      "y": 375,
-      "w": 104,
-      "h": 34
+      "y": 374,
+      "w": 109,
+      "h": 36
      }
     },
     {
@@ -104,9 +104,9 @@
      "cap": "Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending.",
      "box": {
       "x": 255,
-      "y": 375,
-      "w": 142,
-      "h": 34
+      "y": 374,
+      "w": 143,
+      "h": 36
      }
     },
     {
@@ -114,19 +114,19 @@
      "cap": "Documents: add scans and choose their type. PDF, photos, Word and Excel are accepted.",
      "box": {
       "x": 255,
-      "y": 414,
-      "w": 149,
-      "h": 34
+      "y": 400,
+      "w": 147,
+      "h": 36
      }
     },
     {
      "img": "new-project-7.jpg",
      "cap": "Press SAVE. A missing box is marked in red and the page takes you straight to it.",
      "box": {
-      "x": 1046,
+      "x": 1043,
       "y": 90,
       "w": 103,
-      "h": 48
+      "h": 52
      }
     }
    ]
@@ -142,7 +142,7 @@
      "cap": "Project Ledger: type any part of a name, phone, plot, NIN or index in the search box.",
      "box": {
       "x": 77,
-      "y": 164,
+      "y": 170,
       "w": 418,
       "h": 48
      }
@@ -152,9 +152,9 @@
      "cap": "The tabs narrow the list: no title details yet, legacy, receivables, critical, problem, pending.",
      "box": {
       "x": 85,
-      "y": 227,
-      "w": 121,
-      "h": 30
+      "y": 233,
+      "w": 125,
+      "h": 33
      }
     },
     {
@@ -162,7 +162,7 @@
      "cap": "Press a row to open that project’s folder.",
      "box": {
       "x": 77,
-      "y": 372,
+      "y": 390,
       "w": 1178,
       "h": 93
      }
@@ -173,7 +173,7 @@
      "box": {
       "x": 88,
       "y": 83,
-      "w": 958,
+      "w": 955,
       "h": 40
      }
     },
@@ -182,8 +182,8 @@
      "cap": "The folder tabs: Overview, Financials, People, Documents, Notes.",
      "box": {
       "x": 68,
-      "y": 225,
-      "w": 129,
+      "y": 234,
+      "w": 134,
       "h": 47
      }
     }
@@ -200,19 +200,19 @@
      "cap": "On the Overview tab, the Stage checklist shows every step and how many are done.",
      "box": {
       "x": 79,
-      "y": 476,
-      "w": 347,
-      "h": 34
+      "y": 479,
+      "w": 345,
+      "h": 36
      }
     },
     {
      "img": "stage-2.jpg",
      "cap": "Tick a stage when it is done. It saves the moment you click it.",
      "box": {
-      "x": 79,
-      "y": 543,
-      "w": 1174,
-      "h": 52
+      "x": 89,
+      "y": 560,
+      "w": 1154,
+      "h": 40
      }
     },
     {
@@ -220,7 +220,7 @@
      "cap": "The paperclip attaches that stage’s document (it is filed in Documents under the stage).",
      "box": {
       "x": 1190,
-      "y": 595,
+      "y": 608,
       "w": 50,
       "h": 46
      }
@@ -238,18 +238,18 @@
      "cap": "Notes tab: everything that happened on this project — notes, decisions, money, events and calls.",
      "box": {
       "x": 79,
-      "y": 299,
-      "w": 247,
-      "h": 34
+      "y": 308,
+      "w": 244,
+      "h": 36
      }
     },
     {
      "img": "notes-2.jpg",
      "cap": "Press ADD NOTE. Pick a topic, write the note, and choose a follow-up day if needed.",
      "box": {
-      "x": 1123,
-      "y": 380,
-      "w": 130,
+      "x": 1117,
+      "y": 391,
+      "w": 136,
       "h": 50
      }
     },
@@ -258,9 +258,9 @@
      "cap": "On the follow-up day the bell reminds the office. Pin a note to keep it on top (the bell tells the office too).",
      "box": {
       "x": 404,
-      "y": 420,
+      "y": 482,
       "w": 472,
-      "h": 28
+      "h": 33
      }
     }
    ]
@@ -276,9 +276,9 @@
      "cap": "Recovery: the clients to call now. The tabs show who was contacted, missed, needs a site visit or is resting.",
      "box": {
       "x": 663,
-      "y": 257,
-      "w": 77,
-      "h": 30
+      "y": 268,
+      "w": 78,
+      "h": 33
      }
     },
     {
@@ -286,8 +286,8 @@
      "cap": "Open a client and press CALL LOG.",
      "box": {
       "x": 229,
-      "y": 629,
-      "w": 125,
+      "y": 670,
+      "w": 128,
       "h": 52
      }
     },
@@ -296,9 +296,9 @@
      "cap": "Pick what happened (answered, not picking up ...), add a short note or a promise date, then save. The history is underneath.",
      "box": {
       "x": 406,
-      "y": 426,
+      "y": 422,
       "w": 468,
-      "h": 43
+      "h": 47
      }
     }
    ]
@@ -313,9 +313,9 @@
      "img": "payment-1.jpg",
      "cap": "Folder > Financials: press RECORD PAYMENT.",
      "box": {
-      "x": 819,
-      "y": 114,
-      "w": 189,
+      "x": 806,
+      "y": 118,
+      "w": 196,
       "h": 54
      }
     },
@@ -334,9 +334,9 @@
      "cap": "Every payment is listed in Payment History. A mistake is REVERSED (never deleted) and the reason is kept.",
      "box": {
       "x": 79,
-      "y": 600,
-      "w": 227,
-      "h": 34
+      "y": 625,
+      "w": 225,
+      "h": 36
      }
     }
    ]
@@ -352,9 +352,9 @@
      "cap": "Expenses: tap a category to log money spent. Anything else goes under OTHER.",
      "box": {
       "x": 255,
-      "y": 277,
-      "w": 165,
-      "h": 34
+      "y": 290,
+      "w": 161,
+      "h": 36
      }
     },
     {
@@ -362,9 +362,9 @@
      "cap": "Entries can be corrected for 24 hours. Deleting asks why, and the reason is kept.",
      "box": {
       "x": 255,
-      "y": 462,
-      "w": 267,
-      "h": 34
+      "y": 483,
+      "w": 261,
+      "h": 36
      }
     }
    ]
@@ -380,7 +380,7 @@
      "cap": "Payments: search by project, client, phone, amount or reference.",
      "box": {
       "x": 225,
-      "y": 174,
+      "y": 189,
       "w": 418,
       "h": 48
      }
@@ -390,9 +390,9 @@
      "cap": "Filter by dates, missing receipt, and how it was paid.",
      "box": {
       "x": 214,
-      "y": 279,
-      "w": 84,
-      "h": 27
+      "y": 294,
+      "w": 87,
+      "h": 29
      }
     },
     {
@@ -400,9 +400,9 @@
      "cap": "Press a line to open its project. The receipt button opens the receipt.",
      "box": {
       "x": 225,
-      "y": 416,
-      "w": 1155,
-      "h": 83
+      "y": 441,
+      "w": 1209,
+      "h": 79
      }
     }
    ]
@@ -418,9 +418,9 @@
      "cap": "Reports: pick the data at the top (Projects, Clients, Payments, Expenses, Company) and the period.",
      "box": {
       "x": 231,
-      "y": 229,
+      "y": 240,
       "w": 76,
-      "h": 34
+      "h": 36
      }
     },
     {
@@ -428,18 +428,18 @@
      "cap": "Pick a ready report in the catalogue and press Use This Report.",
      "box": {
       "x": 227,
-      "y": 585,
-      "w": 196,
-      "h": 34
+      "y": 623,
+      "w": 194,
+      "h": 36
      }
     },
     {
      "img": "report-3.jpg",
      "cap": "Choose one or more charts, then download the CSV (for Excel) or the PDF document.",
      "box": {
-      "x": 1052,
+      "x": 1039,
       "y": 367,
-      "w": 196,
+      "w": 209,
       "h": 50
      }
     }
@@ -455,10 +455,10 @@
      "img": "receivables-1.jpg",
      "cap": "Ledger > Receivables: projects owing for a long time. Storage fees grow every 30 days.",
      "box": {
-      "x": 626,
-      "y": 227,
-      "w": 113,
-      "h": 30
+      "x": 643,
+      "y": 233,
+      "w": 117,
+      "h": 33
      }
     },
     {
@@ -466,9 +466,9 @@
      "cap": "In a folder, Financials holds the fee buttons: rate, pause, reduce, set aside, waive or add to the cost. Each one asks why.",
      "box": {
       "x": 79,
-      "y": 463,
-      "w": 173,
-      "h": 34
+      "y": 478,
+      "w": 172,
+      "h": 36
      }
     }
    ]
@@ -483,10 +483,10 @@
      "img": "staff-1.jpg",
      "cap": "Settings > Staff: add a person and give them a rank. They get a temporary key and choose their own at first sign-in.",
      "box": {
-      "x": 1097,
-      "y": 278,
-      "w": 150,
-      "h": 50
+      "x": 1093,
+      "y": 291,
+      "w": 155,
+      "h": 55
      }
     },
     {
@@ -494,9 +494,9 @@
      "cap": "Settings > Appearance: theme, size, explainers, animation — saved for you on this device.",
      "box": {
       "x": 83,
-      "y": 229,
-      "w": 159,
-      "h": 34
+      "y": 240,
+      "w": 158,
+      "h": 36
      }
     }
    ]
@@ -512,19 +512,19 @@
      "cap": "New Project: enter the type, clients, owners, neighbours, location and stages. No money boxes for field staff.",
      "box": {
       "x": 255,
-      "y": 173,
-      "w": 148,
-      "h": 34
+      "y": 176,
+      "w": 145,
+      "h": 36
      }
     },
     {
      "img": "field-2.jpg",
      "cap": "Press SAVE. The entry waits as Pending until the office adds the invoice, contract and price.",
      "box": {
-      "x": 1046,
+      "x": 1043,
       "y": 90,
       "w": 103,
-      "h": 48
+      "h": 52
      }
     },
     {
@@ -533,8 +533,8 @@
      "box": {
       "x": 241,
       "y": 84,
-      "w": 472,
-      "h": 47
+      "w": 502,
+      "h": 50
      }
     }
    ]
