@@ -1,0 +1,98 @@
+// PATH: erp-frontend/e2e/screens.mjs
+// fix229: takes a picture of every page, for every rank, at computer and phone size, from the REAL app running on the
+// GitHub machine (server with its in-memory demo data + the built pages). Used for the phone pass and the user guide.
+// It also writes report.txt: every page error and red console line seen while the pictures were taken.
+// Run by .github/workflows/screens.yml. Never touches the live app or its data.
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+
+const API = process.env.API || 'http://localhost:8080/api/v1';
+const WEB = process.env.WEB || 'http://localhost:4173';
+const OUT = process.env.OUT || 'screens';
+const PW = 'Screens-2026-Ok!';
+fs.mkdirSync(OUT, { recursive: true });
+const report = [];
+const note = (t) => { console.log(t); report.push(t); };
+
+async function call(path, body, token, method = 'POST') {
+    const r = await fetch(API + path, {
+        method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await r.text();
+    let data; try { data = JSON.parse(text); } catch { data = text; }
+    if (!r.ok) throw new Error(method + ' ' + path + ' -> ' + r.status + ' ' + text.slice(0, 300));
+    return data;
+}
+const get = (path, token) => call(path, undefined, token, 'GET');
+
+async function staff(username, role, tokens) {
+    let made = null;
+    for (const t of tokens) { try { made = await call('/staff/create', { username, email: username.replace('.', '_') + '@ges.test', role }, t); break; } catch (e) { note('create ' + username + ' with a token failed: ' + e.message); } }
+    if (!made) throw new Error('could not create ' + username);
+    const first = await call('/auth/login', { username, password: made.temporaryPassword });
+    return call('/profile/change-password', { oldPassword: made.temporaryPassword, newPassword: PW }, first.token, 'PUT');
+}
+
+const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
+    const list = Array.isArray(d) ? d : (d && (d.content || d.items || d.rows || d.clients || d.projects)) || [];
+    for (const x of list) for (const k of keys) if (x && x[k]) return x[k];
+    return null;
+};
+
+(async () => {
+    // 1. the people: the Admin (seeded), then a Director, Manager, Secretary and Employee with known keys
+    const a0 = await call('/auth/login', { username: 'admin_root', password: 'TestPassword123' });
+    const admin = await call('/profile/change-password', { oldPassword: 'TestPassword123', newPassword: PW }, a0.token, 'PUT');
+    const director = await staff('test.director', 'ROLE_DIRECTOR', [admin.token]);
+    const manager = await staff('test.manager', 'ROLE_MANAGER', [director.token, admin.token]);
+    const secretary = await staff('test.secretary', 'ROLE_SECRETARY', [director.token, admin.token]);
+    const employee = await staff('test.employee', 'ROLE_EMPLOYEE', [director.token, admin.token]);
+
+    // 2. one project and one client of the demo data
+    let projectId = null, clientId = null;
+    try { projectId = firstId(await get('/land/ledger?page=0&size=20', director.token)); } catch (e) { note('ledger: ' + e.message); }
+    try { clientId = firstId(await get('/recovery/clients/ledger', director.token), ['clientId', 'id']); } catch (e) { note('clients: ' + e.message); }
+    note('project ' + projectId + ' | client ' + clientId);
+
+    const PAGES = {
+        director: ['dashboard', 'land/new', 'land/projects', projectId && 'folder/' + projectId, projectId && 'folder/' + projectId + '#notes', 'recovery', 'clients', clientId && 'client/' + clientId, 'payments', 'financials', 'reports', 'settings'],
+        manager: ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'recovery', 'clients', 'payments', 'financials', 'reports', 'settings'],
+        secretary: ['dashboard', 'land/new', 'land/projects', projectId && 'folder/' + projectId, 'recovery', 'clients', clientId && 'client/' + clientId, 'settings'],
+        employee: ['land/new', 'my-entries', 'settings'],
+        admin: ['audit', 'settings'],
+    };
+    const WHO = { director, manager, secretary, employee, admin };
+    const SIZES = { pc: { width: 1366, height: 800 }, phone: { width: 390, height: 844 } };
+
+    const browser = await chromium.launch();
+    for (const [role, pages] of Object.entries(PAGES)) {
+        for (const [size, viewport] of Object.entries(SIZES)) {
+            const ctx = await browser.newContext({ viewport, deviceScaleFactor: size === 'phone' ? 2 : 1, isMobile: size === 'phone', hasTouch: size === 'phone' });
+            const login = WHO[role];
+            await ctx.addInitScript(([t, u]) => {
+                try { localStorage.setItem('gs_token', t); localStorage.setItem('gs_user', u); } catch { /* ignore */ }
+            }, [login.token, JSON.stringify(login.user)]);
+            const page = await ctx.newPage();
+            let where = '';
+            page.on('pageerror', e => note('[' + role + ' ' + size + ' ' + where + '] PAGE ERROR ' + e.message));
+            page.on('console', m => { if (m.type() === 'error') note('[' + role + ' ' + size + ' ' + where + '] console: ' + m.text().slice(0, 300)); });
+            for (const p of pages.filter(Boolean)) {
+                where = p;
+                try {
+                    await page.goto(WEB + '/' + p, { waitUntil: 'networkidle', timeout: 45000 });
+                    await page.waitForTimeout(1500);
+                    const name = role + '-' + size + '-' + p.replace(/[/#]/g, '_').replace(/_[0-9a-f-]{36}/, '') + '.png';
+                    await page.screenshot({ path: OUT + '/' + name, fullPage: true });
+                    // anything wider than the screen on a phone is a layout fault
+                    const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+                    if (over > 2) note('[' + role + ' ' + size + ' ' + p + '] page is ' + over + 'px wider than the screen');
+                } catch (e) { note('[' + role + ' ' + size + ' ' + p + '] FAILED ' + e.message); }
+            }
+            await ctx.close();
+        }
+    }
+    await browser.close();
+    fs.writeFileSync(OUT + '/report.txt', report.join('\n') + '\n');
+    console.log('done: ' + fs.readdirSync(OUT).length + ' files');
+})().catch(e => { console.error(e); fs.writeFileSync(OUT + '/report.txt', report.join('\n') + '\nFATAL ' + e.stack + '\n'); process.exit(1); });
