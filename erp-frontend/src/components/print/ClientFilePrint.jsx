@@ -4,6 +4,7 @@
 // It shares the Project File's paper styles (ProjectFilePrint.module.css). Money parts print only when showMoney
 // is true (the Client page shows money to the Director and above only).
 import React from 'react';
+import GesMark from './GesMark';   // fix227: the website's compass logo
 import { PROJECT_STATUS } from '../../utils/projectStatus';
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';
@@ -52,9 +53,9 @@ export default function ClientFilePrint({ client: d, plots = [], totals = {}, pr
         <div className={`${s.doc} ${className}`} aria-hidden="true">
             <header className={s.banner}>
                 <div className={s.brand}>
-                    <span className={s.mark} aria-hidden="true">GE</span>
+                    <GesMark className={s.mark} />
                     <span>
-                        <span className={s.company}>GE SOLUTIONS</span>
+                        <span className={s.company}>GE Solutions</span>
                         <span className={s.tagline}>Land surveying and title processing</span>
                     </span>
                 </div>
@@ -144,7 +145,7 @@ export default function ClientFilePrint({ client: d, plots = [], totals = {}, pr
                                 </tr>
                             ))}</tbody>
                         </table>
-                    ) : <p className={s.none}>No payments recorded.</p>}
+                    ) : null /* fix227: no payments = no empty line; the totals below say Paid UGX 0 */}
                     <div className={s.totals}>
                         <div><span>Total billed</span><span className={s.mono}>{money(totals.billed)}</span></div>
                         {Number(totals.storage) > 0 && <div><span>Storage fees</span><span className={s.mono}>{money(totals.storage)}</span></div>}
@@ -154,22 +155,21 @@ export default function ClientFilePrint({ client: d, plots = [], totals = {}, pr
                 </Band>
             )}
 
-            <Band tint={!showMoney}>
-                <H>Call log <small>{calls.length}</small></H>
-                {calls.length ? (
+            {/* fix227 (David): never waste paper -- no calls = no Call log band (Key points already says "No calls logged") */}
+            {calls.length > 0 && (
+                <Band tint={!showMoney}>
+                    <H>Call log <small>{calls.length}</small></H>
                     <ul className={s.notes}>{calls.map((n, i) => (
                         <li key={i}><span className={s.noteMeta}>{day(n.createdAt)}{n.author ? ' · ' + n.author : ''}{n.tag ? ' · ' + n.tag : ''}</span>{n.text || ''}</li>
                     ))}</ul>
-                ) : <p className={s.none}>No calls logged for this client.</p>}
-            </Band>
+                </Band>
+            )}
 
             <div className={s.sign}>
                 <div><div className={s.line} /><span>Prepared by (name and signature)</span></div>
                 <div><div className={s.line} /><span>Checked by (name and signature)</span></div>
                 <div><div className={s.line} /><span>Date</span></div>
             </div>
-
-            <footer className={s.foot}>GE Solutions · Client file · {d.name} · printed {day(printed)}{printedBy ? ' by ' + printedBy : ''}</footer>
         </div>
     );
 }

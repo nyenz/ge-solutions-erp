@@ -7,17 +7,18 @@
 //             real lines and shapes (bars, columns, line or donut) from the same numbers as the screen;
 //   page 2+ : the table in landscape -- columns sized to what they hold, long text wrapped (never cut in the middle of
 //             a word), numbers and money on the right, the heading row repeated on every page, zebra rows;
-//   footer  : "GOLDEN SEED · <report> · Page x of y" on every page.
+//   footer  : "GE Solutions · <report> · Page x of y" on every page.
 // The layout maths (column widths, chart scale) are plain functions so they can be tested (tests/reportPdf.test.mjs).
 
-const NAVY = [26, 46, 48];
-const ORANGE = [238, 140, 58];
-const INK = [26, 46, 48];
-const MUTED = [100, 116, 118];
-const LINE = [223, 217, 209];
-const ZEBRA = [246, 243, 238];
-const PALETTE = [[238, 140, 58], [79, 163, 165], [194, 100, 63], [126, 155, 84], [155, 111, 168],
-    [78, 124, 168], [212, 166, 60], [176, 90, 120], [91, 140, 123], [138, 114, 80]];
+// fix227 (David): the GES website colours -- navy #0b2545, orange #ea580c, body #4b5563, line #e5e7eb, cream #fdfaf4
+const NAVY = [11, 37, 69];
+const ORANGE = [234, 88, 12];
+const INK = [31, 41, 55];
+const MUTED = [75, 85, 99];
+const LINE = [229, 231, 235];
+const ZEBRA = [253, 250, 244];
+const PALETTE = [[234, 88, 12], [11, 37, 69], [100, 116, 139], [251, 146, 60], [27, 58, 99],
+    [194, 65, 12], [148, 163, 184], [253, 186, 140], [71, 85, 105], [154, 52, 18]];
 const colour = (i) => PALETTE[i % PALETTE.length];
 const NUMERIC = new Set(['money', 'number', 'percent']);
 
@@ -74,6 +75,21 @@ export function plain(text) {
 }
 
 // ── chart drawing ──────────────────────────────────────────────────────
+
+/** fix227: the GE Solutions compass mark (website icon.svg): navy disc, orange ring, orange needle. */
+function logo(doc, cx, cy, r) {
+    const k = r / 15;
+    doc.setFillColor(...NAVY); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6);
+    doc.circle(cx, cy, r, 'FD');
+    doc.setDrawColor(...ORANGE); doc.setLineWidth(2 * k);
+    doc.circle(cx, cy, 11 * k, 'S');
+    doc.setFillColor(...ORANGE);
+    const P = (px, py) => [cx + (px - 16) * k, cy + (py - 16) * k];
+    const [ax, ay] = P(20.5, 11.5), [bx, by] = P(17.8, 17.8), [qx, qy] = P(11.5, 20.5), [dx, dy] = P(14.2, 14.2);
+    doc.triangle(ax, ay, bx, by, dx, dy, 'F');
+    doc.triangle(bx, by, qx, qy, dx, dy, 'F');
+    doc.setLineWidth(1);
+}
 
 function drawBars(doc, rows, fmt, x, y, w, h) {
     const list = rows.slice(0, 16);
@@ -180,7 +196,7 @@ function drawDonut(doc, rows, fmt, x, y, w, h) {
 
 /**
  * Writes and downloads the report PDF.
- * opts: { title, scopeLine, description, chartType ('bars'|'column'|'line'|'donut'|null), chartRows, chartFormat,
+ * opts: { title, scopeLine, description, chartTypes (['bars'|'column'|'line'|'donut'], fix227) or chartType, chartRows, chartFormat,
  *         cols: [{ label, type, get }], rows, format(value, type), fileName }
  */
 export async function writeReportPdf(opts) {
@@ -198,16 +214,23 @@ export async function writeReportPdf(opts) {
         doc.rect(0, 0, pw, small ? 34 : 78, 'F');
         doc.setFillColor(...ORANGE);
         doc.rect(0, small ? 34 : 78, pw, 2.5, 'F');
+        // fix227: the GE Solutions compass logo (the website's mark), drawn as shapes
+        const lx = m + (small ? 9 : 16), ly = small ? 17 : 36, lr = small ? 9 : 16;
+        logo(doc, lx, ly, lr);
+        const tx = lx + lr + (small ? 8 : 12);
         doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(small ? 9 : 11);
+        if (!small) doc.text('GE Solutions', tx, 24);
         doc.setTextColor(...ORANGE);
         doc.setFontSize(small ? 10 : 18);
-        doc.text(plain('GOLDEN SEED  |  ' + opts.title), m, small ? 22 : 34);
+        doc.text(plain(small ? 'GE Solutions  |  ' + opts.title : opts.title), tx, small ? 22 : 42);
         doc.setFont('helvetica', 'normal');
         if (!small) {
             doc.setTextColor(255, 255, 255); doc.setFontSize(9);
-            doc.text(plain(opts.scopeLine), m, 54);
-            doc.setTextColor(190, 200, 200); doc.setFontSize(8);
-            doc.text('Generated ' + plain(new Date().toLocaleString()), m, 68);
+            doc.text(plain(opts.scopeLine), tx, 58);
+            doc.setTextColor(203, 213, 225); doc.setFontSize(8);
+            doc.text('Generated ' + plain(new Date().toLocaleString()), tx, 70);
         }
     };
     band(false);
@@ -219,16 +242,28 @@ export async function writeReportPdf(opts) {
         y += lines.length * 11 + 10;
     }
 
-    // ── chart (drawn, not a picture)
+    // ── charts (drawn, not pictures). fix227: one or more -- one fills the cover; two sit side by side; more go
+    //    two per page after the cover, before the table.
     const chartRows = opts.chartRows || [];
-    const hasChart = !!opts.chartType && chartRows.length > 0;
-    if (hasChart) {
-        const h = Math.min(ph - y - 50, 330);
+    const types = (opts.chartTypes || (opts.chartType ? [opts.chartType] : [])).filter(Boolean);
+    if (types.length && chartRows.length) {
         const fmt = opts.chartFormat || String;
-        if (opts.chartType === 'donut') drawDonut(doc, chartRows, fmt, m, y, usable, h);
-        else if (opts.chartType === 'column') drawColumns(doc, chartRows, m, y, usable, h, false);
-        else if (opts.chartType === 'line') drawColumns(doc, chartRows, m, y, usable, h, true);
-        else drawBars(doc, chartRows, fmt, m, y, usable, h);
+        const draw = (t, x, top, w, h) => {
+            if (t === 'donut') drawDonut(doc, chartRows, fmt, x, top, w, h);
+            else if (t === 'column') drawColumns(doc, chartRows, x, top, w, h, false);
+            else if (t === 'line') drawColumns(doc, chartRows, x, top, w, h, true);
+            else drawBars(doc, chartRows, fmt, x, top, w, h);
+        };
+        if (types.length === 1) draw(types[0], m, y, usable, Math.min(ph - y - 50, 330));
+        else {
+            const gap = 24, half = (usable - gap) / 2;
+            for (let i = 0; i < types.length; i += 2) {
+                if (i > 0) { doc.addPage(); band(true); y = 60; }
+                const h = Math.min(ph - y - 50, 330);
+                draw(types[i], m, y, half, h);
+                if (types[i + 1]) draw(types[i + 1], m + half + gap, y, half, h);
+            }
+        }
     }
 
     // ── table pages
@@ -264,7 +299,7 @@ export async function writeReportPdf(opts) {
     };
     const newPage = () => { doc.addPage(); band(true); y = 54; headRow(); };
 
-    if (hasChart || y > ph - 120) newPage(); else headRow();
+    if ((types.length && chartRows.length) || y > ph - 120) newPage(); else headRow();
     doc.setFontSize(8);
     rows.forEach((r, ri) => {
         const cells = cols.map((c, i) => {
@@ -290,7 +325,7 @@ export async function writeReportPdf(opts) {
     for (let p = 1; p <= pages; p++) {
         doc.setPage(p);
         doc.setFontSize(7); doc.setTextColor(...MUTED);
-        doc.text(plain('GOLDEN SEED  |  ' + opts.title + '  |  Page ' + p + ' of ' + pages), pw / 2, ph - 16, { align: 'center' });
+        doc.text(plain('GE Solutions  |  ' + opts.title + '  |  Page ' + p + ' of ' + pages), pw / 2, ph - 16, { align: 'center' });
     }
     if (opts.returnDoc) return doc;   // tests
     doc.save(opts.fileName);

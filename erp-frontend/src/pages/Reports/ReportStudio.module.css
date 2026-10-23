@@ -424,3 +424,6 @@
 /* fix217: an option reached by typing a letter (global type-ahead) is marked like a hovered one */
 .pickOption:focus, .pickOption:focus-visible { background: #EE8C3A; color: #fff; outline: none; }
 .pickCheck:focus, .pickCheck:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
+
+/* fix227 (David): two or more charts side by side (one column on a phone) */
+.chartGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: clamp(10px, 1.4vw, 14px); }

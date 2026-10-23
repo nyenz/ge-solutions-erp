@@ -9,6 +9,7 @@
 //  - the stages are a two-column checklist with filled (done) and hollow (open) circles.
 // Money stays a ruled statement with a totals box, and the page ends with sign-off lines.
 import React from 'react';
+import GesMark from './GesMark';   // fix227: the website's compass logo
 import { statusOf, moneyWordsOf, stagesOf, waitingFor } from '../../utils/projectStatus';
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';
@@ -78,9 +79,9 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
             {/* top band */}
             <header className={s.banner}>
                 <div className={s.brand}>
-                    <span className={s.mark} aria-hidden="true">GE</span>
+                    <GesMark className={s.mark} />
                     <span>
-                        <span className={s.company}>GE SOLUTIONS</span>
+                        <span className={s.company}>GE Solutions</span>
                         <span className={s.tagline}>Land surveying and title processing</span>
                     </span>
                 </div>
@@ -191,7 +192,7 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                                     <td className={`${s.right} ${s.mono}`}>{Number(x.amountPaid || 0).toLocaleString()}</td></tr>
                             ))}</tbody>
                         </table>
-                    ) : <p className={s.none}>No payments recorded.</p>}
+                    ) : null /* fix227: no payments = no empty line; the totals below say Paid UGX 0 */}
                     <div className={s.totals}>
                         <div><span>Total cost</span><span className={s.mono}>{money(cost)}</span></div>
                         {fees > 0 && <div><span>Storage fees</span><span className={s.mono}>{money(fees)}</span></div>}
@@ -201,9 +202,9 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                 </Band>
             )}
 
-            {/* documents | notes */}
-            <Band tint className={notes.length ? s.cols : ''}>
-                <div>
+            {/* documents | notes -- fix227: left out when there is neither (never waste paper) */}
+            {(documents.length > 0 || notes.length > 0) && <Band tint className={notes.length && documents.length ? s.cols : ''}>
+                {documents.length > 0 && <div>
                     <H>Documents on file <small>{documents.length}</small></H>
                     {documents.length ? (
                         <ul className={s.docs}>
@@ -215,8 +216,8 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                                 </li>
                             ))}
                         </ul>
-                    ) : <p className={s.none}>No documents attached.</p>}
-                </div>
+                    ) : null}
+                </div>}
                 {notes.length > 0 && (
                     <div>
                         <H>Notes</H>
@@ -225,15 +226,13 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                         ))}</ul>
                     </div>
                 )}
-            </Band>
+            </Band>}
 
             <div className={s.sign}>
                 <div><div className={s.line} /><span>Prepared by (name and signature)</span></div>
                 <div><div className={s.line} /><span>Checked by (name and signature)</span></div>
                 <div><div className={s.line} /><span>Date</span></div>
             </div>
-
-            <footer className={s.foot}>GE Solutions · Project #{p.projectIndex} · printed {day(printed)}{printedBy ? ' by ' + printedBy : ''}</footer>
         </div>
     );
 }

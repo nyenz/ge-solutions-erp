@@ -2,7 +2,7 @@
    fix199 (test note 10): the printed Project File. Paper only: hidden on screen, shown alone when printing.
    fix207: company colours. fix210 (David's "case study" sheet as the look to follow, not to copy):
    a full-width navy band on top, a big title with the reference details beside it, then wide bands that
-   alternate pale tint / white, mostly split in two columns. Navy #1a2e30 + orange #EE8C3A + pale teal tints.
+   alternate pale tint / white, mostly split in two columns. fix227: the GES website colours (navy #0b2545, orange #ea580c, cream tints) and its compass logo.
    Text always stays dark on light (or white on navy), so a black-and-white printer still gives a clean page.
    The bands run edge to edge: the page has no side margin, and every band pads its own content (14 mm). */
 .doc { display: none; }
@@ -14,22 +14,24 @@
         @bottom-center {
             content: "GE SOLUTIONS  ·  Page "   /* fix212: shared with the Client File */
              counter(page) " of " counter(pages);
-            font-family: Arial, sans-serif; font-size: 7pt; color: #6b8486;
+            font-family: Arial, sans-serif; font-size: 7pt; color: #4b5563;
         }
     }
     @page :first { margin-top: 0; }   /* the top band starts at the very top of the first page */
 
+    /* fix227 (David): the GES website colours -- navy #0b2545, slate #1b3a63, orange #ea580c / #c2410c,
+       body text #4b5563, cream #fdfaf4, sand #f3ede2, line #e5e7eb */
     .doc {
-        --navy: #1a2e30;
-        --navy2: #24423f;
-        --teal: #3f6b6d;
-        --orange: #EE8C3A;
-        --orangeDk: #b8651d;
-        --tint: #eef4f2;
-        --tintLine: #c9dad6;
+        --navy: #0b2545;
+        --navy2: #13355e;
+        --teal: #1b3a63;
+        --orange: #ea580c;
+        --orangeDk: #c2410c;
+        --tint: #fdfaf4;
+        --tintLine: #e5e7eb;
         --side: 14mm;
         display: block;
-        color: #1c2a2c;
+        color: #1f2937;
         background: #fff;
         font-family: 'Inter', Arial, sans-serif;
         font-size: 9.2pt;
@@ -41,27 +43,23 @@
     /* ── TOP BAND ───────────────────────────────────────────────── */
     .banner {
         display: flex; justify-content: space-between; align-items: center;
-        padding: 7mm var(--side) 6mm;
+        padding: 6mm var(--side) 5mm;
         color: #fff;
         background:
             repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 2mm, transparent 2mm 5mm),
-            linear-gradient(120deg, var(--navy) 0%, var(--navy2) 65%, #2e5552 100%);
+            linear-gradient(120deg, var(--navy) 0%, var(--navy2) 65%, #1b3a63 100%);
         border-bottom: 1.6mm solid var(--orange);
     }
     .brand { display: flex; align-items: center; gap: 3.5mm; }
-    .mark {
-        width: 11mm; height: 11mm; border-radius: 50%; border: 0.6mm solid var(--orange);
-        display: inline-flex; align-items: center; justify-content: center;
-        font-family: 'Cinzel', Georgia, serif; font-weight: 900; font-size: 11pt; color: #fff; letter-spacing: 0.5pt;
-    }
+    .mark { width: 12mm; height: 12mm; flex-shrink: 0; display: block; }   /* fix227: the website's compass logo */
     .brand > span:last-child { display: flex; flex-direction: column; }
-    .company { font-family: 'Cinzel', Georgia, serif; font-weight: 900; font-size: 15pt; letter-spacing: 1.6pt; color: #fff; }
-    .tagline { font-size: 7.2pt; letter-spacing: 1.2pt; text-transform: uppercase; color: #f5b77d; margin-top: 0.6mm; }
+    .company { font-family: 'Poppins', 'Inter', Arial, sans-serif; font-weight: 800; font-size: 16pt; letter-spacing: 0.2pt; color: #fff; }
+    .tagline { font-size: 7.2pt; letter-spacing: 1.2pt; text-transform: uppercase; color: #fdba8c; margin-top: 0.6mm; }
     .bannerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 0.8mm; font-size: 7.5pt; letter-spacing: 0.6pt; color: rgba(255, 255, 255, 0.82); }
     .bannerRight span:first-child { font-family: 'Space Mono', monospace; font-size: 9pt; color: #fff; }
 
     /* ── TITLE + REFERENCE DETAILS ──────────────────────────────── */
-    .hero { display: grid; grid-template-columns: 0.95fr 1.25fr; gap: 9mm; align-items: end; padding: 7mm var(--side) 6mm; border-bottom: 0.5mm solid var(--teal); }
+    .hero { display: grid; grid-template-columns: 0.95fr 1.25fr; gap: 9mm; align-items: end; padding: 5.5mm var(--side) 5mm; border-bottom: 0.5mm solid var(--teal); }
     .title { font-family: 'Inter', Arial, sans-serif; font-weight: 900; font-size: 30pt; line-height: 0.98; letter-spacing: -0.5pt; text-transform: uppercase; color: var(--navy); }
     .title::first-line { color: var(--orange); }
     .refChip {
@@ -72,64 +70,64 @@
 
     /* a label over a value, the label in small orange capitals with a thin line under it */
     .kv { display: flex; flex-direction: column; gap: 0.6mm; min-width: 0; }
-    .k { font-size: 6.6pt; font-weight: 800; letter-spacing: 0.9pt; text-transform: uppercase; color: var(--orangeDk); padding-bottom: 0.6mm; border-bottom: 0.3mm solid rgba(238, 140, 58, 0.55); }
+    .k { font-size: 6.6pt; font-weight: 800; letter-spacing: 0.9pt; text-transform: uppercase; color: var(--orangeDk); padding-bottom: 0.6mm; border-bottom: 0.3mm solid rgba(234, 88, 12, 0.45); }
     .v { font-weight: 600; color: var(--navy); overflow-wrap: anywhere; }
 
     /* ── BANDS ──────────────────────────────────────────────────── */
-    .band { padding: 5.5mm var(--side) 6mm; }
+    .band { padding: 4.5mm var(--side) 4.8mm; }   /* fix227: a little tighter, so a small project fits one sheet */
     .tint { background: var(--tint); border-top: 0.3mm solid var(--tintLine); border-bottom: 0.3mm solid var(--tintLine); }
     .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 9mm; }
     .cols > div { min-width: 0; }
     .h2 { margin: 0 0 2.5mm; font-family: 'Inter', Arial, sans-serif; font-size: 13pt; font-weight: 800; color: var(--teal); letter-spacing: -0.1pt; break-after: avoid; }
     .h2 small { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.8pt; text-transform: uppercase; color: var(--orangeDk); margin-left: 2mm; }
-    .lead { margin: 0 0 3mm; color: #2c3d3f; }
+    .lead { margin: 0 0 3mm; color: #4b5563; }
     .miniGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5mm 4mm; }
     .titleGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3mm; }
-    .none { margin: 0; color: #6b7a7c; font-style: italic; }
+    .none { margin: 0; color: #6b7280; font-style: italic; }
     .mono { font-family: 'Space Mono', monospace; font-size: 8.2pt; }
 
     /* round coloured dots (Key points) */
     .dots { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2mm; }
-    .dots li { position: relative; padding-left: 6mm; color: #2c3d3f; }
-    .dots li::before { content: ''; position: absolute; left: 0; top: 0.9mm; width: 3.2mm; height: 3.2mm; border-radius: 50%; background: var(--teal); box-shadow: inset 0 0 0 0.8mm #8fb9b4; }
+    .dots li { position: relative; padding-left: 6mm; color: #4b5563; }
+    .dots li::before { content: ''; position: absolute; left: 0; top: 0.9mm; width: 3.2mm; height: 3.2mm; border-radius: 50%; background: var(--teal); box-shadow: inset 0 0 0 0.8mm #94a3b8; }
     .dots li:first-child { font-weight: 700; color: var(--navy); }
-    .dots li:first-child::before { background: var(--orange); box-shadow: inset 0 0 0 0.8mm #f7c79c; }
+    .dots li:first-child::before { background: var(--orange); box-shadow: inset 0 0 0 0.8mm #fdba8c; }
 
     /* people as short cards */
     .people { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1.8mm; }
     .people li { display: grid; grid-template-columns: 1fr auto; gap: 0.4mm 4mm; padding: 2mm 3mm; background: #fff; border: 0.3mm solid var(--tintLine); border-left: 1mm solid var(--orange); border-radius: 1mm; break-inside: avoid; }
     .people strong { grid-column: 1 / -1; color: var(--navy); }
-    .people span { font-size: 8pt; color: #4b5f61; }
+    .people span { font-size: 8pt; color: #4b5563; }
     .neigh { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 1.8mm 6mm; }
     .neigh li { display: flex; gap: 3mm; align-items: baseline; padding-bottom: 1mm; border-bottom: 0.3mm dashed var(--tintLine); }
     .neigh li strong { color: var(--navy); }
-    .neigh li span { font-size: 8pt; color: #4b5f61; }
+    .neigh li span { font-size: 8pt; color: #4b5563; }
 
     /* stages: a progress bar and a two-column checklist with round marks */
-    .progress { height: 2mm; border-radius: 1mm; background: #d6e4e1; overflow: hidden; margin-bottom: 3.5mm; }
-    .progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), #2f8f6b); }
+    .progress { height: 2mm; border-radius: 1mm; background: #f3ede2; overflow: hidden; margin-bottom: 3.5mm; }
+    .progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--navy), var(--orange)); }
     .stageCols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 9mm; }
     .stages { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1.6mm; }
     .stages li { display: grid; grid-template-columns: 5mm 1fr; column-gap: 2.5mm; align-items: center; break-inside: avoid; }
     .stageDot {
-        grid-row: span 2; width: 5mm; height: 5mm; border-radius: 50%; border: 0.4mm solid #a9bfbc; background: #fff;
+        grid-row: span 2; width: 5mm; height: 5mm; border-radius: 50%; border: 0.4mm solid #cbd5e1; background: #fff;
         display: inline-flex; align-items: center; justify-content: center; font-size: 7.5pt; font-weight: 900; color: #fff;
     }
-    .stageDone .stageDot { background: #2f8f6b; border-color: #2f8f6b; }
-    .stageName { font-weight: 600; color: #4b5f61; line-height: 1.2; }
+    .stageDone .stageDot { background: var(--navy); border-color: var(--navy); }
+    .stageName { font-weight: 600; color: #4b5563; line-height: 1.2; }
     .stageDone .stageName { color: var(--navy); }
-    .stageMeta { font-size: 7pt; color: #7d9092; line-height: 1.2; }
+    .stageMeta { font-size: 7pt; color: #6b7280; line-height: 1.2; }
 
     /* statement of account */
     .table { width: 100%; border-collapse: collapse; }
     .table thead { display: table-header-group; }   /* a long table repeats its heading on the next page */
     .table th { text-align: left; font-size: 6.8pt; font-weight: 800; letter-spacing: 0.7pt; text-transform: uppercase; color: #fff; background: var(--navy); padding: 1.6mm 2mm; }
-    .table td { padding: 1.5mm 2mm; border-bottom: 0.3mm solid #dfe8e6; vertical-align: top; }
-    .table tbody tr:nth-child(even) td { background: #f6f9f8; }
+    .table td { padding: 1.5mm 2mm; border-bottom: 0.3mm solid #e5e7eb; vertical-align: top; }
+    .table tbody tr:nth-child(even) td { background: #fdfaf4; }
     .table tr { break-inside: avoid; }
     .right { text-align: right; }
     .totals { margin: 3.5mm 0 0 auto; width: 74mm; border: 0.3mm solid var(--tintLine); border-radius: 1.2mm; overflow: hidden; break-inside: avoid; }
-    .totals > div { display: flex; justify-content: space-between; padding: 1.6mm 3mm; border-bottom: 0.3mm solid #dfe8e6; background: #f6f9f8; }
+    .totals > div { display: flex; justify-content: space-between; padding: 1.6mm 3mm; border-bottom: 0.3mm solid #e5e7eb; background: #fdfaf4; }
     .totals > div:last-child { border-bottom: 0; }
     .grand { font-weight: 800; background: var(--navy) !important; color: #fff; border-top: 0.6mm solid var(--orange); }
 
@@ -138,13 +136,13 @@
     .docs li { display: grid; grid-template-columns: 1fr auto; gap: 0.3mm 3mm; padding-bottom: 1.4mm; border-bottom: 0.3mm dashed var(--tintLine); break-inside: avoid; }
     .docType { grid-column: 1 / -1; font-size: 6.8pt; font-weight: 800; letter-spacing: 0.8pt; text-transform: uppercase; color: var(--orangeDk); }
     .docName { font-weight: 600; color: var(--navy); overflow-wrap: anywhere; }
-    .docMeta { font-size: 7.5pt; color: #6b7f81; white-space: nowrap; }
+    .docMeta { font-size: 7.5pt; color: #6b7280; white-space: nowrap; }
     .notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2.2mm; }
     .notes li { padding: 2mm 3mm; background: #fff; border-left: 1mm solid var(--teal); border-radius: 1mm; break-inside: avoid; }
     .noteMeta { display: block; font-size: 7pt; font-weight: 700; color: var(--teal); letter-spacing: 0.4pt; margin-bottom: 0.6mm; }
 
     /* sign-off and foot */
-    .sign { display: grid; grid-template-columns: 1fr 1fr 0.6fr; gap: 10mm; margin: 12mm var(--side) 0; break-inside: avoid; }
+    .sign { display: grid; grid-template-columns: 1fr 1fr 0.6fr; gap: 10mm; margin: 7mm var(--side) 0; break-inside: avoid; break-before: avoid; }   /* fix227: no footer line after it, so it never makes a page of its own */
     .sign span { font-size: 7.5pt; color: var(--teal); }
     .line { border-bottom: 0.3mm solid var(--navy); height: 10mm; margin-bottom: 1mm; }
     .foot { margin: 7mm var(--side) 0; padding-top: 2mm; border-top: 0.5mm solid var(--orange); text-align: center; font-size: 7pt; color: var(--teal); letter-spacing: 0.4pt; }

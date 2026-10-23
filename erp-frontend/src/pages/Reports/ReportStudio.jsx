@@ -51,7 +51,9 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [groupTab, setGroupTab] = useState('ALL');
   const [readId, setReadId] = useState(null);
   const [appliedId, setAppliedId] = useState(null);
-  const [chartMode, setChartMode] = useState('NONE');
+  // fix227 (David): more than one chart at a time (e.g. DONUT + COLUMN), on screen and in the PDF
+  const [chartModes, setChartModes] = useState([]);
+  const chartOn = chartModes.length > 0;
   const [recent, setRecent] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
   });
@@ -152,12 +154,12 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       const dCols = (dDef.cols || []).map(l => (fieldMap[l] || {}).key).filter(Boolean).filter(k => allowed.includes(k));
       setColumns(dCols.length ? dCols : ds.defaultColumns.filter(c => allowed.includes(c)));
       setSort(dDef.sort ? { col: dDef.sort.col, dir: dDef.sort.dir } : (sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' }));
-      setChartMode(dDef.chart || 'NONE');
+      setChartModes(dDef.chart && dDef.chart !== 'NONE' ? [dDef.chart] : []);
     } else {
       setAppliedId(null);
       setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));
       setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });
-      setChartMode('NONE');
+      setChartModes([]);
     }
   }, [datasetKey, canSeeMoney]);
 
@@ -213,7 +215,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     const allowed = fields.map(f => f.key);
     if (keys.length) setColumns(keys.filter(k => allowed.includes(k)));
     if (def.sort) setSort({ col: def.sort.col, dir: def.sort.dir });
-    setChartMode(def.chart || 'NONE');
+    setChartModes(def.chart && def.chart !== 'NONE' ? [def.chart] : []);
     const next = [def.id].concat(recent.filter(x => x !== def.id)).slice(0, 6);
     setRecent(next);
     try { window.localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* private mode */ }
@@ -356,7 +358,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   }, [viewerRows, fieldByLabelMap, sort]);
   const chartRows = useMemo(() => {
     const def = appliedDef;
-    if (!def || !def.groupBy || chartMode === 'NONE') return [];
+    if (!def || !def.groupBy || !chartOn) return [];
     const gf = fieldByLabelMap[def.groupBy];
     if (!gf) return [];
     const mf = def.measure && def.measure.field ? fieldByLabelMap[def.measure.field] : null;
@@ -367,7 +369,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       ? String(a.path[0]).localeCompare(String(b.path[0]))
       : (Number(b.values[0]) || 0) - (Number(a.values[0]) || 0));
     return g.slice(0, 24).map(b => ({ id: String(b.path[0]), label: String(b.path[0]), value: Number(b.values[0]) || 0 }));
-  }, [viewerRows, dataset, fieldByLabelMap, appliedDef, chartMode]);
+  }, [viewerRows, dataset, fieldByLabelMap, appliedDef, chartOn]);
   const measureField = appliedDef && appliedDef.measure && appliedDef.measure.field ? fieldByLabelMap[appliedDef.measure.field] : null;
   const fmtChart = useCallback((v) => formatValue(v, measureField ? measureField.type : 'number'), [measureField]);
 
@@ -392,7 +394,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         (def.period ? periodHuman().toUpperCase() : 'AS AT TODAY') + '  |  SORT ' +
         (sort.col || 'DEFAULT') + ' ' + sort.dir.toUpperCase() + '  |  ' + sortedAll.length + ' ROWS',
       description: def.desc,
-      chartType: chartMode !== 'NONE' && chartRows.length ? (CHART_MAP[chartMode] || 'bars') : null,
+      chartTypes: chartOn && chartRows.length ? [...new Set(chartModes.map(t => CHART_MAP[t] || 'bars'))] : [],
       chartRows,
       chartFormat: fmtChart,
       cols: tableCols,
@@ -639,14 +641,17 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               <span className={styles.pvChip}>{sortedAll.length} ROWS MATCH</span>
               <span className={styles.pvChipDd} ref={chartDdRef} data-ta-field>
                 CHART
-                <button className={styles.chartDdBtn} onClick={() => setChartOpen(o => !o)} aria-expanded={chartOpen} title="How the chart is drawn: bars, columns, line, donut or none. Type a letter to jump.">
-                  {chartMode}<FiChevronDown className={chartOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+                <button className={styles.chartDdBtn} onClick={() => setChartOpen(o => !o)} aria-expanded={chartOpen} title="Pick one or more charts (bars, columns, line, donut), or NONE. Type a letter to jump.">
+                  {chartOn ? chartModes.join(' + ') : 'NONE'}<FiChevronDown className={chartOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
                 </button>
                 {chartOpen && (
                   <div className={styles.pickList} data-ta-list>
                     <div className={styles.ddScroll}>
                       {CHART_OPTS.map(t => (
-                        <button key={t} className={styles.pickOption + (chartMode === t ? ' ' + styles.pickOptionActive : '')} onClick={() => { setChartMode(t); setChartOpen(false); }}>{t}</button>
+                        <button key={t} className={styles.pickOption + ((t === 'NONE' ? !chartOn : chartModes.includes(t)) ? ' ' + styles.pickOptionActive : '')}
+                          aria-pressed={t === 'NONE' ? !chartOn : chartModes.includes(t)}
+                          onClick={() => { if (t === 'NONE') { setChartModes([]); setChartOpen(false); } else setChartModes(m => (m.includes(t) ? m.filter(x => x !== t) : [...m, t])); }}>
+                          {t === 'NONE' ? t : (chartModes.includes(t) ? '\u2713 ' : '') + t}</button>
                       ))}
                     </div>
                   </div>
@@ -661,12 +666,16 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           <div className={styles.approachNote}>
             CSV = every matching row, flat, for Excel. PDF = one document: a cover page with the scope and the chart, then the whole table on its own pages (landscape, headings on every page, page numbers). The screen table stays a sample so the page stays fast.
           </div>
-          {chartMode !== 'NONE' && chartRows.length > 0 && (
-            <div className={styles.chartBox} ref={chartRef}>
-              <Chart type={CHART_MAP[chartMode] || 'bars'} rows={chartRows} format={fmtChart} />
+          {chartOn && chartRows.length > 0 && (
+            <div className={chartModes.length > 1 ? styles.chartGrid : undefined} ref={chartRef}>
+              {chartModes.map(t => (
+                <div key={t} className={styles.chartBox}>
+                  <Chart type={CHART_MAP[t] || 'bars'} rows={chartRows} format={fmtChart} />
+                </div>
+              ))}
             </div>
           )}
-          {chartMode !== 'NONE' && chartRows.length === 0 && (
+          {chartOn && chartRows.length === 0 && (
             <div className={styles.pvNote}>NOTHING TO CHART FOR THIS SCOPE</div>
           )}
           <div className={styles.pvScroll}>
