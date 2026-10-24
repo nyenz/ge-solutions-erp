@@ -26,7 +26,10 @@ h1{margin:0;font-size:clamp(24px,4vw,32px);font-weight:900;letter-spacing:-.4px;
 .idea{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
 .where{margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--ink)}
 .sw{display:flex;gap:4px}
-.sw i{flex:1;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.1)}
+.sw{gap:14px;flex-wrap:wrap}
+.pair{display:inline-flex;align-items:center;gap:3px}
+.pair i{width:26px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.1)}
+.pair em{font:normal 11px var(--mono);color:var(--muted);margin-left:4px}
 .frame{position:relative;width:100%;aspect-ratio:860/540;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
 .frame .app{position:absolute;top:0;left:0;transform-origin:0 0}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -78,7 +81,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 <div class="wrap">
   <header>
     <h1>GES DAY: option 1, adjusted</h1>
-    <p class="lead">Your option 1 (Industrial duo) with the changes you asked for: <b>subtler orange</b>, the <b>orange stripes back</b> (the line under the top bar, the left edge of the title, the bar on the picked menu item, the line under box headings, the top line of the number tiles) and <b>less gradient</b>. Five versions from a little to a lot quieter, next to the original. Press <b>Choose this</b> on one, then <b>Copy my choice</b>.</p>
+    <p class="lead">Option 1 again, now with <b>two tones of every main colour</b>, the way your first picture pairs them: <b>blue</b> = midnight navy + cobalt, <b>orange</b> = tangerine + burnt orange, and the <b>third colour</b> = light taupe + dusty taupe (with the light grey page). Orange stays subtle, the orange stripes are back, and the gradient is low. The colour pairs used are shown above each screen. Press <b>Choose this</b> on one, then <b>Copy my choice</b>.</p>
   </header>
 
   <div class="bar" role="status">
@@ -138,44 +141,34 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
           hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.85)', tabInk:'#1F3E6E', tabOn:'#4A6ED1', tabOnInk:'#ffffff',
           panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#4A6ED1', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A' },
       stats:[['linear-gradient(135deg,#FF7A2A,#E0661A)','#0B1020','#0B1020'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
-    { n:'A. Stripes back', from:'a little quieter',
-      idea:'The same look with the orange stripes back everywhere, the side bar gradient halved, and the big orange tile turned into a soft peach tile with an orange top stripe.',
-      where:['Orange stripes: under the top bar, title edge, picked menu bar, under box headings, top of the tiles','Blue: two navies, cobalt only where it helps','Grey page, glassy white boxes'],
-      v:{ page:'#EEF0F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', sideInk:'rgba(255,255,255,.72)', sideOnInk:'#FFC29A', sideBar:'#F07C1A',
-          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.88)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
-          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', side:'linear-gradient(180deg,#1F3E6E 0%,#16305A 100%)', sideOn:'rgba(240,124,26,.14)', deco: ring('92%','88%',120,'rgba(240,124,26,.10)')+','+ring('8%','20%',70,'rgba(74,110,209,.08)'), btnP:'#F07C1A', btnPInk:'#0B1020', btnGlow:'rgba(240,124,26,.25)' },
-      stats:[['rgba(255,236,222,.92)','#C2560F','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
-    { n:'B. All tiles white', from:'quieter',
-      idea:'No orange blocks at all: every tile is white with an orange top stripe. Orange lives only in the stripes and the main button. Very light gradient on the side bar.',
-      where:['Orange stripes: under the top bar, title edge, picked menu bar, under box headings, top of the tiles','Blue: two navies, cobalt only where it helps','Grey page, glassy white boxes'],
-      v:{ page:'#EEF0F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', sideInk:'rgba(255,255,255,.72)', sideOnInk:'#FFC29A', sideBar:'#F07C1A',
-          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.88)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
-          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', side:'linear-gradient(180deg,#1F3E6E 0%,#1A3663 100%)', sideOn:'rgba(240,124,26,.12)', deco: ring('92%','88%',120,'rgba(240,124,26,.10)')+','+ring('8%','20%',70,'rgba(74,110,209,.08)'), btnP:'#F07C1A', btnPInk:'#0B1020', btnGlow:'rgba(240,124,26,.22)' },
-      stats:[['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
-    { n:'C. Flat navy', from:'no gradient',
-      idea:'Like B, but every navy is flat (no gradient at all). The softest orange button: a light tangerine with dark words.',
-      where:['Orange stripes: under the top bar, title edge, picked menu bar, under box headings, top of the tiles','Blue: two navies, cobalt only where it helps','Grey page, glassy white boxes'],
-      v:{ page:'#EEF0F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', sideInk:'rgba(255,255,255,.72)', sideOnInk:'#FFC29A', sideBar:'#F07C1A',
-          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.88)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
-          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', side:'#1F3E6E', sideOn:'rgba(240,124,26,.12)', deco: ring('92%','88%',120,'rgba(240,124,26,.10)')+','+ring('8%','20%',70,'rgba(74,110,209,.08)'), btnP:'#F59A55', btnPInk:'#0B1020', btnGlow:'rgba(240,124,26,.18)' },
-      stats:[['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
-    { n:'D. Burnt stripes', from:'quiet and warm',
-      idea:'Flat navy, white tiles, and the stripes in the deeper burnt orange, so the orange feels calm and grown-up. Button in tangerine.',
-      where:['Orange stripes: under the top bar, title edge, picked menu bar, under box headings, top of the tiles','Blue: two navies, cobalt only where it helps','Grey page, glassy white boxes'],
-      v:{ page:'#EEF0F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', sideInk:'rgba(255,255,255,.72)', sideOnInk:'#FFC29A', sideBar:'#F07C1A',
-          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.88)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
-          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', side:'#1F3E6E', sideOn:'rgba(194,86,15,.16)', deco: ring('92%','88%',120,'rgba(240,124,26,.10)')+','+ring('8%','20%',70,'rgba(74,110,209,.08)'), btnP:'#F07C1A', btnPInk:'#0B1020', btnGlow:'rgba(194,86,15,.2)', topLine:'#C2560F', hdrEdge:'#C2560F', sideBar:'#E0661A', panelHLine:'#C2560F', statTop:'#C2560F', brand:'#F0A06A' },
-      stats:[['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
-    { n:'E. Whisper', from:'the quietest',
-      idea:'Flat navy, white tiles, thin burnt-orange stripes, a pale peach button, and only one faint ring behind the page.',
-      where:['Orange stripes: under the top bar, title edge, picked menu bar, under box headings, top of the tiles','Blue: two navies, cobalt only where it helps','Grey page, glassy white boxes'],
-      v:{ page:'#EEF0F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', sideInk:'rgba(255,255,255,.72)', sideOnInk:'#FFC29A', sideBar:'#F07C1A',
-          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.88)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
-          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', side:'#1F3E6E', sideOn:'rgba(255,255,255,.08)', deco: ring('92%','88%',120,'rgba(194,86,15,.08)'), btnP:'#FBE3D2', btnPInk:'#9A3F0A', btnGlow:'rgba(194,86,15,.12)', topLine:'#C2560F', hdrEdge:'#C2560F', sideBar:'#E0661A', panelHLine:'#C2560F', statTop:'#C2560F', sideOnInk:'#ffffff', brand:'#F0A06A' },
-      stats:[['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
+    { n:'A. Three pairs, balanced', from:'a little quieter',
+      idea:'Midnight top bar and navy side bar (flat), cobalt for the picked tab and box-heading lines. Tangerine stripes and button, burnt orange for numbers and labels. Light taupe tab rail and table shading, dusty taupe hairlines.',
+      where:['Blue: midnight top bar, navy side bar, cobalt picked tab and heading lines','Orange: tangerine stripes and button, burnt numbers and labels','Taupe: light taupe tab rail and row shading, dusty taupe hairlines'],
+      v:{ page:'#EEF0F3', top:'#0B1020', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', side:'#1F3E6E', sideInk:'rgba(255,255,255,.72)', sideOn:'rgba(240,124,26,.14)', sideOnInk:'#FFC29A', sideBar:'#F07C1A', deco:ring('92%','88%',120,'rgba(240,124,26,.10)')+','+ring('8%','20%',70,'rgba(74,110,209,.10)'), hdr:'rgba(255,255,255,.92)', hdrInk:'#14234A', hdrSub:'#8A7068', hdrEdge:'#F07C1A', tab:'#E9DFDA', tabInk:'#5C4A44', tabOn:'#4A6ED1', tabOnInk:'#ffffff', panel:'rgba(255,255,255,.92)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#4A6ED1', rowAlt:'rgba(233,223,218,.45)', idx:'#C2560F', btnP:'#F07C1A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', line2:'rgba(181,154,144,.30)', shadow:'0 6px 18px rgba(20,35,74,.08)', btnGlow:'rgba(240,124,26,.22)', radius:'6px', ok:'#15803d', bad:'#b91c1c', sideLine:'transparent' },
+      stats:[['rgba(255,255,255,.92)','#C2560F','#14234A'],['rgba(255,255,255,.92)','#C2560F','#14234A'],['rgba(255,255,255,.92)','#C2560F','#14234A']] },
+    { n:'B. Cobalt headings', from:'quieter, more blue',
+      idea:'Navy top bar, midnight side bar, and the box headings in cobalt bloom. Tangerine stripes; the button is tangerine with a burnt edge. One tile in light taupe, dusty taupe for the small words.',
+      where:['Blue: navy top bar, midnight side bar, cobalt box headings and picked tab','Orange: tangerine stripes, tangerine button with a burnt edge, burnt numbers','Taupe: one light taupe tile, dusty taupe small words and lines'],
+      v:{ page:'#F0F1F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', side:'#0B1020', sideInk:'rgba(255,255,255,.66)', sideOn:'rgba(74,110,209,.22)', sideOnInk:'#C9D6F5', sideBar:'#F07C1A', deco:ring('92%','88%',120,'rgba(194,86,15,.08)')+','+ring('8%','20%',70,'rgba(74,110,209,.10)'), hdr:'rgba(255,255,255,.92)', hdrInk:'#0B1020', hdrSub:'#8A7068', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.92)', tabInk:'#1F3E6E', tabOn:'#4A6ED1', tabOnInk:'#ffffff', panel:'rgba(255,255,255,.92)', panelInk:'#0B1020', panelH:'#4A6ED1', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btnP:'#F07C1A', btnPInk:'#0B1020', btn2:'#4A6ED1', text:'#0B1020', statTop:'#F07C1A', line2:'rgba(181,154,144,.28)', shadow:'0 6px 18px rgba(20,35,74,.08)', btnGlow:'rgba(194,86,15,.25)', radius:'6px', ok:'#15803d', bad:'#b91c1c', sideLine:'transparent' },
+      stats:[['rgba(255,255,255,.92)','#8A7068','#0B1020'],['#E9DFDA','#5C4A44','#0B1020'],['rgba(255,255,255,.92)','#8A7068','#0B1020']] },
+    { n:'C. Warm taupe page', from:'quieter, warmer',
+      idea:'The page itself is light taupe with dusty taupe rings. Navy top and side bars, midnight box headings, cobalt picked menu item. Burnt-orange stripes, tangerine button.',
+      where:['Blue: navy frame, midnight box headings, cobalt picked menu item and tab','Orange: burnt stripes, tangerine button and tile top lines','Taupe: light taupe page, dusty taupe rings and lines'],
+      v:{ page:'#F1ECE8', top:'#1F3E6E', topInk:'#ffffff', topLine:'#C2560F', brand:'#F59A55', side:'#1F3E6E', sideInk:'rgba(255,255,255,.72)', sideOn:'#4A6ED1', sideOnInk:'#ffffff', sideBar:'#C2560F', deco:ring('92%','88%',120,'rgba(181,154,144,.30)')+','+ring('92%','88%',85,'rgba(181,154,144,.18)'), hdr:'rgba(255,255,255,.9)', hdrInk:'#0B1020', hdrSub:'#8A7068', hdrEdge:'#C2560F', tab:'#E9DFDA', tabInk:'#5C4A44', tabOn:'#1F3E6E', tabOnInk:'#ffffff', panel:'rgba(255,255,255,.9)', panelInk:'#0B1020', panelH:'#0B1020', panelHInk:'#FFC29A', panelHLine:'#C2560F', rowAlt:'rgba(233,223,218,.45)', idx:'#C2560F', btnP:'#F07C1A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#0B1020', statTop:'#F07C1A', line2:'rgba(181,154,144,.35)', shadow:'0 6px 18px rgba(60,40,30,.07)', btnGlow:'rgba(240,124,26,.2)', radius:'6px', ok:'#15803d', bad:'#b91c1c', sideLine:'transparent' },
+      stats:[['rgba(255,255,255,.9)','#C2560F','#0B1020'],['rgba(255,255,255,.9)','#C2560F','#0B1020'],['rgba(255,255,255,.9)','#C2560F','#0B1020']] },
+    { n:'D. Paired tiles', from:'quiet, clear pairs',
+      idea:'Each pair shows itself once: the three number tiles are white with a tangerine, a cobalt and a dusty taupe top stripe. Midnight top bar, navy side bar, burnt orange for the title edge and the picked menu bar.',
+      where:['Blue: midnight top bar, navy side bar, cobalt tile stripe and picked tab','Orange: tangerine tile stripe and button, burnt title edge and menu bar','Taupe: dusty taupe tile stripe, light taupe table shading'],
+      v:{ page:'#EEF0F3', top:'#0B1020', topInk:'#ffffff', topLine:'#F07C1A', brand:'#F59A55', side:'#1F3E6E', sideInk:'rgba(255,255,255,.72)', sideOn:'rgba(194,86,15,.18)', sideOnInk:'#FFC29A', sideBar:'#C2560F', deco:ring('92%','88%',120,'rgba(240,124,26,.09)')+','+ring('8%','20%',70,'rgba(74,110,209,.09)'), hdr:'rgba(255,255,255,.92)', hdrInk:'#14234A', hdrSub:'#8A7068', hdrEdge:'#C2560F', tab:'rgba(255,255,255,.92)', tabInk:'#1F3E6E', tabOn:'#4A6ED1', tabOnInk:'#ffffff', panel:'rgba(255,255,255,.92)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#F07C1A', rowAlt:'rgba(233,223,218,.40)', idx:'#C2560F', btnP:'#F07C1A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A', statTop:'#F07C1A', line2:'rgba(31,62,110,.10)', shadow:'0 6px 18px rgba(20,35,74,.08)', btnGlow:'rgba(240,124,26,.22)', radius:'6px', ok:'#15803d', bad:'#b91c1c', sideLine:'transparent' },
+      stats:[['rgba(255,255,255,.92)','#C2560F','#14234A','#F07C1A'],['rgba(255,255,255,.92)','#4A6ED1','#14234A','#4A6ED1'],['rgba(255,255,255,.92)','#8A7068','#14234A','#B59A90']] },
+    { n:'E. Whisper pairs', from:'the quietest',
+      idea:'Light and calm: navy top bar, midnight side bar, both flat. Cobalt only for the picked tab and index numbers, thin burnt stripes, a soft tangerine button, light taupe tab rail and dusty taupe hairlines.',
+      where:['Blue: navy top bar, midnight side bar, cobalt picked tab and index numbers','Orange: thin burnt stripes, soft tangerine button','Taupe: light taupe tab rail, dusty taupe hairlines'],
+      v:{ page:'#F3F4F6', top:'#1F3E6E', topInk:'#ffffff', topLine:'#C2560F', brand:'#F0A06A', side:'#0B1020', sideInk:'rgba(255,255,255,.62)', sideOn:'rgba(255,255,255,.08)', sideOnInk:'#ffffff', sideBar:'#C2560F', deco:ring('92%','88%',120,'rgba(194,86,15,.07)'), hdr:'rgba(255,255,255,.92)', hdrInk:'#14234A', hdrSub:'#8A7068', hdrEdge:'#C2560F', tab:'#E9DFDA', tabInk:'#5C4A44', tabOn:'#4A6ED1', tabOnInk:'#ffffff', panel:'rgba(255,255,255,.92)', panelInk:'#14234A', panelH:'rgba(255,255,255,.92)', panelHInk:'#1F3E6E', panelHLine:'#C2560F', rowAlt:'rgba(233,223,218,.35)', idx:'#4A6ED1', btnP:'#F59A55', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A', statTop:'#C2560F', line2:'rgba(181,154,144,.30)', shadow:'0 4px 14px rgba(20,35,74,.06)', btnGlow:'rgba(194,86,15,.15)', radius:'6px', ok:'#15803d', bad:'#b91c1c', sideLine:'transparent' },
+      stats:[['rgba(255,255,255,.92)','#8A7068','#14234A'],['rgba(255,255,255,.92)','#8A7068','#14234A'],['rgba(255,255,255,.92)','#8A7068','#14234A']] },
   ];
 
-  var KEY='gs-gesday-option1-v1', picks={};
+  var KEY='gs-gesday-option1-v2', picks={};
   try{ picks=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ picks={}; }
   var grid=document.getElementById('grid'), tpl=document.getElementById('tpl');
   var frames=[];
@@ -185,14 +178,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   C.forEach(function(c,i){
     var v=Object.assign({},base,c.v);
     var card=document.createElement('article'); card.className='card'+(picks[c.n]?' picked':'');
-    var sw=['#0B1020',v.top,v.side,v.page,v.panelH,v.btnP,v.tabOn].map(function(x){return '<i style="background:'+x+'"></i>';}).join('');
+    var PAIRS=[['#0B1020','#4A6ED1','blue'],['#F07C1A','#C2560F','orange'],['#E9DFDA','#B59A90','taupe']]; var sw=PAIRS.map(function(p){return '<span class="pair"><i style="background:'+p[0]+'"></i><i style="background:'+p[1]+'"></i><em>'+p[2]+'</em></span>';}).join('');
     card.innerHTML='<div class="cHead"><h2>'+c.n+'</h2><span>'+c.from+'</span></div>'+
       '<p class="idea">'+c.idea+'</p><div class="sw" aria-hidden="true">'+sw+'</div><div class="frame"></div>'+
       '<ul class="where">'+c.where.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul>'+
       '<div class="row"><button type="button" class="btn pick" aria-pressed="'+(!!picks[c.n])+'">'+(picks[c.n]?'Chosen':'Choose this')+'</button></div>';
     var app=tpl.content.firstElementChild.cloneNode(true);
     Object.keys(v).forEach(function(k){ app.style.setProperty('--'+k, v[k]); });
-    app.querySelectorAll('.aStat').forEach(function(s,j){ var t=c.stats[j]; s.style.background=t[0]; s.querySelector('small').style.color=t[1]; s.querySelector('strong').style.color=t[2]; });
+    app.querySelectorAll('.aStat').forEach(function(s,j){ var t=c.stats[j]; s.style.background=t[0]; s.querySelector('small').style.color=t[1]; s.querySelector('strong').style.color=t[2]; if(t[3]) s.style.borderTopColor=t[3]; });
     card.querySelector('.frame').appendChild(app); frames.push(card.querySelector('.frame'));
     var b=card.querySelector('.pick');
     b.addEventListener('click',function(){ var on=!picks[c.n]; picks={}; if(on) picks[c.n]=true; grid.querySelectorAll('.card').forEach(function(x){ x.classList.remove('picked'); var y=x.querySelector('.pick'); y.textContent='Choose this'; y.setAttribute('aria-pressed','false'); }); if(on){ card.classList.add('picked'); b.textContent='Chosen'; b.setAttribute('aria-pressed','true'); } save(); count(); });
