@@ -1,0 +1,209 @@
+<title>GES Day Final Three</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:wght@500;700;900&family=Inter:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: a header, then one card per colour CONCEPT (a mini Golden Seed screen + where each colour goes), 2 per row on wide screens. */
+:root{
+  --bg:#f1f2f4; --surface:#ffffff; --ink:#151b26; --muted:#5e6676; --line:#dde1e8; --focus:#e8661a;
+  --ui:'DM Sans',ui-sans-serif,system-ui,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141b; --surface:#181e28; --ink:#eef1f6; --muted:#9aa3b2; --line:#2a3240; --focus:#ff8a45; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141b; --surface:#181e28; --ink:#eef1f6; --muted:#9aa3b2; --line:#2a3240; --focus:#ff8a45; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:22px 48px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{margin:0;font-size:clamp(24px,4vw,32px);font-weight:900;letter-spacing:-.4px;text-wrap:balance}
+.lead{margin:6px 0 0;color:var(--muted);font-size:14.5px;line-height:1.6;max-width:78ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+/* three big cards, one under the other, so every detail is easy to judge */
+.grid{max-width:1150px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.picked{outline:3px solid var(--focus);outline-offset:2px}
+.cHead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cHead h2{margin:0;font-size:19px;font-weight:900}
+.cHead span{font:12px var(--mono);color:var(--muted)}
+.idea{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.where{margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--ink)}
+.sw{display:flex;gap:4px}
+.sw{gap:14px;flex-wrap:wrap}
+.pair{display:inline-flex;align-items:center;gap:3px}
+.pair i{width:26px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.1)}
+.pair em{font:normal 11px var(--mono);color:var(--muted);margin-left:4px}
+.frame{position:relative;width:100%;aspect-ratio:860/540;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.frame .app{position:absolute;top:0;left:0;transform-origin:0 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{height:38px;padding:0 16px;border-radius:9px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 12.5px var(--ui);cursor:pointer;transition:border-color .2s,background .2s}
+.btn:hover{border-color:var(--focus)}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.card.picked .pick{background:var(--focus);border-color:var(--focus);color:#fff}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar b{font-size:13px}
+.done{font-size:12.5px;color:var(--focus);font-weight:700}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+
+/* ===== the mini Golden Seed screen: same layout and fonts as the app, every colour from the concept ===== */
+.app{width:860px;height:540px;display:grid;grid-template-columns:170px 1fr;grid-template-rows:52px 1fr;background:var(--page);font-family:'Inter',sans-serif;color:var(--text)}
+.aTop{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 14px;background:var(--top);border-bottom:2px solid var(--topLine)}
+.aBrand{display:flex;align-items:center;gap:9px;font:700 15px 'Cinzel',serif;letter-spacing:2px;color:var(--brand)}
+.aUser{display:flex;align-items:center;gap:8px;color:var(--topInk);font:700 11px 'DM Sans',sans-serif;letter-spacing:.6px}
+.aAv{width:26px;height:26px;border-radius:6px;background:var(--btnP);color:var(--btnPInk);display:grid;place-items:center;font-weight:900}
+.aSide{background:var(--side);border-right:1px solid var(--sideLine);padding:10px 0;display:flex;flex-direction:column;gap:2px}
+.aNav{display:flex;align-items:center;gap:10px;padding:9px 14px;border-left:3px solid transparent;font:900 10px 'DM Sans',sans-serif;letter-spacing:1.3px;color:var(--sideInk)}
+.aNav b{width:14px;height:14px;border-radius:3px;border:1.5px solid currentColor;opacity:.8}
+.aNav.on{color:var(--sideOnInk);border-left-color:var(--sideBar);background:var(--sideOn)}
+.aMain{background:var(--deco)}
+.aMain{padding:14px 18px;display:flex;flex-direction:column;gap:11px;overflow:hidden}
+.aTitle{background:var(--hdr);border-left:4px solid var(--hdrEdge);border-radius:6px;padding:10px 14px;box-shadow:var(--shadow)}
+.aTitle h2{margin:0;font:700 20px 'Cinzel',serif;letter-spacing:1.5px;color:var(--hdrInk)}
+.aTitle p{margin:2px 0 0;font:900 9px 'DM Sans',sans-serif;letter-spacing:1.4px;color:var(--hdrSub)}
+.aStats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.aStat{border:1px solid var(--line2);border-radius:8px;padding:10px 12px;border-top:3px solid var(--statTop);box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+.aStat small{display:block;font:900 8.5px 'DM Sans',sans-serif;letter-spacing:1.3px}
+.aStat strong{display:block;margin-top:4px;font:700 16px 'Space Mono',monospace}
+.aTabs{display:flex;gap:4px;padding:4px;border-radius:8px;background:var(--tab);align-self:flex-start;border:1px solid var(--line2);backdrop-filter:blur(6px)}
+.aTab{padding:6px 11px;border-radius:5px;font:900 9.5px 'DM Sans',sans-serif;letter-spacing:1.2px;color:var(--tabInk)}
+.aTab.on{background:var(--tabOn);color:var(--tabOnInk)}
+.aPanel{background:var(--panel);border:1px solid var(--line2);border-radius:8px;overflow:hidden;color:var(--panelInk);box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+.aPanelH{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--panelH);border-bottom:2px solid var(--panelHLine);font:700 12px 'Cinzel',serif;letter-spacing:1.6px;color:var(--panelHInk)}
+.aRow{display:grid;grid-template-columns:70px 1fr 90px 110px;gap:10px;padding:8px 14px;font-size:11.5px;border-bottom:1px solid var(--line2);align-items:center}
+.aRow:nth-child(even){background:var(--rowAlt)}
+.aRow .ix{font:700 11px 'Space Mono',monospace;color:var(--idx)}
+.aRow .ok{color:var(--ok);font:900 9px 'DM Sans',sans-serif;letter-spacing:1px}
+.aRow .bad{color:var(--bad);font:700 11px 'Space Mono',monospace;text-align:right}
+.aBtns{display:flex;gap:8px}
+.aBtn{padding:8px 14px;border-radius:6px;font:900 10px 'DM Sans',sans-serif;letter-spacing:1.2px;border:1.5px solid var(--btn2);color:var(--btn2);background:transparent}
+.aBtn.p{background:var(--btnP);border-color:transparent;color:var(--btnPInk);box-shadow:0 3px 10px var(--btnGlow)}
+.aBtn.p,.aBtn{border-radius:var(--radius)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>GES DAY: the final three</h1>
+    <p class="lead">Built on your rules: <b>no dark blue</b> (cobalt is the darker blue, a light sky blue its partner), <b>no cream</b> (cool white and the palest grey-blue), <b>no dark orange</b> (tangerine is the darker orange, a light apricot its partner). The top bar and side bar share the same cobalt tones, with a quiet play of depth across them. Each option adds one artistic idea from the land-surveying world. Press <b>Choose this</b> on one, then <b>Copy my choice</b>.</p>
+  </header>
+
+  <div class="bar" role="status">
+    <b id="count">Nothing chosen yet</b>
+    <button type="button" class="btn" id="copy">Copy my choice</button>
+    <span class="done" id="done" aria-live="polite"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<template id="tpl">
+  <div class="app">
+    <div class="aTop"><div class="aBrand"><span>🌱</span>GOLDEN SEED</div><div class="aUser">TEST.DIRECTOR <div class="aAv">T</div></div></div>
+    <nav class="aSide">
+      <div class="aNav"><b></b>DASHBOARD</div><div class="aNav"><b></b>NEW PROJECT</div><div class="aNav on"><b></b>LEDGER</div>
+      <div class="aNav"><b></b>RECOVERY</div><div class="aNav"><b></b>CLIENTS</div><div class="aNav"><b></b>PAYMENTS</div><div class="aNav"><b></b>REPORTS</div><div class="aNav"><b></b>SETTINGS</div>
+    </nav>
+    <main class="aMain">
+      <div class="aTitle"><h2>PROJECT LEDGER</h2><p>EVERY PROJECT, FOLDER TO RELEASE, LIVE PAYMENT HEALTH</p></div>
+      <div class="aStats">
+        <div class="aStat"><small>TITLE COLLECTED</small><strong>UGX 399.5M</strong></div>
+        <div class="aStat"><small>STILL OWED</small><strong>UGX 396.0M</strong></div>
+        <div class="aStat"><small>THIS MONTH</small><strong>UGX 16.9M</strong></div>
+      </div>
+      <div class="aTabs"><span class="aTab on">ALL PROJECTS</span><span class="aTab">LEGACY</span><span class="aTab">RECEIVABLES</span><span class="aTab">PAID</span></div>
+      <div class="aPanel">
+        <div class="aPanelH">TODAY'S WORK <span style="font:700 10px 'Space Mono',monospace">4</span></div>
+        <div class="aRow"><span class="ix">#021A</span><span>KEMIGISHA OSCAR · Area Land Committee</span><span class="ok">ACTIVE</span><span class="bad">UGX 3,480,000</span></div>
+        <div class="aRow"><span class="ix">#022A</span><span>WANDERA MOSES · Area Land Committee</span><span class="ok">ACTIVE</span><span class="bad">UGX 3,080,000</span></div>
+        <div class="aRow"><span class="ix">#034A</span><span>NAMIGADDE STELLA · Complete</span><span class="ok">FULLY PAID</span><span class="bad">UGX 0</span></div>
+        <div class="aRow"><span class="ix">#043A</span><span>OLUKA WILSON · Complete</span><span class="ok">ACTIVE</span><span class="bad">UGX 1,750,000</span></div>
+      </div>
+      <div class="aBtns"><span class="aBtn p">RECORD PAYMENT</span><span class="aBtn">EDIT</span><span class="aBtn">CANCEL</span></div>
+    </main>
+  </div>
+</template>
+
+<script>
+(function(){
+  // The two tones of each colour (from David's pictures, 24 Oct 2026):
+  //   blue   midnight #0B1020 / deep #14234A, industrial navy #1F3E6E, cobalt #4A6ED1
+  //   orange tangerine #FF7A2A / #F07C1A, burnt #C2560F / #E0661A, peach glow rgba(255,122,42,.x)
+  //   taupe  dusty #B59A90, light #E9DFDA        page grey #EEF0F3 / #F2F4F7
+  // Small text on orange is dark ink. The see-through touches: faint rings and glows behind the work area (--deco),
+  // glassy boxes (white at 86-92 %), soft shadows (--shadow), a gently glowing main button (--btnGlow).
+  var ring = function(x, y, r, c){ return 'radial-gradient(circle at '+x+' '+y+', transparent 0 '+r+'px, '+c+' '+r+'px '+(r+2)+'px, transparent '+(r+2)+'px)'; };
+  var glow = function(x, y, r, c){ return 'radial-gradient(circle at '+x+' '+y+', '+c+' 0, transparent '+r+'px)'; };
+  var base = { topLine:'transparent', sideLine:'transparent', sideBar:'transparent', hdrSub:'#6b7280', line2:'rgba(31,62,110,.10)', ok:'#15803d', bad:'#b91c1c',
+               panelHLine:'transparent', statTop:'transparent', shadow:'0 6px 18px rgba(20,35,74,.08)', btnGlow:'rgba(255,122,42,.35)', radius:'6px', deco:'transparent' };
+  // Pairs (David, 24 Oct 2026): blue = cobalt #4A6ED1 (darker) + sky #A9BFF2 (lighter); orange = tangerine #FF7A2A (darker)
+  // + apricot #FFC9A0 (lighter); neutrals cool white #FFFFFF / #F4F7FC. No midnight navy, no cream, no burnt orange.
+  // Words are graphite #232833. Top bar and side bar share the same cobalt tones: the top bar runs a touch lighter to the
+  // right, the side bar a touch lighter downward, so they meet in the same cobalt at the logo corner.
+  var TOP = 'linear-gradient(90deg,#4A6ED1 0%,#4F73D4 45%,#5A7DDA 100%)';
+  var SIDE = 'linear-gradient(180deg,#4A6ED1 0%,#4C70D2 55%,#5679D8 100%)';
+  var C = [
+    { n:'1. Sky glass', from:'clean and airy',
+      idea:'Cobalt frame with a soft sheen, and everything inside is glass: white boxes over two faint rings (one sky, one apricot). Sky blue headings bands, tangerine only where you act, apricot for the quiet stripes.',
+      where:['Blue: cobalt frame (same tones top and side), sky blue heading bands and picked tab','Orange: tangerine button and picked-menu bar, apricot stripes and tile tops','Cool white page, glass boxes, graphite words'],
+      v:{ page:'#F4F7FC', top:TOP, topInk:'#ffffff', topLine:'#FFC9A0', brand:'#FFE1CB', side:SIDE, sideInk:'rgba(255,255,255,.82)', sideOn:'rgba(255,255,255,.18)', sideOnInk:'#ffffff', sideBar:'#FF7A2A',
+          deco: ring('92%','90%',130,'rgba(169,191,242,.35)')+','+ring('92%','90%',95,'rgba(255,201,160,.35)'),
+          hdr:'rgba(255,255,255,.92)', hdrInk:'#232833', hdrSub:'#6B7487', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.9)', tabInk:'#4A6ED1', tabOn:'#A9BFF2', tabOnInk:'#232833',
+          panel:'rgba(255,255,255,.92)', panelInk:'#232833', panelH:'#E6EDFB', panelHInk:'#4A6ED1', panelHLine:'#FFC9A0', rowAlt:'rgba(169,191,242,.10)', idx:'#4A6ED1', btnP:'#FF7A2A', btnPInk:'#232833', btn2:'#4A6ED1', text:'#232833',
+          statTop:'#FFC9A0', line2:'rgba(74,110,209,.12)', shadow:'0 6px 20px rgba(74,110,209,.10)', btnGlow:'rgba(255,122,42,.28)' },
+      stats:[['rgba(255,255,255,.92)','#4A6ED1','#232833','#FF7A2A'],['rgba(255,255,255,.92)','#4A6ED1','#232833','#FFC9A0'],['rgba(255,255,255,.92)','#4A6ED1','#232833','#A9BFF2']] },
+    { n:'2. Blueprint', from:'the surveyor\'s drawing',
+      idea:'The cobalt frame carries a fine drawing grid, like a blueprint, in its own lighter tone. The page has the same grid, almost invisible. Box headings are cobalt bands, the picked tab is sky blue, tangerine marks the actions.',
+      where:['Blue: cobalt frame with a faint sky grid, cobalt heading bands, sky picked tab','Orange: tangerine button and title edge, apricot tile tops and picked-menu glow','White boxes on a pale grid page, graphite words'],
+      v:{ page:'repeating-linear-gradient(0deg,rgba(74,110,209,.05) 0 1px,transparent 1px 22px),repeating-linear-gradient(90deg,rgba(74,110,209,.05) 0 1px,transparent 1px 22px),#F6F8FC',
+          top:'repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,transparent 1px 22px),'+TOP, topInk:'#ffffff', topLine:'#FF7A2A', brand:'#FFE1CB',
+          side:'repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 1px,transparent 1px 22px),repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,transparent 1px 22px),'+SIDE, sideInk:'rgba(255,255,255,.82)', sideOn:'rgba(255,201,160,.22)', sideOnInk:'#ffffff', sideBar:'#FFC9A0',
+          deco:'transparent',
+          hdr:'rgba(255,255,255,.94)', hdrInk:'#232833', hdrSub:'#6B7487', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.94)', tabInk:'#4A6ED1', tabOn:'#A9BFF2', tabOnInk:'#232833',
+          panel:'rgba(255,255,255,.95)', panelInk:'#232833', panelH:'#4A6ED1', panelHInk:'#ffffff', panelHLine:'#FFC9A0', rowAlt:'rgba(169,191,242,.10)', idx:'#4A6ED1', btnP:'#FF7A2A', btnPInk:'#232833', btn2:'#4A6ED1', text:'#232833',
+          statTop:'#FFC9A0', line2:'rgba(74,110,209,.14)', shadow:'0 4px 14px rgba(74,110,209,.10)', btnGlow:'rgba(255,122,42,.25)', radius:'4px' },
+      stats:[['rgba(255,255,255,.95)','#4A6ED1','#232833','#FF7A2A'],['rgba(255,255,255,.95)','#4A6ED1','#232833','#FFC9A0'],['rgba(255,255,255,.95)','#4A6ED1','#232833','#FFC9A0']] },
+    { n:'3. Contour', from:'the land itself',
+      idea:'Soft contour lines, like a survey map of the hills, run through the cobalt frame and fade into the corner of the page. White headings with a sky underline and an apricot glow on the picked items; tangerine for the main action.',
+      where:['Blue: cobalt frame with lighter contour lines, sky underlines and picked tab','Orange: tangerine button and title edge, apricot glow on picked menu item and tile tops','White page with faint contours in one corner, graphite words'],
+      v:{ page:'#FFFFFF',
+          top:'repeating-radial-gradient(ellipse at 85% 140%,transparent 0 14px,rgba(255,255,255,.07) 14px 15px),'+TOP, topInk:'#ffffff', topLine:'#FFC9A0', brand:'#FFE1CB',
+          side:'repeating-radial-gradient(ellipse at -30% 105%,transparent 0 16px,rgba(255,255,255,.07) 16px 17px),'+SIDE, sideInk:'rgba(255,255,255,.82)', sideOn:'linear-gradient(90deg,rgba(255,201,160,.30),rgba(255,201,160,0))', sideOnInk:'#ffffff', sideBar:'#FF7A2A',
+          deco:'repeating-radial-gradient(ellipse at 105% 115%,transparent 0 18px,rgba(74,110,209,.06) 18px 19px)',
+          hdr:'rgba(255,255,255,.94)', hdrInk:'#232833', hdrSub:'#6B7487', hdrEdge:'#FF7A2A', tab:'#F1F5FD', tabInk:'#4A6ED1', tabOn:'#4A6ED1', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.95)', panelInk:'#232833', panelH:'#ffffff', panelHInk:'#4A6ED1', panelHLine:'#A9BFF2', rowAlt:'rgba(255,201,160,.10)', idx:'#4A6ED1', btnP:'#FF7A2A', btnPInk:'#232833', btn2:'#4A6ED1', text:'#232833',
+          statTop:'#FFC9A0', line2:'rgba(74,110,209,.12)', shadow:'0 6px 18px rgba(74,110,209,.09)', btnGlow:'rgba(255,122,42,.28)' },
+      stats:[['rgba(255,255,255,.95)','#4A6ED1','#232833','#FF7A2A'],['rgba(255,255,255,.95)','#4A6ED1','#232833','#A9BFF2'],['rgba(255,255,255,.95)','#4A6ED1','#232833','#FFC9A0']] }
+  ];
+
+  var KEY='gs-gesday-final3-v1', picks={};
+  try{ picks=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ picks={}; }
+  var grid=document.getElementById('grid'), tpl=document.getElementById('tpl');
+  var frames=[];
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(picks)); }catch(e){} }
+  function count(){ var k=Object.keys(picks).filter(function(x){return picks[x];}); var i=C.findIndex(function(c){return c.n===k[0];}); document.getElementById('count').textContent=k.length?'Chosen: '+k[0]:'Nothing chosen yet'; }
+
+  C.forEach(function(c,i){
+    var v=Object.assign({},base,c.v);
+    var card=document.createElement('article'); card.className='card'+(picks[c.n]?' picked':'');
+    var PAIRS=[['#4A6ED1','#A9BFF2','blue: cobalt + sky'],['#FF7A2A','#FFC9A0','orange: tangerine + apricot'],['#F4F7FC','#FFFFFF','cool white']]; var sw=PAIRS.map(function(p){return '<span class="pair"><i style="background:'+p[0]+'"></i><i style="background:'+p[1]+'"></i><em>'+p[2]+'</em></span>';}).join('');
+    card.innerHTML='<div class="cHead"><h2>'+c.n+'</h2><span>'+c.from+'</span></div>'+
+      '<p class="idea">'+c.idea+'</p><div class="sw" aria-hidden="true">'+sw+'</div><div class="frame"></div>'+
+      '<ul class="where">'+c.where.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul>'+
+      '<div class="row"><button type="button" class="btn pick" aria-pressed="'+(!!picks[c.n])+'">'+(picks[c.n]?'Chosen':'Choose this')+'</button></div>';
+    var app=tpl.content.firstElementChild.cloneNode(true);
+    Object.keys(v).forEach(function(k){ app.style.setProperty('--'+k, v[k]); });
+    app.querySelectorAll('.aStat').forEach(function(s,j){ var t=c.stats[j]; s.style.background=t[0]; s.querySelector('small').style.color=t[1]; s.querySelector('strong').style.color=t[2]; if(t[3]) s.style.borderTopColor=t[3]; });
+    card.querySelector('.frame').appendChild(app); frames.push(card.querySelector('.frame'));
+    var b=card.querySelector('.pick');
+    b.addEventListener('click',function(){ var on=!picks[c.n]; picks={}; if(on) picks[c.n]=true; grid.querySelectorAll('.card').forEach(function(x){ x.classList.remove('picked'); var y=x.querySelector('.pick'); y.textContent='Choose this'; y.setAttribute('aria-pressed','false'); }); if(on){ card.classList.add('picked'); b.textContent='Chosen'; b.setAttribute('aria-pressed','true'); } save(); count(); });
+    grid.appendChild(card);
+  });
+  function fit(){ frames.forEach(function(fr){ var a=fr.firstChild; if(a) a.style.transform='scale('+(fr.clientWidth/860)+')'; }); }
+  fit(); window.addEventListener('resize',fit); count();
+
+  document.getElementById('copy').addEventListener('click',function(){
+    var list=C.map(function(c,i){return picks[c.n]?c.n:null;}).filter(Boolean);
+    var t='GES DAY final option I choose: '+(list.length?list.join(', '):'(none yet)');
+    var done=document.getElementById('done');
+    try{ navigator.clipboard.writeText(t).then(function(){done.textContent='Copied. Paste it to Claude.';},function(){done.textContent=t;}); }catch(e){ done.textContent=t; }
+  });
+})();
+</script>
