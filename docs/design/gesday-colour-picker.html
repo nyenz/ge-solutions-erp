@@ -103,11 +103,11 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
 <div class="wrap">
   <header>
     <h1>GES DAY: pick the colours</h1>
-    <p class="lead">Ten versions of GES DAY in the GES website navy and orange, on the same Golden Seed screen. Pick one, or press <b>Fine-tune this one</b> to adjust it below. Then press <b>Copy my colours</b> and paste the text to Claude.</p>
+    <p class="lead">Fifteen versions of GES DAY in the GES website navy and orange (11 to 15 use only the website's own colours), on the same Golden Seed screen. Pick one, or press <b>Fine-tune this one</b> to adjust it below. Then press <b>Copy my colours</b> and paste the text to Claude.</p>
   </header>
 
   <section class="box" aria-label="Ten GES DAY versions">
-    <div class="lbl">10 versions + today's, side by side (same screen, only the colours differ)</div>
+    <div class="lbl">15 versions + today's, side by side (same screen, only the colours differ)</div>
     <div class="h2h" id="h2h"></div>
   </section>
 
@@ -126,7 +126,7 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
         </div>
       </div>
 
-      <div class="lbl">Quick starts: 10 versions + today's. Tap one, then fine-tune above</div>
+      <div class="lbl">Quick starts: 15 versions + today's. Tap one, then fine-tune above</div>
       <div class="chips" id="presets"></div>
 
       <div class="lbl">3. Send to Claude</div>
@@ -195,7 +195,14 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
     P('7. Sand & navy','deeper sand page','#EFE6D6','#0B2545','#071A33','#0B2545','#EA580C'),
     P('8. Cool paper','grey-white page, crisp','#F2F3F0','#0E2A4A','#081C34','#0E2A4A','#EA580C'),
     P('9. Ocean navy','bluer navy, bright orange','#F5F2EC','#0F3460','#0A2647','#0A2647','#F2742A'),
-    P('10. Slate navy','grey-blue navy, quiet','#F4F1EA','#243B53','#18293D','#1B2E44','#E8692A')
+    P('10. Slate navy','grey-blue navy, quiet','#F4F1EA','#243B53','#18293D','#1B2E44','#E8692A'),
+    // 11-15: built only from the colours the GES website itself uses (navy #0b2545, #13355e, #1b3a63, #071a33,
+    // orange #ea580c / #c2410c, cream #fdfaf4, sand #f3ede2, body text #4b5563)
+    P('11. Site cream, slate boxes','website cream, its slate navy panels','#FDFAF4','#13355E','#0B2545','#0B2545','#EA580C'),
+    P('12. Site sand & dark orange','website sand page, its hover orange','#F3EDE2','#0B2545','#071A33','#0B2545','#C2410C'),
+    P('13. Site hover orange','website cream, the darker orange','#FDFAF4','#0B2545','#071A33','#0B2545','#C2410C'),
+    P('14. Site grey words','website cream, its grey body text','#FDFAF4','#1B3A63','#0B2545','#4B5563','#EA580C'),
+    P('15. Site sand, night bar','website sand, slate panels, night header','#F3EDE2','#13355E','#071A33','#071A33','#EA580C')
   ];
   var KEY='gs-gesday-colours-v1', cur={}, sel='panel';
   try{ var saved=JSON.parse(localStorage.getItem(KEY)||'null'); if(saved) cur=saved; }catch(e){}
