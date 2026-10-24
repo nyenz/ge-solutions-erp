@@ -74,9 +74,10 @@ public class NotificationServiceTest {
         service.emitToAudience("PENDING_CREATED", "New pending", "PROJECT", p);
         service.emitToAudience("PENDING_CREATED", "New pending again", "PROJECT", p);
         List<Notification> r = rows("PENDING_CREATED", p);
-        assertEquals(2, r.size(), "one for the Secretary and one for the Manager, not repeated");
+        assertEquals(3, r.size(), "one each for the Secretary, the Manager and (fix241) the Director, not repeated");
         assertTrue(r.stream().anyMatch(n -> n.getTargetRole().equals("ROLE_SECRETARY")));
         assertTrue(r.stream().anyMatch(n -> n.getTargetRole().equals("ROLE_MANAGER")));
+        assertTrue(r.stream().anyMatch(n -> n.getTargetRole().equals("ROLE_DIRECTOR")));
         assertTrue(r.stream().allMatch(n -> "PIPELINE".equals(n.getCategory())));
     }
 
