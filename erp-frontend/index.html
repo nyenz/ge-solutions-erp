@@ -14,7 +14,7 @@
     <script>
       (function () {
         try {
-          var A = { theme: ['ges', 'gesnavy', 'classic', 'dark', 'bright'], uiScale: ['90', '100', '110', '125'], motion: ['full', 'reduced'],
+          var A = { theme: ['ges', 'gesnavy', 'classic', 'ctruer', 'cdeep', 'cking', 'dark', 'bright'], uiScale: ['90', '100', '110', '125'], motion: ['full', 'reduced'],
                     tips: ['normal', 'fast', 'off'], contrast: ['normal', 'high'] };
           var D = { theme: 'ges', uiScale: '100', motion: 'full', tips: 'normal', contrast: 'normal' };
           var ls = window.localStorage, u = null, p = null;
@@ -32,7 +32,7 @@
           r.setAttribute('data-contrast', v.contrast);
           r.style.setProperty('--ui-scale', String(Number(v.uiScale) / 100));
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', ({ dark: '#16292b', bright: '#f8f5f0', ges: '#0b2545', gesnavy: '#071a33' })[v.theme] || '#1a2e30');
+          if (m) m.setAttribute('content', ({ dark: '#16292b', bright: '#f8f5f0', ges: '#0b2545', gesnavy: '#071a33', ctruer: '#14302f', cdeep: '#123134', cking: '#0c3a41' })[v.theme] || '#1a2e30');
         } catch (e) { /* storage blocked: the defaults in index.css apply */ }
       })();
     </script>
