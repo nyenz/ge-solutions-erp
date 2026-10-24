@@ -15,7 +15,7 @@ export const DEFAULT_PREFS = {
 
 // fix181 (15.1j): the only values each setting may hold; a damaged or hand-edited value falls back to the default.
 export const PREF_ALLOWED = {
-    theme: ['ges', 'gesnavy', 'classic', 'ctruer', 'cdeep', 'cking', 'dark', 'bright'],
+    theme: ['ges', 'gesnavy', 'classic', 'dark', 'bright'],
     uiScale: ['90', '100', '110', '125'],
     statSize: ['small', 'standard', 'large'],
     motion: ['full', 'reduced'],

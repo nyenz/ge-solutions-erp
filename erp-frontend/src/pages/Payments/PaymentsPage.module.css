@@ -419,9 +419,9 @@
 .sumYellow label, .sumYellow strong { color: #eab308; }
 .sumRed label, .sumRed strong { color: #ef4444; }
 .sumYellow:hover { border-color: #eab308; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .sumGreen label, :root:is([data-theme="bright"], [data-theme="ges"]) .sumGreen strong { color: #047857; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .sumYellow label, :root:is([data-theme="bright"], [data-theme="ges"]) .sumYellow strong { color: #a16207; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .sumRed label, :root:is([data-theme="bright"], [data-theme="ges"]) .sumRed strong { color: #b91c1c; }
+:root[data-theme="bright"] .sumGreen label, :root[data-theme="bright"] .sumGreen strong { color: #047857; }
+:root[data-theme="bright"] .sumYellow label, :root[data-theme="bright"] .sumYellow strong { color: #a16207; }
+:root[data-theme="bright"] .sumRed label, :root[data-theme="bright"] .sumRed strong { color: #b91c1c; }
 
 /* ===== fix183: ONE table card for the three ledgers =====================
    Payment Records now uses the Project Ledger card (LedgerPage.module.css):

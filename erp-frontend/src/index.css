@@ -413,7 +413,7 @@ input[type="search"]::-webkit-search-results-decoration {
     --bg-rgb: 22, 41, 43;
     --text-on-light: #F4F2EF;
 }
-:root:is([data-theme="bright"], [data-theme="ges"]) {
+:root[data-theme="bright"] {
     --bg-base: #ebe7e0;
     --bg-rgb: 235, 231, 224;
     --sf-1: #ffffff;
@@ -445,168 +445,23 @@ input[type="search"]::-webkit-search-results-decoration {
     --panel-edge: rgba(var(--acc-rgb, 238, 140, 58), 0.34);
     --glass-bg: rgba(255, 255, 255, 0.95);
 }
-:root:is([data-theme="bright"], [data-theme="ges"]) body { color: var(--brand-ink, #1a2e30); }
+:root[data-theme="bright"] body { color: var(--brand-ink, #1a2e30); }
 /* light panels need a real shadow to sit off the page */
-:root:is([data-theme="bright"], [data-theme="ges"]) #root [class*="Panel"]:not([class*="Head"]):not([class*="panelInner"]),
-:root:is([data-theme="bright"], [data-theme="ges"]) #root [class*="Card"]:not([class*="Head"]):not([class*="Title"]) {
+:root[data-theme="bright"] #root [class*="Panel"]:not([class*="Head"]):not([class*="panelInner"]),
+:root[data-theme="bright"] #root [class*="Card"]:not([class*="Head"]):not([class*="Title"]) {
     box-shadow: 0 1px 2px rgba(var(--brand-ink-rgb, 26, 46, 48), 0.06), 0 8px 24px rgba(var(--brand-ink-rgb, 26, 46, 48), 0.08);
 }
 
-/* ===== GES THEMES (fix233) ==========================================
-   Built from the GES website (nyenz/ges-website): Prussian navy #0b2545,
-   orange #ea580c (hover #c2410c), cream #fdfaf4 / sand #f3ede2, Poppins.
-   Every colour in the CSS modules reads a variable whose fallback is the
-   old CREAM look (scripts/tokenize-brand.mjs), so these two blocks are
-   the whole theme:
-     ges     = B "GES DAYLIGHT" (the default): cream page, white panels,
-               navy ink, navy side bar, orange actions.
-     gesnavy = C "GES NAVY": the website by night -- dark page, navy panels.
+/* ===== COLOUR THEMES (fix240) ======================================
+   David: the themes are COLOUR CHANGES ONLY. CLASSIC, GES DAY and GES NAVY share the exact same fonts, spacing and
+   layout (dark panels on a cream page); only the colours differ. Every colour in the CSS modules reads a variable
+   (scripts/tokenize-brand.mjs) whose fallback is the original teal look.
+     classic = KINGFISHER teal + orange (picked 24 Oct 2026 in docs/design/classic-colour-picker.html)
+     ges     = GES DAY: the same look in the GES website colours -- Prussian navy #0b2545, orange #ea580c
+     gesnavy = GES NAVY: GES DAY with a dark page (as SLATE is to CLASSIC); it also takes the SLATE rules
    ================================================================== */
-:root[data-theme="ges"], :root[data-theme="gesnavy"] {
-    --acc: #ea580c;
-    --acc-hi: #f97316;
-    --acc-dk: #c2410c;
-    --acc-dk2: #9a3412;
-    --acc-rgb: 234, 88, 12;
-    --brand-ink: #0b2545;
-    --brand-ink-rgb: 11, 37, 69;
-    --brand-1: #0b2545;
-    --brand-2: #0b2545;
-    --brand-2-rgb: 11, 37, 69;
-    --brand-head: #071a33;
-    --brand-deep: #071a33;
-    --brand-raise-1: #1b3a63;
-    --brand-raise-2: #13355e;
-    --font-head: 'Poppins';
-    --font-body: 'Poppins';
-    --font-ui: 'Poppins';
-}
-:root[data-theme="ges"] {
-    --bg-base: #f7f2e8;
-    --bg-rgb: 247, 242, 232;
-    --cream: #fdfaf4;
-    --sf-1: #ffffff;
-    --sf-2: #fdfaf4;
-    --sf-head: #f3ede2;
-    --sf-deep: #f6f0e6;
-    --sf-navy: #efe7da;
-    --sf-raise-1: #ffffff;
-    --sf-raise-2: #fdfaf4;
-    --sf-dock: #e5dccd;
-    --sf-black: #f6f0e6;
-    --sf-readout: #f3ede2;
-    --sf-navy-rgb: 239, 231, 218;
-    --well: 120, 96, 60;
-    --ink-rgb: 11, 37, 69;
-    --ink-solid: #0b2545;
-    --tx-accent: #c2410c;
-    --tx-orange: #c2410c;
-    --scroll-track: #ebe3d5;
-    --text-on-dark: rgba(11, 37, 69, 0.86);
-    --text-on-dark-soft: rgba(11, 37, 69, 0.68);
-    --text-on-light: #0b2545;
-    --text-light: #0b2545;
-    --panel-edge: rgba(234, 88, 12, 0.3);
-    --glass-bg: rgba(255, 255, 255, 0.95);
-}
-:root[data-theme="ges"] body { color: #0b2545; }
-:root[data-theme="ges"] #root [class*="Panel"]:not([class*="Head"]):not([class*="panelInner"]),
-:root[data-theme="ges"] #root [class*="Card"]:not([class*="Head"]):not([class*="Title"]) {
-    box-shadow: 0 1px 2px rgba(11, 37, 69, 0.055), 0 9px 25px rgba(11, 37, 69, 0.08);
-}
-:root[data-theme="gesnavy"] {
-    --bg-base: #0f141c;
-    --bg-rgb: 15, 20, 28;
-    --sf-1: #0b2545;
-    --sf-2: #0d2a4e;
-    --sf-head: #071a33;
-    --sf-deep: #071a33;
-    --sf-navy: #0b2545;
-    --sf-raise-1: #1b3a63;
-    --sf-raise-2: #13355e;
-    --sf-dock: #1b3a63;
-    --sf-black: #05101f;
-    --sf-readout: #13355e;
-    --sf-navy-rgb: 11, 37, 69;
-    --tx-accent: #fb923c;
-    --tx-orange: #fdba74;
-    --scroll-track: #071a33;
-    --text-on-light: #f3f4f6;
-    --panel-edge: rgba(234, 88, 12, 0.34);
-    --glass-bg: rgba(11, 37, 69, 0.95);
-}
-:root[data-theme="gesnavy"] #root [class*="Panel"]:not([class*="Head"]):not([class*="panelInner"]),
-:root[data-theme="gesnavy"] #root [class*="Card"]:not([class*="Head"]):not([class*="Title"]) {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.35);
-}
-
-/* ===== TEAL FINALISTS (fix238) ======================================
-   David's three picks from the Classic colour picker, as real themes so he can compare them on real pages.
-   Same layout as CLASSIC (teal panels on cream); only the colours change. The winner stays, the others go.
-   ================================================================== */
-:root[data-theme="ctruer"] {   /* Classic, truer */
-    --bg-base: #F4F2EE;
-    --bg-rgb: 244, 242, 238;
-    --cream: #F4F2EE;
-    --acc: #F08C35;
-    --acc-hi: #f3a159;
-    --acc-dk: #d37b2f;
-    --acc-dk2: #b46928;
-    --acc-rgb: 240, 140, 53;
-    --tx-accent: #F08C35;
-    --brand-ink: #172F31;
-    --brand-ink-rgb: 23, 47, 49;
-    --brand-1: #1b3d3e;
-    --brand-2: #1F4446;
-    --brand-2-rgb: 31, 68, 70;
-    --brand-head: #14302F;
-    --brand-deep: #14302F;
-    --brand-raise-1: #416062;
-    --brand-raise-2: #2f5153;
-    --sf-1: #1b3d3e;
-    --sf-2: #1F4446;
-    --sf-head: #14302F;
-    --sf-deep: #14302F;
-    --sf-navy: #172F31;
-    --sf-raise-1: #416062;
-    --sf-raise-2: #2f5153;
-    --sf-readout: #284b4d;
-    --sf-navy-rgb: 23, 47, 49;
-    --scroll-track: #172F31;
-    --text-on-light: #172F31;
-}
-:root[data-theme="cdeep"] {   /* Deep Teal & Ember */
-    --bg-base: #F3F0EA;
-    --bg-rgb: 243, 240, 234;
-    --cream: #F3F0EA;
-    --acc: #E5782A;
-    --acc-hi: #ea9050;
-    --acc-dk: #ca6a25;
-    --acc-dk2: #ac5a20;
-    --acc-rgb: 229, 120, 42;
-    --tx-accent: #E5782A;
-    --brand-ink: #142E30;
-    --brand-ink-rgb: 20, 46, 48;
-    --brand-1: #183e40;
-    --brand-2: #1C4547;
-    --brand-2-rgb: 28, 69, 71;
-    --brand-head: #123134;
-    --brand-deep: #123134;
-    --brand-raise-1: #3e6163;
-    --brand-raise-2: #2c5254;
-    --sf-1: #183e40;
-    --sf-2: #1C4547;
-    --sf-head: #123134;
-    --sf-deep: #123134;
-    --sf-navy: #142E30;
-    --sf-raise-1: #3e6163;
-    --sf-raise-2: #2c5254;
-    --sf-readout: #254c4e;
-    --sf-navy-rgb: 20, 46, 48;
-    --scroll-track: #142E30;
-    --text-on-light: #142E30;
-}
-:root[data-theme="cking"] {   /* Kingfisher */
+:root[data-theme="classic"] {   /* CLASSIC = Kingfisher */
+    --sf-dock: #446d75;   /* the grey tab bar, tinted to the theme */
     --bg-base: #F2F2EC;
     --bg-rgb: 242, 242, 236;
     --cream: #F2F2EC;
@@ -615,7 +470,7 @@ input[type="search"]::-webkit-search-results-decoration {
     --acc-dk: #d57b31;
     --acc-dk2: #b6692a;
     --acc-rgb: 242, 140, 56;
-    --tx-accent: #F28C38;
+    --tx-accent: #f49a50;
     --brand-ink: #0F3439;
     --brand-ink-rgb: 15, 52, 57;
     --brand-1: #124850;
@@ -636,6 +491,43 @@ input[type="search"]::-webkit-search-results-decoration {
     --sf-navy-rgb: 15, 52, 57;
     --scroll-track: #0F3439;
     --text-on-light: #0F3439;
+}
+:root:is([data-theme="ges"], [data-theme="gesnavy"]) {   /* GES DAY (and the base of GES NAVY) */
+    --sf-dock: #3d5169;   /* the grey tab bar, tinted to the theme */
+    --bg-base: #F5F0E6;
+    --bg-rgb: 245, 240, 230;
+    --cream: #F5F0E6;
+    --acc: #EA580C;
+    --acc-hi: #ee7638;
+    --acc-dk: #ce4d0b;
+    --acc-dk2: #b04209;
+    --acc-rgb: 234, 88, 12;
+    --tx-accent: #ed6c29;
+    --brand-ink: #0B2545;
+    --brand-ink-rgb: 11, 37, 69;
+    --brand-1: #0a213f;
+    --brand-2: #0B2545;
+    --brand-2-rgb: 11, 37, 69;
+    --brand-head: #071A33;
+    --brand-deep: #071A33;
+    --brand-raise-1: #304661;
+    --brand-raise-2: #1c3452;
+    --sf-1: #0a213f;
+    --sf-2: #0B2545;
+    --sf-head: #071A33;
+    --sf-deep: #071A33;
+    --sf-navy: #0B2545;
+    --sf-raise-1: #304661;
+    --sf-raise-2: #1c3452;
+    --sf-readout: #152e4c;
+    --sf-navy-rgb: 11, 37, 69;
+    --scroll-track: #0B2545;
+    --text-on-light: #0B2545;
+}
+:root[data-theme="gesnavy"] {   /* GES NAVY: the page goes dark; panels, fonts and spacing stay */
+    --bg-base: #071a33;
+    --bg-rgb: 7, 26, 51;
+    --text-on-light: #F4F2EF;
 }
 
 /* fix192: THE SLIDING PILL of a tab / filter bar (hooks/useTabMotion.js). The pill is one small box that moves behind
