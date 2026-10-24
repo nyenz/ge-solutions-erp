@@ -1,0 +1,248 @@
+<title>GES Day Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:wght@500;700;900&family=Inter:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: a header, then one card per colour CONCEPT (a mini Golden Seed screen + where each colour goes), 2 per row on wide screens. */
+:root{
+  --bg:#f1f2f4; --surface:#ffffff; --ink:#151b26; --muted:#5e6676; --line:#dde1e8; --focus:#e8661a;
+  --ui:'DM Sans',ui-sans-serif,system-ui,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141b; --surface:#181e28; --ink:#eef1f6; --muted:#9aa3b2; --line:#2a3240; --focus:#ff8a45; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141b; --surface:#181e28; --ink:#eef1f6; --muted:#9aa3b2; --line:#2a3240; --focus:#ff8a45; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:22px 48px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{margin:0;font-size:clamp(24px,4vw,32px);font-weight:900;letter-spacing:-.4px;text-wrap:balance}
+.lead{margin:6px 0 0;color:var(--muted);font-size:14.5px;line-height:1.6;max-width:78ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+@media (min-width:1050px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.picked{outline:3px solid var(--focus);outline-offset:2px}
+.cHead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cHead h2{margin:0;font-size:19px;font-weight:900}
+.cHead span{font:12px var(--mono);color:var(--muted)}
+.idea{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.where{margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--ink)}
+.sw{display:flex;gap:4px}
+.sw i{flex:1;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.1)}
+.frame{position:relative;width:100%;aspect-ratio:860/540;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.frame .app{position:absolute;top:0;left:0;transform-origin:0 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{height:38px;padding:0 16px;border-radius:9px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 12.5px var(--ui);cursor:pointer;transition:border-color .2s,background .2s}
+.btn:hover{border-color:var(--focus)}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.card.picked .pick{background:var(--focus);border-color:var(--focus);color:#fff}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar b{font-size:13px}
+.done{font-size:12.5px;color:var(--focus);font-weight:700}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+
+/* ===== the mini Golden Seed screen: same layout and fonts as the app, every colour from the concept ===== */
+.app{width:860px;height:540px;display:grid;grid-template-columns:170px 1fr;grid-template-rows:52px 1fr;background:var(--page);font-family:'Inter',sans-serif;color:var(--text)}
+.aTop{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 14px;background:var(--top);border-bottom:2px solid var(--topLine)}
+.aBrand{display:flex;align-items:center;gap:9px;font:700 15px 'Cinzel',serif;letter-spacing:2px;color:var(--brand)}
+.aUser{display:flex;align-items:center;gap:8px;color:var(--topInk);font:700 11px 'DM Sans',sans-serif;letter-spacing:.6px}
+.aAv{width:26px;height:26px;border-radius:6px;background:var(--btnP);color:var(--btnPInk);display:grid;place-items:center;font-weight:900}
+.aSide{background:var(--side);border-right:1px solid var(--sideLine);padding:10px 0;display:flex;flex-direction:column;gap:2px}
+.aNav{display:flex;align-items:center;gap:10px;padding:9px 14px;border-left:3px solid transparent;font:900 10px 'DM Sans',sans-serif;letter-spacing:1.3px;color:var(--sideInk)}
+.aNav b{width:14px;height:14px;border-radius:3px;border:1.5px solid currentColor;opacity:.8}
+.aNav.on{color:var(--sideOnInk);border-left-color:var(--sideBar);background:var(--sideOn)}
+.aMain{background:var(--deco)}
+.aMain{padding:14px 18px;display:flex;flex-direction:column;gap:11px;overflow:hidden}
+.aTitle{background:var(--hdr);border-left:4px solid var(--hdrEdge);border-radius:6px;padding:10px 14px;box-shadow:var(--shadow)}
+.aTitle h2{margin:0;font:700 20px 'Cinzel',serif;letter-spacing:1.5px;color:var(--hdrInk)}
+.aTitle p{margin:2px 0 0;font:900 9px 'DM Sans',sans-serif;letter-spacing:1.4px;color:var(--hdrSub)}
+.aStats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.aStat{border:1px solid var(--line2);border-radius:8px;padding:10px 12px;border-top:3px solid var(--statTop);box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+.aStat small{display:block;font:900 8.5px 'DM Sans',sans-serif;letter-spacing:1.3px}
+.aStat strong{display:block;margin-top:4px;font:700 16px 'Space Mono',monospace}
+.aTabs{display:flex;gap:4px;padding:4px;border-radius:8px;background:var(--tab);align-self:flex-start;border:1px solid var(--line2);backdrop-filter:blur(6px)}
+.aTab{padding:6px 11px;border-radius:5px;font:900 9.5px 'DM Sans',sans-serif;letter-spacing:1.2px;color:var(--tabInk)}
+.aTab.on{background:var(--tabOn);color:var(--tabOnInk)}
+.aPanel{background:var(--panel);border:1px solid var(--line2);border-radius:8px;overflow:hidden;color:var(--panelInk);box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+.aPanelH{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--panelH);border-bottom:2px solid var(--panelHLine);font:700 12px 'Cinzel',serif;letter-spacing:1.6px;color:var(--panelHInk)}
+.aRow{display:grid;grid-template-columns:70px 1fr 90px 110px;gap:10px;padding:8px 14px;font-size:11.5px;border-bottom:1px solid var(--line2);align-items:center}
+.aRow:nth-child(even){background:var(--rowAlt)}
+.aRow .ix{font:700 11px 'Space Mono',monospace;color:var(--idx)}
+.aRow .ok{color:var(--ok);font:900 9px 'DM Sans',sans-serif;letter-spacing:1px}
+.aRow .bad{color:var(--bad);font:700 11px 'Space Mono',monospace;text-align:right}
+.aBtns{display:flex;gap:8px}
+.aBtn{padding:8px 14px;border-radius:6px;font:900 10px 'DM Sans',sans-serif;letter-spacing:1.2px;border:1.5px solid var(--btn2);color:var(--btn2);background:transparent}
+.aBtn.p{background:var(--btnP);border-color:transparent;color:var(--btnPInk);box-shadow:0 3px 10px var(--btnGlow)}
+.aBtn.p,.aBtn{border-radius:var(--radius)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>GES DAY: 10 finished options</h1>
+    <p class="lead">All ten follow your picks (Industrial, Hero band and the grey-page Industrial). Each one uses <b>two tones of every colour</b>: midnight navy and cobalt for blue, tangerine and burnt orange for orange, and in some a light and a dusty taupe. And each has the <b>soft see-through touches</b> of your second picture: faint rings and glows behind the page, glassy boxes, gentle shadows. Nothing to set or tune: just press <b>Choose this</b> on the one you want and <b>Copy my choice</b>.</p>
+  </header>
+
+  <div class="bar" role="status">
+    <b id="count">Nothing chosen yet</b>
+    <button type="button" class="btn" id="copy">Copy my choice</button>
+    <span class="done" id="done" aria-live="polite"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<template id="tpl">
+  <div class="app">
+    <div class="aTop"><div class="aBrand"><span>🌱</span>GOLDEN SEED</div><div class="aUser">TEST.DIRECTOR <div class="aAv">T</div></div></div>
+    <nav class="aSide">
+      <div class="aNav"><b></b>DASHBOARD</div><div class="aNav"><b></b>NEW PROJECT</div><div class="aNav on"><b></b>LEDGER</div>
+      <div class="aNav"><b></b>RECOVERY</div><div class="aNav"><b></b>CLIENTS</div><div class="aNav"><b></b>PAYMENTS</div><div class="aNav"><b></b>REPORTS</div><div class="aNav"><b></b>SETTINGS</div>
+    </nav>
+    <main class="aMain">
+      <div class="aTitle"><h2>PROJECT LEDGER</h2><p>EVERY PROJECT, FOLDER TO RELEASE, LIVE PAYMENT HEALTH</p></div>
+      <div class="aStats">
+        <div class="aStat"><small>TITLE COLLECTED</small><strong>UGX 399.5M</strong></div>
+        <div class="aStat"><small>STILL OWED</small><strong>UGX 396.0M</strong></div>
+        <div class="aStat"><small>THIS MONTH</small><strong>UGX 16.9M</strong></div>
+      </div>
+      <div class="aTabs"><span class="aTab on">ALL PROJECTS</span><span class="aTab">LEGACY</span><span class="aTab">RECEIVABLES</span><span class="aTab">PAID</span></div>
+      <div class="aPanel">
+        <div class="aPanelH">TODAY'S WORK <span style="font:700 10px 'Space Mono',monospace">4</span></div>
+        <div class="aRow"><span class="ix">#021A</span><span>KEMIGISHA OSCAR · Area Land Committee</span><span class="ok">ACTIVE</span><span class="bad">UGX 3,480,000</span></div>
+        <div class="aRow"><span class="ix">#022A</span><span>WANDERA MOSES · Area Land Committee</span><span class="ok">ACTIVE</span><span class="bad">UGX 3,080,000</span></div>
+        <div class="aRow"><span class="ix">#034A</span><span>NAMIGADDE STELLA · Complete</span><span class="ok">FULLY PAID</span><span class="bad">UGX 0</span></div>
+        <div class="aRow"><span class="ix">#043A</span><span>OLUKA WILSON · Complete</span><span class="ok">ACTIVE</span><span class="bad">UGX 1,750,000</span></div>
+      </div>
+      <div class="aBtns"><span class="aBtn p">RECORD PAYMENT</span><span class="aBtn">EDIT</span><span class="aBtn">CANCEL</span></div>
+    </main>
+  </div>
+</template>
+
+<script>
+(function(){
+  // The two tones of each colour (from David's pictures, 24 Oct 2026):
+  //   blue   midnight #0B1020 / deep #14234A, industrial navy #1F3E6E, cobalt #4A6ED1
+  //   orange tangerine #FF7A2A / #F07C1A, burnt #C2560F / #E0661A, peach glow rgba(255,122,42,.x)
+  //   taupe  dusty #B59A90, light #E9DFDA        page grey #EEF0F3 / #F2F4F7
+  // Small text on orange is dark ink. The see-through touches: faint rings and glows behind the work area (--deco),
+  // glassy boxes (white at 86-92 %), soft shadows (--shadow), a gently glowing main button (--btnGlow).
+  var ring = function(x, y, r, c){ return 'radial-gradient(circle at '+x+' '+y+', transparent 0 '+r+'px, '+c+' '+r+'px '+(r+2)+'px, transparent '+(r+2)+'px)'; };
+  var glow = function(x, y, r, c){ return 'radial-gradient(circle at '+x+' '+y+', '+c+' 0, transparent '+r+'px)'; };
+  var base = { topLine:'transparent', sideLine:'transparent', sideBar:'transparent', hdrSub:'#6b7280', line2:'rgba(31,62,110,.10)', ok:'#15803d', bad:'#b91c1c',
+               panelHLine:'transparent', statTop:'transparent', shadow:'0 6px 18px rgba(20,35,74,.08)', btnGlow:'rgba(255,122,42,.35)', radius:'6px', deco:'transparent' };
+  var C = [
+    { n:'Industrial duo', from:'Industrial, two blues',
+      idea:'Your Industrial pick, finished: the side bar fades from midnight to industrial navy, the top bar carries a thin cobalt line, faint orange rings float behind the work like on the site.',
+      where:['Blue: midnight + industrial navy frame, cobalt lines and picked tab','Orange: tangerine tile with a burnt edge, tangerine buttons','Grey page, glassy white boxes, soft shadows'],
+      v:{ page:'#EEF0F3', top:'#1F3E6E', topInk:'#ffffff', topLine:'#4A6ED1', brand:'#FF9A55', side:'linear-gradient(180deg,#1F3E6E 0%,#0B1020 100%)', sideInk:'rgba(255,255,255,.7)', sideOn:'rgba(255,122,42,.16)', sideOnInk:'#FFB27A', sideBar:'#FF7A2A',
+          deco: ring('92%','88%',120,'rgba(240,124,26,.14)')+','+ring('8%','20%',70,'rgba(74,110,209,.10)'),
+          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.85)', tabInk:'#1F3E6E', tabOn:'#4A6ED1', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#4A6ED1', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A' },
+      stats:[['linear-gradient(135deg,#FF7A2A,#E0661A)','#0B1020','#0B1020'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
+    { n:'Hero duo', from:'Hero band, two blues',
+      idea:'Your Hero band pick: light frame, and one deep band per page that runs from midnight into cobalt, slightly see-through. The orange tile sits in the middle.',
+      where:['Blue: midnight-to-cobalt title band, industrial navy picked menu item','Orange: middle tile tangerine-to-burnt, buttons, lines under headings','White top and side, grey page with soft cobalt glow'],
+      v:{ page:'#F2F4F7', top:'rgba(255,255,255,.92)', topInk:'#1F3E6E', brand:'#E0661A', topLine:'rgba(31,62,110,.10)', side:'rgba(255,255,255,.88)', sideLine:'rgba(31,62,110,.10)', sideInk:'#4B5A75', sideOn:'#1F3E6E', sideOnInk:'#ffffff', sideBar:'#FF7A2A',
+          deco: glow('95%','5%',260,'rgba(74,110,209,.10)')+','+ring('85%','95%',90,'rgba(255,122,42,.12)'),
+          hdr:'linear-gradient(110deg,rgba(11,16,32,.96),rgba(74,110,209,.92))', hdrInk:'#ffffff', hdrSub:'#FFC29A', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.9)', tabInk:'#1F3E6E', tabOn:'#FF7A2A', tabOnInk:'#0B1020',
+          panel:'rgba(255,255,255,.92)', panelInk:'#14234A', panelH:'transparent', panelHInk:'#1F3E6E', panelHLine:'#FF7A2A', rowAlt:'rgba(31,62,110,.04)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A' },
+      stats:[['rgba(255,255,255,.92)','#4A6ED1','#14234A'],['linear-gradient(135deg,#FF7A2A,#E0661A)','#0B1020','#0B1020'],['rgba(255,255,255,.92)','#4A6ED1','#14234A']] },
+    { n:'Grey industrial, glass', from:'the grey-page Industrial',
+      idea:'The grey-page Industrial you liked before, with glass: boxes are frosted white over faint navy rings, the navy headings get a cobalt underline, the orange has a burnt shadow.',
+      where:['Blue: industrial navy side bar and headings, deep navy top bar, cobalt picked tab','Orange: tangerine buttons and first tile with burnt edge','Light grey page, frosted boxes'],
+      v:{ page:'#EEF0F3', top:'#16305A', topInk:'#ffffff', brand:'#F59A3C', side:'#1F3E6E', sideInk:'rgba(255,255,255,.7)', sideOn:'rgba(255,255,255,.10)', sideOnInk:'#ffffff', sideBar:'#F07C1A',
+          deco: ring('90%','80%',140,'rgba(31,62,110,.08)')+','+ring('90%','80%',100,'rgba(31,62,110,.06)'),
+          hdr:'rgba(255,255,255,.86)', hdrInk:'#1A2B48', hdrEdge:'#F07C1A', tab:'rgba(255,255,255,.86)', tabInk:'#1F3E6E', tabOn:'#4A6ED1', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.86)', panelInk:'#1A2B48', panelH:'#1F3E6E', panelHInk:'#ffffff', panelHLine:'#4A6ED1', rowAlt:'rgba(31,62,110,.04)', idx:'#C2560F', btnP:'#F07C1A', btnPInk:'#14234A', btn2:'#1F3E6E', text:'#1A2B48', statTop:'#1F3E6E' },
+      stats:[['linear-gradient(135deg,#F07C1A,#C2560F)','#14234A','#14234A'],['rgba(255,255,255,.86)','#1F3E6E','#1A2B48'],['rgba(255,255,255,.86)','#1F3E6E','#1A2B48']] },
+    { n:'Midnight hero', from:'Hero band + Industrial',
+      idea:'A midnight top bar, an industrial-navy side bar, and a see-through cobalt title band. Numbers sit on white glass tiles with a tangerine top line.',
+      where:['Blue: midnight top, industrial navy side, cobalt title band and headings','Orange: tile top lines, picked menu bar, buttons','Grey page with a faint orange glow'],
+      v:{ page:'#F0F2F5', top:'#0B1020', topInk:'#ffffff', brand:'#FF7A2A', side:'#1F3E6E', sideInk:'rgba(255,255,255,.7)', sideOn:'rgba(11,16,32,.35)', sideOnInk:'#ffffff', sideBar:'#FF7A2A',
+          deco: glow('100%','100%',300,'rgba(255,122,42,.10)'),
+          hdr:'rgba(74,110,209,.92)', hdrInk:'#ffffff', hdrSub:'#DCE5FB', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.9)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.92)', panelInk:'#14234A', panelH:'#4A6ED1', panelHInk:'#ffffff', rowAlt:'rgba(74,110,209,.05)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A', statTop:'#FF7A2A' },
+      stats:[['rgba(255,255,255,.92)','#1F3E6E','#14234A'],['rgba(255,255,255,.92)','#1F3E6E','#14234A'],['rgba(255,255,255,.92)','#1F3E6E','#14234A']] },
+    { n:'Tangerine glow', from:'Industrial, softer orange',
+      idea:'The orange is a warm glow instead of blocks: see-through tangerine behind the picked menu item, the picked tab and the tiles, with burnt orange for the words that must read.',
+      where:['Blue: midnight-to-navy side bar, navy top, cobalt index numbers','Orange: see-through tangerine glows, burnt orange words, tangerine buttons','Grey page with a big faint orange ring'],
+      v:{ page:'#F1F2F4', top:'#1F3E6E', topInk:'#ffffff', brand:'#FF9A55', side:'linear-gradient(180deg,#14234A,#1F3E6E)', sideInk:'rgba(255,255,255,.7)', sideOn:'rgba(255,122,42,.22)', sideOnInk:'#FFC29A', sideBar:'#FF7A2A',
+          deco: ring('80%','110%',220,'rgba(255,122,42,.12)')+','+glow('80%','110%',200,'rgba(255,122,42,.06)'),
+          hdr:'rgba(255,255,255,.9)', hdrInk:'#14234A', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.9)', tabInk:'#1F3E6E', tabOn:'rgba(255,122,42,.22)', tabOnInk:'#9A3F0A',
+          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'rgba(255,122,42,.12)', panelHInk:'#9A3F0A', panelHLine:'rgba(255,122,42,.45)', rowAlt:'rgba(255,122,42,.04)', idx:'#4A6ED1', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A' },
+      stats:[['rgba(255,122,42,.16)','#9A3F0A','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
+    { n:'Taupe industrial', from:'Industrial + taupe',
+      idea:'Industrial, warmed with the two taupes from your first picture: a light-taupe page with dusty-taupe rings, navy frame in two tones, tangerine and burnt for action.',
+      where:['Blue: midnight + industrial navy frame, cobalt picked tab','Taupe: light page, dusty headings bar and rings','Orange: tangerine tile and buttons, burnt index numbers'],
+      v:{ page:'#EFEAE6', top:'#1F3E6E', topInk:'#ffffff', topLine:'#B59A90', brand:'#FF9A55', side:'linear-gradient(180deg,#1F3E6E,#0B1020)', sideInk:'rgba(255,255,255,.68)', sideOn:'rgba(181,154,144,.28)', sideOnInk:'#F3E3DC', sideBar:'#FF7A2A',
+          deco: ring('92%','85%',120,'rgba(181,154,144,.30)')+','+ring('92%','85%',80,'rgba(181,154,144,.20)'),
+          hdr:'rgba(255,255,255,.88)', hdrInk:'#14234A', hdrEdge:'#B59A90', tab:'rgba(233,223,218,.9)', tabInk:'#4A3F3B', tabOn:'#4A6ED1', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.88)', panelInk:'#14234A', panelH:'#E9DFDA', panelHInk:'#14234A', panelHLine:'#B59A90', rowAlt:'rgba(181,154,144,.08)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A', line2:'rgba(181,154,144,.30)' },
+      stats:[['linear-gradient(135deg,#FF7A2A,#E0661A)','#0B1020','#0B1020'],['#1F3E6E','#C9D6F5','#ffffff'],['rgba(233,223,218,.9)','#6B5A53','#14234A']] },
+    { n:'Cobalt frame, white glass', from:'Hero band, brighter',
+      idea:'A cobalt-into-navy top bar, a see-through white side bar, and a midnight title band. Light, modern and calm, with orange only where you act.',
+      where:['Blue: cobalt-to-navy top bar, midnight title band, cobalt picked tab','Orange: picked menu item, middle tile, buttons','Glassy white side bar and boxes on pale grey-blue'],
+      v:{ page:'#EDF1F7', top:'linear-gradient(90deg,#4A6ED1,#1F3E6E)', topInk:'#ffffff', brand:'#FFD0AE', side:'rgba(255,255,255,.75)', sideLine:'rgba(74,110,209,.15)', sideInk:'#3A4A6B', sideOn:'#FF7A2A', sideOnInk:'#0B1020', sideBar:'#C2560F',
+          deco: glow('0%','100%',260,'rgba(74,110,209,.10)')+','+ring('95%','90%',90,'rgba(255,122,42,.12)'),
+          hdr:'rgba(11,16,32,.94)', hdrInk:'#ffffff', hdrSub:'#AFC2F5', hdrEdge:'#4A6ED1', tab:'rgba(255,255,255,.85)', tabInk:'#1F3E6E', tabOn:'#4A6ED1', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.9)', panelInk:'#14234A', panelH:'rgba(74,110,209,.10)', panelHInk:'#1F3E6E', panelHLine:'#4A6ED1', rowAlt:'rgba(74,110,209,.05)', idx:'#4A6ED1', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#4A6ED1', text:'#14234A' },
+      stats:[['rgba(255,255,255,.9)','#4A6ED1','#14234A'],['linear-gradient(135deg,#FF7A2A,#E0661A)','#0B1020','#0B1020'],['rgba(255,255,255,.9)','#4A6ED1','#14234A']] },
+    { n:'Night band', from:'Industrial, deepest',
+      idea:'The strongest blue: midnight top and side, an industrial-navy title band with a cobalt edge, and see-through navy number tiles. Orange shines brightest here.',
+      where:['Blue: midnight frame, navy band and tiles, cobalt edges and picked tab','Orange: picked menu bar, numbers labels, buttons','Grey page, white glass work box'],
+      v:{ page:'#ECEEF2', top:'#0B1020', topInk:'#ffffff', topLine:'#1F3E6E', brand:'#FF7A2A', side:'#0B1020', sideInk:'rgba(255,255,255,.62)', sideOn:'rgba(74,110,209,.25)', sideOnInk:'#ffffff', sideBar:'#FF7A2A',
+          deco: ring('95%','92%',130,'rgba(11,16,32,.07)'),
+          hdr:'linear-gradient(110deg,#1F3E6E,rgba(31,62,110,.88))', hdrInk:'#ffffff', hdrSub:'#FFB27A', hdrEdge:'#4A6ED1', tab:'#1F3E6E', tabInk:'rgba(255,255,255,.72)', tabOn:'#FF7A2A', tabOnInk:'#0B1020',
+          panel:'rgba(255,255,255,.92)', panelInk:'#0B1020', panelH:'#0B1020', panelHInk:'#FFB27A', panelHLine:'#4A6ED1', rowAlt:'rgba(31,62,110,.05)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#0B1020', text:'#0B1020' },
+      stats:[['rgba(31,62,110,.92)','#FFB27A','#ffffff'],['rgba(31,62,110,.92)','#FFB27A','#ffffff'],['rgba(74,110,209,.92)','#FFE0C9','#ffffff']] },
+    { n:'Sunset steel', from:'Industrial, warm orange',
+      idea:'Steel navy in two tones with a sunset orange that runs from tangerine into burnt on the big tile and the buttons. Faint double rings behind, like the site.',
+      where:['Blue: steel navy side and top, deep navy headings, cobalt index numbers','Orange: tangerine-to-burnt tile and buttons, picked menu bar','Grey page, glassy boxes'],
+      v:{ page:'#EEF0F3', top:'#1B2D52', topInk:'#ffffff', brand:'#FF9A55', side:'#2A4373', sideInk:'rgba(255,255,255,.7)', sideOn:'rgba(255,122,42,.18)', sideOnInk:'#FFC29A', sideBar:'#E0661A',
+          deco: ring('88%','90%',150,'rgba(224,102,26,.12)')+','+ring('88%','90%',115,'rgba(224,102,26,.08)'),
+          hdr:'rgba(255,255,255,.88)', hdrInk:'#1B2D52', hdrEdge:'#E0661A', tab:'rgba(255,255,255,.88)', tabInk:'#2A4373', tabOn:'#2A4373', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.9)', panelInk:'#1B2D52', panelH:'#1B2D52', panelHInk:'#FFC29A', rowAlt:'rgba(42,67,115,.05)', idx:'#4A6ED1', btnP:'linear-gradient(135deg,#FF7A2A,#C2560F)', btnPInk:'#0B1020', btn2:'#2A4373', text:'#1B2D52', radius:'8px' },
+      stats:[['linear-gradient(135deg,#FF7A2A,#C2560F)','#0B1020','#0B1020'],['rgba(255,255,255,.9)','#2A4373','#1B2D52'],['rgba(255,255,255,.9)','#2A4373','#1B2D52']] },
+    { n:'Signature mix', from:'everything together',
+      idea:'All your picks in one: midnight top bar, industrial-navy side bar with a cobalt picked item, a see-through navy-into-cobalt title band, one tangerine tile, one light-taupe tile, faint orange and cobalt rings behind.',
+      where:['Blue: all three (midnight, industrial navy, cobalt)','Orange: tangerine tile and buttons, burnt edges','Taupe: one light tile and the table shading; grey page'],
+      v:{ page:'#EFF1F4', top:'#0B1020', topInk:'#ffffff', topLine:'#FF7A2A', brand:'#FF7A2A', side:'#1F3E6E', sideInk:'rgba(255,255,255,.7)', sideOn:'#4A6ED1', sideOnInk:'#ffffff', sideBar:'#FF7A2A',
+          deco: ring('94%','90%',120,'rgba(255,122,42,.13)')+','+ring('6%','15%',80,'rgba(74,110,209,.12)'),
+          hdr:'linear-gradient(110deg,rgba(31,62,110,.96),rgba(74,110,209,.90))', hdrInk:'#ffffff', hdrSub:'#FFC29A', hdrEdge:'#FF7A2A', tab:'rgba(255,255,255,.9)', tabInk:'#1F3E6E', tabOn:'#1F3E6E', tabOnInk:'#ffffff',
+          panel:'rgba(255,255,255,.92)', panelInk:'#14234A', panelH:'#0B1020', panelHInk:'#FFB27A', panelHLine:'#FF7A2A', rowAlt:'rgba(181,154,144,.08)', idx:'#C2560F', btnP:'#FF7A2A', btnPInk:'#0B1020', btn2:'#1F3E6E', text:'#14234A' },
+      stats:[['linear-gradient(135deg,#FF7A2A,#E0661A)','#0B1020','#0B1020'],['rgba(255,255,255,.92)','#4A6ED1','#14234A'],['rgba(233,223,218,.92)','#6B5A53','#14234A']] }
+  ];
+
+  var KEY='gs-gesday-options-v1', picks={};
+  try{ picks=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ picks={}; }
+  var grid=document.getElementById('grid'), tpl=document.getElementById('tpl');
+  var frames=[];
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(picks)); }catch(e){} }
+  function count(){ var k=Object.keys(picks).filter(function(x){return picks[x];}); var i=C.findIndex(function(c){return c.n===k[0];}); document.getElementById('count').textContent=k.length?'Chosen: '+(i+1)+'. '+k[0]:'Nothing chosen yet'; }
+
+  C.forEach(function(c,i){
+    var v=Object.assign({},base,c.v);
+    var card=document.createElement('article'); card.className='card'+(picks[c.n]?' picked':'');
+    var sw=['#0B1020',v.top,v.side,v.page,v.panelH,v.btnP,v.tabOn].map(function(x){return '<i style="background:'+x+'"></i>';}).join('');
+    card.innerHTML='<div class="cHead"><h2>'+(i+1)+'. '+c.n+'</h2><span>'+c.from+'</span></div>'+
+      '<p class="idea">'+c.idea+'</p><div class="sw" aria-hidden="true">'+sw+'</div><div class="frame"></div>'+
+      '<ul class="where">'+c.where.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul>'+
+      '<div class="row"><button type="button" class="btn pick" aria-pressed="'+(!!picks[c.n])+'">'+(picks[c.n]?'Chosen':'Choose this')+'</button></div>';
+    var app=tpl.content.firstElementChild.cloneNode(true);
+    Object.keys(v).forEach(function(k){ app.style.setProperty('--'+k, v[k]); });
+    app.querySelectorAll('.aStat').forEach(function(s,j){ var t=c.stats[j]; s.style.background=t[0]; s.querySelector('small').style.color=t[1]; s.querySelector('strong').style.color=t[2]; });
+    card.querySelector('.frame').appendChild(app); frames.push(card.querySelector('.frame'));
+    var b=card.querySelector('.pick');
+    b.addEventListener('click',function(){ var on=!picks[c.n]; picks={}; if(on) picks[c.n]=true; grid.querySelectorAll('.card').forEach(function(x){ x.classList.remove('picked'); var y=x.querySelector('.pick'); y.textContent='Choose this'; y.setAttribute('aria-pressed','false'); }); if(on){ card.classList.add('picked'); b.textContent='Chosen'; b.setAttribute('aria-pressed','true'); } save(); count(); });
+    grid.appendChild(card);
+  });
+  function fit(){ frames.forEach(function(fr){ var a=fr.firstChild; if(a) a.style.transform='scale('+(fr.clientWidth/860)+')'; }); }
+  fit(); window.addEventListener('resize',fit); count();
+
+  document.getElementById('copy').addEventListener('click',function(){
+    var list=C.map(function(c,i){return picks[c.n]?(i+1)+'. '+c.n:null;}).filter(Boolean);
+    var t='GES DAY option I choose: '+(list.length?list.join(', '):'(none yet)');
+    var done=document.getElementById('done');
+    try{ navigator.clipboard.writeText(t).then(function(){done.textContent='Copied. Paste it to Claude.';},function(){done.textContent=t;}); }catch(e){ done.textContent=t; }
+  });
+})();
+</script>
