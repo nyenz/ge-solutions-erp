@@ -107,6 +107,11 @@ public class NotificationBellTest {
         Notification books = Notification.builder().type("BOOKS_MISMATCH").entityType("SYSTEM").entityId(UUID.randomUUID()).build();
         assertEquals("/settings?tab=staff", invokeLink(staffAlert, Role.ROLE_DIRECTOR));
         assertNull(invokeLink(books, Role.ROLE_MANAGER), "a Manager cannot open the Payments page");
+        // fix241 (David, E5): a pinned note opens the folder's NOTES for every rank that gets it
+        UUID pid = UUID.randomUUID();
+        Notification pin = Notification.builder().type("NOTE_PINNED").entityType("PROJECT_NOTES").entityId(pid).build();
+        assertEquals("/folder/" + pid + "#notes", invokeLink(pin, Role.ROLE_MANAGER));
+        assertEquals("/folder/" + pid + "#notes", invokeLink(pin, Role.ROLE_SECRETARY));
     }
 
     private static String invokeLink(Notification n, Role r) {

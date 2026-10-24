@@ -66,6 +66,44 @@ public class NotificationService {
         }
     }
 
+    /**
+     * fix241 (David): an alert for ONE person only (a note pinned "only for me", a follow-up reminder "only for me").
+     * It is never marked read for them (they asked for it), and a date-based type is written once per day per person.
+     */
+    public void emitToUser(String type, String message, String entityType, UUID entityId, String username, LocalDate eventDate) {
+        if (username == null || username.isBlank()) return;
+        Runnable write = () -> {
+            try {
+                NotificationTypes.Type t = NotificationTypes.of(type);
+                if (t == null) return;
+                newTx.executeWithoutResult(status -> {
+                    User u = userRepo.findByUsername(username).orElse(null);
+                    if (u == null || u.getRole() == null) return;
+                    LocalDateTime when = LocalDateTime.now();
+                    String key = entityId == null ? null
+                            : (entityId + "|" + (eventDate != null ? eventDate : when.toLocalDate()) + "|" + username.toLowerCase());
+                    if (key != null && t.repeat() == NotificationTypes.Repeat.ONCE_PER_EVENT_DATE && repo.existsByTypeAndDedupeKey(type, key)) return;
+                    repo.save(Notification.builder().type(type).severity(t.severity()).message(message == null ? "" : message)
+                            .entityType(entityType).entityId(entityId).targetRole(u.getRole().name()).targetUser(u.getUsername())
+                            .category(t.group().name()).actor(currentActor()).dedupeKey(key).createdAt(when).build());
+                });
+            } catch (Exception e) {
+                System.err.println(">>> [NOTIFY] could not write " + type + " for one person: " + e.getMessage());
+            }
+        };
+        try {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCommit() { write.run(); }
+                });
+            } else {
+                write.run();
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [NOTIFY] could not queue " + type + ": " + e.getMessage());
+        }
+    }
+
     /** Written at once, even if the request then fails. Only for LOGIN_BLOCKED and SYSTEM_WIPE. */
     public void emitNow(String type, String message, String entityType, UUID entityId) {
         write(type, message, entityType, entityId, null, currentActor(), LocalDateTime.now());

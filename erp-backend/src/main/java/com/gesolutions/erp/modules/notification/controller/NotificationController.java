@@ -85,13 +85,14 @@ public class NotificationController {
         if (id == null) return null;
         String et = n.getEntityType() == null ? "" : n.getEntityType();
         switch (et) {
+            case "PROJECT_NOTES" -> { return "/folder/" + id + "#notes"; }   // fix241 (David, E5): a pinned note opens the folder's NOTES
             case "PROJECT" -> {
                 if ("PENDING_CREATED".equals(type)) return "/pending/" + id;
                 String hash = switch (type) {
                     case "PAYMENT_ON_RECEIVABLE", "PAYMENT_REVERSED", "RECEIVABLE_EXIT", "STORAGE_FEE_APPLIED", "FEES_REDUCED",
                          "COST_CHANGED", "STORAGE_FEE_RESUMED" -> "#payment";
                     case "DOC_UPLOADED" -> "#documents";
-                    case "PROBLEM_FLAGGED", "PROBLEM_CLEARED" -> "#notes";
+                    case "PROBLEM_FLAGGED", "PROBLEM_CLEARED", "FOLLOW_UP_DUE", "NOTE_PINNED" -> "#notes";
                     default -> "#overview";
                 };
                 return "/folder/" + id + hash;
@@ -138,10 +139,10 @@ public class NotificationController {
         List<Notification> page;
         if (before != null && !before.isBlank()) {
             LocalDateTime b = LocalDateTime.parse(before);
-            page = notifRepo.findForRole(u.getRole().name(), since(u)).stream()
+            page = notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername()).stream()
                     .filter(n -> n.getCreatedAt().isBefore(b)).limit(lim).toList();
         } else {
-            page = notifRepo.findForRolePage(u.getRole().name(), since(u), org.springframework.data.domain.PageRequest.of(0, lim));
+            page = notifRepo.findForRolePage(u.getRole().name(), since(u), u.getUsername(), org.springframework.data.domain.PageRequest.of(0, lim));
         }
         Set<UUID> read = readIds(u);
         List<Map<String, Object>> out = new ArrayList<>();
@@ -167,7 +168,7 @@ public class NotificationController {
         Set<UUID> read = readIds(u);
         Map<String, Long> byGroup = new LinkedHashMap<>();
         long total = 0, unread = 0, critical = 0;
-        for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u))) {
+        for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername())) {
             total++;
             if (read.contains(n.getId())) continue;
             unread++;
@@ -194,7 +195,7 @@ public class NotificationController {
     public Map<String, Long> unread(Authentication auth) {
         User u = me(auth);
         if (noBell(u)) return Map.of("unread", 0L);
-        return Map.of("unread", notifRepo.countUnread(u.getRole().name(), since(u), u.getId()));
+        return Map.of("unread", notifRepo.countUnread(u.getRole().name(), since(u), u.getUsername(), u.getId()));
     }
 
     /** fix181 (17.4d, 17.18a): the alert must exist and be addressed to the person's rank; a double click is harmless. */
@@ -204,6 +205,7 @@ public class NotificationController {
         if (noBell(u)) return Map.of("ok", false);
         Notification n = notifRepo.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such alert"));
         if (!u.getRole().name().equals(n.getTargetRole())) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such alert");
+        if (n.getTargetUser() != null && !n.getTargetUser().equalsIgnoreCase(u.getUsername())) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such alert");
         markRead(List.of(n.getId()), u);
         return Map.of("ok", true);
     }
@@ -221,7 +223,7 @@ public class NotificationController {
         LocalDateTime limit = upTo == null || upTo.isBlank() ? LocalDateTime.now() : LocalDateTime.parse(upTo);
         Set<UUID> read = readIds(u);
         List<UUID> toMark = new ArrayList<>();
-        for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u))) {
+        for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername())) {
             if (read.contains(n.getId()) || n.getCreatedAt().isAfter(limit)) continue;
             if (group != null && !group.isBlank() && !"ALL".equalsIgnoreCase(group)
                     && !group.equalsIgnoreCase(n.getCategory() == null ? "SYSTEM" : n.getCategory())) continue;

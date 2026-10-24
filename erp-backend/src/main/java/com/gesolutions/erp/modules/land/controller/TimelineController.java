@@ -38,8 +38,10 @@ public class TimelineController {
                                    @RequestParam(required = false) String topic,
                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate followUpOn,
                                    @RequestParam(defaultValue = "false") boolean pinned,
-                                   @RequestParam(value = "file", required = false) MultipartFile file) throws Exception {
-        FollowUpLog n = notes.add(id, content, topic, followUpOn, pinned, file);
+                                   @RequestParam(value = "file", required = false) MultipartFile file,
+                                   @RequestParam(required = false) String pinFor,
+                                   @RequestParam(required = false) String remindFor) throws Exception {
+        FollowUpLog n = notes.add(id, content, topic, followUpOn, pinned, file, pinFor, remindFor);   // fix241
         return Map.of("id", n.getId());
     }
 
@@ -54,7 +56,9 @@ public class TimelineController {
             throw new com.gesolutions.erp.common.exception.BusinessException("DATE_INVALID: The follow-up day is not a valid date.");
         }
         FollowUpLog n = notes.addForClient(id, body.get("content") == null ? null : String.valueOf(body.get("content")),
-                body.get("topic") == null ? null : String.valueOf(body.get("topic")), on, Boolean.TRUE.equals(body.get("pinned")));
+                body.get("topic") == null ? null : String.valueOf(body.get("topic")), on, Boolean.TRUE.equals(body.get("pinned")),
+                body.get("pinFor") == null ? null : String.valueOf(body.get("pinFor")),
+                body.get("remindFor") == null ? null : String.valueOf(body.get("remindFor")));   // fix241
         return Map.of("id", n.getId());
     }
 
@@ -67,13 +71,13 @@ public class TimelineController {
         } catch (java.time.format.DateTimeParseException e) {
             throw new com.gesolutions.erp.common.exception.BusinessException("DATE_INVALID: The follow-up day is not a valid date.");
         }
-        FollowUpLog n = notes.edit(noteId, body.get("content"), body.get("topic"), on);
+        FollowUpLog n = notes.edit(noteId, body.get("content"), body.get("topic"), on, body.get("remindFor"), body.containsKey("remindFor"));   // fix241
         return Map.of("id", n.getId());
     }
 
     @PatchMapping("/notes/{noteId}/pin")
     public Map<String, Object> pin(@PathVariable UUID noteId, @RequestBody Map<String, Object> body) {
-        FollowUpLog n = notes.pin(noteId, Boolean.TRUE.equals(body.get("pinned")));
+        FollowUpLog n = notes.pin(noteId, Boolean.TRUE.equals(body.get("pinned")), body.get("pinFor") == null ? null : String.valueOf(body.get("pinFor")));   // fix241
         return Map.of("id", n.getId(), "pinned", Boolean.TRUE.equals(n.getPinned()));
     }
 

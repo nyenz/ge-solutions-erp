@@ -2,6 +2,7 @@
 // fix167: folder page review pass. Ticks show in view AND edit mode (and arrive from New Project), popups show their
 // own red errors without blur or a duplicate toast, every money / flag / hand-over action needs a reason, who paid
 // is recorded per owner, storage fees paid vs unpaid are shown, set-aside fees are visible, dead code removed.
+import PopupError from '../../components/common/PopupError';   // fix241
 import { portalRoot } from '../../components/common/portalRoot';
 import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { roleFlags } from '../../utils/roles';
@@ -72,9 +73,8 @@ const EDIT_IDS = { plotNumber: 'inp-plot-number', block: 'inp-block', areaHectar
 const editPanelOf = (key) => (/^clients_/.test(key) ? 'CLIENTS' : /^owners_/.test(key) ? 'OWNERS' : /^neighbors_/.test(key) ? 'NEIGHBORS' : key === 'costChangeReason' ? 'BALANCE' : 'PLOT DETAILS');
 const editTabOf = (key) => (/^(clients|owners|neighbors)_/.test(key) ? 'PEOPLE' : key === 'costChangeReason' ? 'FINANCIALS' : 'OVERVIEW');
 const errText = (err) => (err && err.response ? errorText(err) : cleanMessage((err && err.message) || 'Something went wrong. Try again.'));
-// fix165/167: red error box INSIDE a popup. When a popup shows its own error, no toast is shown as well.
-const ModalError = ({ text }) => (text ? (<div className={styles.modalErr} role="alert">
-    <FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{text}</span></div>) : null);
+// fix241 (David, D1): a popup's error is a toast ON TOP plus the wrong box marked and scrolled to (no red box inside).
+const ModalError = PopupError;
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
@@ -553,7 +553,7 @@ const FolderPage = () => {
             if (!data) throw new Error('NULL_SIGNAL');
             // fix181 (8.5): a Pending project has no money yet; it is handled on its own page (START / REJECT)
             if (data.project && data.project.pending && !data.project.deleted) { navigate('/pending/' + id, { replace: true }); return; }
-            setBinder(data); setPayments(data.payments || []); setLoadError(false);
+            setBinder(data); setPayments(data.payments || []); setLoadError(false); retries.current = 0;
             if (isEditing) {
                 // fix202 (note 27): Title Details saved meanwhile (the Titled pop-up) fill the open EDIT panel's empty boxes
                 const t = data.project?.landTitle;
@@ -581,8 +581,17 @@ const FolderPage = () => {
                 });
                 setFieldErrors({});
             }
-        } catch { setLoadError(true); } finally { setLoading(false); }
+        } catch {
+            // fix241 (David, C2): a refresh AFTER an action (a delete, an upload) that fails for a moment must not throw the
+            // whole folder into "Record not found / Try again": the folder already on screen stays, and it reloads again.
+            if (hadBinder.current) { if (retries.current < 3) { retries.current += 1; setTimeout(() => { loadAgain.current && loadAgain.current(); }, 1500); } }
+            else setLoadError(true);
+        } finally { setLoading(false); }
     }, [id, isEditing, navigate]);
+    const hadBinder = useRef(false);
+    const retries = useRef(0);
+    const loadAgain = useRef(null);
+    useEffect(() => { hadBinder.current = !!binder; loadAgain.current = loadFolderData; }, [binder, loadFolderData]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
     useEffect(() => {
         if (!binder?.project) return;
@@ -1565,7 +1574,7 @@ const FolderPage = () => {
                             <button type="button" className={styles.addDocBtn} onClick={() => { setNewCatOpen(false); setNewCatName(''); }}>CLOSE</button>
                         </div></div>)
                         : (<button type="button" className={styles.addDocBtn} onClick={() => setNewCatOpen(true)} title="Add a category that is not in the list yet">+ NEW CATEGORY</button>)}
-                    <ModalError text={uploadDraft.error} />
+                    <ModalError toast={toast} text={uploadDraft.error} />
                     <div className={modalStyles.modalFooter}>
                         <HardwareButton type="button" onClick={handleUploadConfirm} loading={committing} icon={FiUploadCloud}>UPLOAD</HardwareButton>
                     </div>
@@ -1610,7 +1619,7 @@ const FolderPage = () => {
                         <button type="button" className={styles.addDocBtn} onClick={() => document.getElementById('tt-scan')?.click()} title="Choose the title scan (PDF or photo). Several pages are fine.">
                             <FiPaperclip aria-hidden="true" />&nbsp;{(titleModal.files || []).length ? 'ADD ANOTHER PAGE' : 'ATTACH THE TITLE SCAN'}</button>
                         <span className={styles.recHint}>Saved in Documents as Copy of Title, under the Titled stage. PDF, JPG, PNG or WEBP.</span></div>
-                    <ModalError text={titleErr} />
+                    <ModalError toast={toast} text={titleErr} />
                     <div className={modalStyles.modalFooter}>
                         <HardwareButton type="button" onClick={saveTitled} loading={titleSaving} icon={FiCheckCircle}>{titleModal.scanOnly ? 'SAVE SCAN AND TICK TITLED' : 'SAVE AND TICK TITLED'}</HardwareButton>
                     </div>
@@ -1632,7 +1641,7 @@ const FolderPage = () => {
                     {numModal.stage && canUploadDocs && !isDeleted && !isReleased && (<div className={modalStyles.modalField}>
                         <button type="button" className={styles.addDocBtn} onClick={() => { const st = numModal.stage; setNumModal(null); attachToStatus(st); }}
                             title="The scan is filed under this stage and shows in Documents with the stage name"><FiPaperclip aria-hidden="true" />&nbsp;ATTACH THE INVOICE OR CONTRACT SCAN</button></div>)}
-                    <ModalError text={numErr} />
+                    <ModalError toast={toast} text={numErr} />
                     {canSetNumbers && (<div className={modalStyles.modalFooter}>
                         <HardwareButton type="button" onClick={saveNumbers} loading={numSaving} icon={FiCheckCircle}>SAVE NUMBERS</HardwareButton>
                     </div>)}
@@ -1666,7 +1675,7 @@ const FolderPage = () => {
                     {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}{payReceiptNote && <small className={styles.upFileNote}>{payReceiptNote}</small>}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt" title="Remove this file"><FiX aria-hidden="true" /></button></div>)
                         : (<button type="button" className={styles.addDocBtn} onClick={() => payReceiptRef.current && payReceiptRef.current.click()} title="Choose the receipt scan or photo"><FiPaperclip aria-hidden="true" />&nbsp;ATTACH RECEIPT SCAN</button>)}
                     <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts. PDF, JPG, PNG or WEBP, up to 10 MB. The payment is NOT saved without it.</span></div>
-                <ModalError text={payErr} />
+                <ModalError toast={toast} text={payErr} />
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>SAVE PAYMENT</HardwareButton>
                 </div>
@@ -1704,7 +1713,7 @@ const FolderPage = () => {
                             ))}
                         </div>
                     )}</div>
-                <ModalError text={reasonErr} />
+                <ModalError toast={toast} text={reasonErr} />
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" variant={reasonCfg.danger ? 'danger' : 'primary'} onClick={submitReasonModal} loading={reasonBusy} icon={reasonCfg.danger ? FiAlertTriangle : FiCheckCircle}>{reasonModal.confirmLabel}</HardwareButton>
                 </div>
@@ -1714,7 +1723,7 @@ const FolderPage = () => {
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (REQUIRED)</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder="e.g. Owner name on the deed plan does not match the ID..." aria-label="Problem description" onChange={e => { setProblemModal(m => ({ ...m, note: e.target.value })); if (probErr) setProbErr(''); }} />
                     <span className={styles.probCount}>{problemModal.note.length}/500</span></div>
-                <ModalError text={probErr} />
+                <ModalError toast={toast} text={probErr} />
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" variant="danger" onClick={handleProblemConfirm} loading={probBusy} icon={FiAlertTriangle}>FLAG PROBLEM</HardwareButton>
                 </div>

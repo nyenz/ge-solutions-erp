@@ -480,7 +480,7 @@
 /* -- chips: the selected one takes the free width and clips its own
    label, so nothing can ever spill out of the tray ------------------- */
 .notifChips {
-    display: flex; gap: 3px;
+    display: flex; flex-wrap: wrap; gap: 3px;
     margin-top: clamp(6px, 0.8vw, 8px);
     padding: 3px;
     background: var(--sf-dock, #4d5c5a);
@@ -505,11 +505,10 @@
 .notifChip { flex: 0 1 auto; background: transparent; color: var(--ink-solid); }
 .notifChip:hover { background: rgba(var(--ink-rgb), 0.1); }
 .notifChip[data-empty='true'] { opacity: 0.5; }
-.notifChipOn { flex: 1 1 0; background: var(--a); color: var(--brand-ink, #1a2e30); }
+.notifChipOn { flex: 0 1 auto; background: var(--a); color: var(--brand-ink, #1a2e30); }
 .notifChipDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--a); }
 .notifChipOn .notifChipDot { display: none; }
-.notifChipLabel { display: none; overflow: hidden; text-overflow: ellipsis; }
-.notifChipOn .notifChipLabel { display: inline; }
+.notifChipLabel { display: inline; overflow: hidden; text-overflow: ellipsis; }   /* fix241: every chip says what it is */
 .notifChipCount {
     font-family: 'Space Mono', monospace;
     font-size: clamp(8px, 0.85vw, 9.5px);

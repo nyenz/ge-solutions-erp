@@ -200,7 +200,11 @@ public class TimelineService {
         m.put("title", n.getTopic() != null && !n.getTopic().isBlank() ? n.getTopic() : "Note");
         m.put("text", text);
         m.put("topic", n.getTopic());
-        m.put("pinned", Boolean.TRUE.equals(n.getPinned()));
+        // fix241: a note pinned "only for me" shows pinned only to the person who pinned it
+        boolean pinnedForAll = !"ME".equals(n.getPinFor());
+        m.put("pinned", Boolean.TRUE.equals(n.getPinned()) && (pinnedForAll || (me != null && me.equalsIgnoreCase(n.getPinnedBy()))));
+        m.put("pinFor", pinnedForAll ? "ALL" : "ME");
+        m.put("remindFor", "ME".equals(n.getRemindFor()) ? "ME" : "ALL");
         m.put("followUpOn", n.getFollowUpOn());
         m.put("documentId", n.getDocumentId());
         m.put("edited", n.getEditedAt() != null);

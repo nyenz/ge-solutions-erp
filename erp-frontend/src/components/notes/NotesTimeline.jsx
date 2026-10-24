@@ -4,6 +4,7 @@
 // press it to open the details (a dropdown). Filter pills on top, a search box, pinned notes stay on top, a note may carry
 // a follow-up day (the bell reminds the office that morning) and one file. Money lines only reach the Manager and above
 // (the server leaves them out for everyone else). Used on the project Folder (scope "project") and the client page ("client").
+import PopupError from '../common/PopupError';   // fix241
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiSearch, FiX, FiChevronDown, FiEdit3, FiTrash2, FiPaperclip, FiClock, FiDollarSign, FiFileText, FiFlag,
@@ -23,7 +24,7 @@ const NOTE_MAX = 2000;
 const PAGE = 30;
 const ICON = { NOTE: FiFileText, MONEY: FiDollarSign, REASON: FiFlag, EVENT: FiCheckCircle, CALL: FiPhoneCall };
 const plusDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return todayISO(d); };
-const EMPTY_FORM = { id: null, content: '', topic: '', followUpOn: '', pinned: false, file: null, fileNote: '', about: '' };
+const EMPTY_FORM = { id: null, content: '', topic: '', followUpOn: '', pinned: false, file: null, fileNote: '', about: '', pinFor: 'ALL', remindFor: 'ALL' };   // fix241: ALL | ME
 
 /**
  * scope     'project' | 'client'
@@ -86,7 +87,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
 
     // ── add / edit ──────────────────────────────────────────────────────────
     const startAdd = () => { setFormErr(''); setForm({ ...EMPTY_FORM, about: defaultAbout }); };
-    const startEdit = (r) => { setFormErr(''); setForm({ ...EMPTY_FORM, id: r.id, content: r.text || '', topic: r.topic || '', followUpOn: r.followUpOn ? String(r.followUpOn).slice(0, 10) : '' }); };
+    const startEdit = (r) => { setFormErr(''); setForm({ ...EMPTY_FORM, id: r.id, content: r.text || '', topic: r.topic || '', followUpOn: r.followUpOn ? String(r.followUpOn).slice(0, 10) : '', remindFor: r.remindFor === 'ME' ? 'ME' : 'ALL' }); };
     const closeForm = () => { if (!busy) { setForm(null); setFormErr(''); } };
     const pickFile = async (f) => {
         if (!f) return;
@@ -102,9 +103,9 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
         if (form.followUpOn && form.followUpOn < today && (!form.id)) { setFormErr('THE FOLLOW-UP DAY CANNOT BE IN THE PAST.'); return; }
         setBusy(true); setFormErr('');
         try {
-            if (form.id) await timelineService.editNote(form.id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn });
-            else if (form.about === CLIENT) await timelineService.addClientNote(id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned });
-            else await timelineService.addNote(form.about || id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned, file: form.file });
+            if (form.id) await timelineService.editNote(form.id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, remindFor: form.remindFor });
+            else if (form.about === CLIENT) await timelineService.addClientNote(id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned, pinFor: form.pinFor, remindFor: form.remindFor });
+            else await timelineService.addNote(form.about || id, { content: text, topic: form.topic.trim(), followUpOn: form.followUpOn, pinned: form.pinned, file: form.file, pinFor: form.pinFor, remindFor: form.remindFor });
             setForm(null);
             await load();
             if (onChanged && form.file) onChanged();   // fix230: a file was filed in Documents too -- the page counts follow
@@ -277,7 +278,14 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                             <button type="button" className={styles.topic} onClick={() => setForm(x => ({ ...x, followUpOn: plusDays(30) }))} title="One month from today">IN 1 MONTH</button>
                             {form.followUpOn && <button type="button" className={styles.topic} onClick={() => setForm(x => ({ ...x, followUpOn: '' }))} title="No follow-up day">CLEAR</button>}
                         </div>
-                        <small className={modalStyles.modalHint}>That morning the bell reminds the office, and the note shows FOLLOW UP NOW.</small>
+                        {/* fix241 (David): a reminder for everyone, or only for the person writing the note */}
+                        {form.followUpOn && <div className={styles.quick} role="group" aria-label="Who is reminded">
+                            <button type="button" className={form.remindFor !== 'ME' ? styles.topicOn : styles.topic} aria-pressed={form.remindFor !== 'ME'}
+                                onClick={() => setForm(x => ({ ...x, remindFor: 'ALL' }))} title="That morning the bell reminds the Secretary, Manager and Director">REMIND EVERYONE</button>
+                            <button type="button" className={form.remindFor === 'ME' ? styles.topicOn : styles.topic} aria-pressed={form.remindFor === 'ME'}
+                                onClick={() => setForm(x => ({ ...x, remindFor: 'ME' }))} title="That morning only your own bell rings">ONLY ME</button>
+                        </div>}
+                        <small className={modalStyles.modalHint}>{form.remindFor === 'ME' ? 'That morning only your bell reminds you, and the note shows FOLLOW UP NOW.' : 'That morning the bell reminds the office, and the note shows FOLLOW UP NOW.'}</small>
                     </div>
                     {!form.id && (<>
                         {form.about !== CLIENT && <div className={modalStyles.modalField}>
@@ -293,8 +301,15 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                         <button type="button" className={form.pinned ? styles.topicOn : styles.topic} aria-pressed={form.pinned}
                             onClick={() => setForm(x => ({ ...x, pinned: !x.pinned }))} title="Keep this note at the top; the bell tells the office">
                             <FiStar aria-hidden="true" /> {form.pinned ? 'PINNED TO THE TOP' : 'PIN TO THE TOP'}</button>
+                        {/* fix241 (David): pinned for everyone (and the bell tells the office), or only for me */}
+                        {form.pinned && <div className={styles.quick} role="group" aria-label="Pinned for whom">
+                            <button type="button" className={form.pinFor !== 'ME' ? styles.topicOn : styles.topic} aria-pressed={form.pinFor !== 'ME'}
+                                onClick={() => setForm(x => ({ ...x, pinFor: 'ALL' }))} title="On top for everyone; the bell tells the Secretary, Manager and Director">FOR EVERYONE</button>
+                            <button type="button" className={form.pinFor === 'ME' ? styles.topicOn : styles.topic} aria-pressed={form.pinFor === 'ME'}
+                                onClick={() => setForm(x => ({ ...x, pinFor: 'ME' }))} title="On top only when you look; nobody else is told">ONLY FOR ME</button>
+                        </div>}
                     </>)}
-                    {formErr && <div className={styles.err} role="alert">{formErr}</div>}
+                    <PopupError text={formErr} toast={toast} />   {/* fix241: toast on top + the box marked, no box inside */}
                     <div className={modalStyles.modalFooter}>
                         <button type="button" className={modalStyles.modalBtnPrimary} onClick={save} disabled={busy}>{busy ? 'SAVING...' : form.id ? 'SAVE CHANGES' : 'SAVE NOTE'}</button>
                     </div>
