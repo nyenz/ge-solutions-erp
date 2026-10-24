@@ -87,6 +87,16 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
 .aBtn{padding:8px 14px;border-radius:6px;font:900 10px 'DM Sans',sans-serif;letter-spacing:1.2px;border:1.5px solid var(--acc);color:var(--acc);background:transparent}
 .aBtn.p{background:var(--acc);color:var(--deep)}
 .aBtn.d{border-color:var(--text);color:var(--text)}
+/* head to head: the three finalists, same screen, side by side (stacked on phones) */
+.h2h{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+@media (min-width:1100px){.h2h{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.fin{display:flex;flex-direction:column;gap:8px;min-width:0}
+.finHead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.finHead b{font-size:15px}
+.finHead span{font:12px var(--mono);color:var(--muted)}
+.finFrame{position:relative;width:100%;aspect-ratio:860/560;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.finFrame .app{position:absolute;top:0;left:0;transform-origin:0 0}
+.finPick{align-self:flex-start}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -95,6 +105,11 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
     <h1>Classic look: pick the real colours</h1>
     <p class="lead">Tap a colour on the left, then drag in the box to change it. The Golden Seed screen on the right changes as you go. When it looks right, press <b>Copy my colours</b> and paste the text to Claude. Your picks stay saved on this device.</p>
   </header>
+
+  <section class="box" aria-label="Your three finalists">
+    <div class="lbl">Your 3 finalists, head to head (same screen, only the colours differ)</div>
+    <div class="h2h" id="h2h"></div>
+  </section>
 
   <div class="grid">
     <section class="box" aria-label="Colour picker">
@@ -257,6 +272,24 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
     function sel2(){var r=document.createRange();r.selectNodeContents($('out'));var s=getSelection();s.removeAllRanges();s.addRange(r);done.textContent='Selected. Press Ctrl+C to copy.';}
     try{navigator.clipboard.writeText(t).then(function(){done.textContent='Copied. Paste it to Claude.';},sel2);}catch(e){sel2();}
   });
+
+  // head to head: clone the preview screen once per finalist and scale it to its box
+  var FIN=['Classic, truer','Deep Teal & Ember','Kingfisher'];
+  var frames=[];
+  FIN.forEach(function(name){
+    var p=PRESETS.filter(function(x){return x.n===name;})[0]; if(!p) return;
+    var f=document.createElement('div'); f.className='fin';
+    f.innerHTML='<div class="finHead"><b>'+p.n+'</b><span>'+p.c.panel+' · '+p.c.acc+'</span></div><div class="finFrame"></div>';
+    var a=app.cloneNode(true); a.removeAttribute('id');
+    ROLES.forEach(function(r){a.style.setProperty('--'+r.k,p.c[r.k]);});
+    f.querySelector('.finFrame').appendChild(a);
+    var bt=document.createElement('button'); bt.type='button'; bt.className='btn finPick'; bt.textContent='Fine-tune this one';
+    bt.addEventListener('click',function(){ROLES.forEach(function(r){cur[r.k]=p.c[r.k];});loadSel();apply();save();document.getElementById('roles').scrollIntoView({behavior:'smooth'});});
+    f.appendChild(bt);
+    $('h2h').appendChild(f); frames.push(f.querySelector('.finFrame'));
+  });
+  function fit(){frames.forEach(function(fr){var a=fr.firstChild; if(a) a.style.transform='scale('+(fr.clientWidth/860)+')';});}
+  fit(); window.addEventListener('resize',fit);
 
   drawHue(); loadSel(); apply();
 })();
