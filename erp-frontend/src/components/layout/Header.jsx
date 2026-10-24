@@ -105,6 +105,10 @@ const Header = ({ onToggle }) => {
     const titleRef = useRef(null);
     const lastSync = useRef(0);
     const lastUnread = useRef(null);
+    // fix241 (David, D9): the "clients due for a call" reminder is not an alert, but READ must still be able to put it away.
+    // It stays away for the rest of the day, unless more clients become due. Kept per person on this device.
+    const dueKey = 'gs-due-seen.' + String(user?.username || '').toLowerCase();
+    const [dueSeen, setDueSeen] = useState(() => { try { return JSON.parse(localStorage.getItem(dueKey) || 'null'); } catch { return null; } });
 
     const sync = useCallback(async () => {
         if (noBell) return;
@@ -206,6 +210,11 @@ const Header = ({ onToggle }) => {
     /* fix181 (21.2, 17.18b): READ marks the chosen group up to the newest row shown, in ONE call */
     const readAll = async () => {
         const unreadInScope = summary ? (filter === 'ALL' ? summary.unread : (summary.unreadByGroup || {})[filter] || 0) : 0;
+        if (showDue) {   // fix241: READ also puts the calls reminder away for today
+            const seen = { day: todayKey, count: dueRaw };
+            setDueSeen(seen);
+            try { localStorage.setItem(dueKey, JSON.stringify(seen)); } catch { /* private window */ }
+        }
         if (unreadInScope === 0) return;
         const onScreen = shown.filter(n => !n.read).length;
         if (unreadInScope > onScreen && !(await confirm('MARK AS READ', 'Mark ' + unreadInScope + ' unread ' + (filter === 'ALL' ? '' : filter.toLowerCase() + ' ') + 'alerts as read? Only ' + onScreen + ' are shown here.'))) return;
@@ -224,7 +233,10 @@ const Header = ({ onToggle }) => {
 
     const groups = (summary && summary.groups && summary.groups.length) ? summary.groups.filter(g => GROUP_KEYS.includes(g)) : GROUP_KEYS;
     const byGroup = (summary && summary.unreadByGroup) || {};
-    const dueNow = summary && summary.dueNow != null ? Number(summary.dueNow) : 0;
+    const dueRaw = summary && summary.dueNow != null ? Number(summary.dueNow) : 0;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const dueHidden = !!(dueSeen && dueSeen.day === todayKey && dueRaw <= Number(dueSeen.count || 0));
+    const dueNow = dueHidden ? 0 : dueRaw;
     const unread = summary ? Number(summary.unread || 0) : 0;
     const critical = summary ? Number(summary.unreadCritical || 0) : 0;
     const dots = groups.filter(g => (byGroup[g] || 0) > 0);
@@ -233,10 +245,14 @@ const Header = ({ onToggle }) => {
     const showDue = dueNow > 0 && (filter === 'ALL' || filter === 'RECOVERY');
     const accent = filter === 'ALL' ? 'var(--acc, #EE8C3A)' : GROUP_COLOR[filter];
 
-    const sections = useMemo(() => BUCKETS.map(b => ({
-        key: b,
-        rows: shown.filter(n => (n.dayBucket || 'EARLIER') === b).sort((a, c) => Number(a.read) - Number(c.read)),
-    })).filter(sct => sct.rows.length > 0), [shown]);
+    // fix241 (David, C6): unread alerts always come first (their own UNREAD group on top), then the read ones by day
+    const sections = useMemo(() => {
+        const unreadRows = shown.filter(n => !n.read && !keep.includes(n.id));
+        const rest = shown.filter(n => n.read || keep.includes(n.id));
+        const out = unreadRows.length ? [{ key: 'UNREAD', rows: unreadRows }] : [];
+        BUCKETS.forEach(b => { const rows = rest.filter(n => (n.dayBucket || 'EARLIER') === b); if (rows.length) out.push({ key: b, rows }); });
+        return out;
+    }, [shown, keep]);
 
     const pickFilter = (g) => { setFilter(f => (f === g ? 'ALL' : g)); setKeep([]); setLimit(STEP); };
     const pickMode = (m) => { setMode(m); setKeep([]); setLimit(STEP); };
@@ -313,9 +329,9 @@ const Header = ({ onToggle }) => {
                                     <button type="button" className={`${styles.notifTool} ${spin ? styles.notifSpin : ''}`} onClick={refresh} aria-label="Refresh signals" title="Refresh">
                                         <FiRefreshCw aria-hidden="true" />
                                     </button>
-                                    <button type="button" className={styles.notifTool} onClick={readAll} disabled={scopeUnread === 0}
+                                    <button type="button" className={styles.notifTool} onClick={readAll} disabled={scopeUnread === 0 && !showDue}
                                         aria-label={filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read'}
-                                        title={scopeUnread === 0 ? 'Nothing unread here (the calls due are not alerts)' : (filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read')}>
+                                        title={scopeUnread === 0 ? (showDue ? 'Put the calls reminder away for today' : 'Nothing unread here') : (filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read')}>
                                         <FiCheck aria-hidden="true" />
                                     </button>
                                 </div>

@@ -78,11 +78,32 @@ function mark(el, boxOverride) {
     return true;
 }
 
+/** fix241 (David, D2): a box can be in the page but inside a FOLDED panel (its body is 0 px high). Then it is not shown. */
+function hiddenNow(el) {
+    if (!el || el.offsetParent === null) return true;
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.display === 'none' || cs.visibility === 'hidden') return true;
+        if (n.clientHeight === 0 && cs.overflow !== 'visible') return true;
+    }
+    return false;
+}
+
+/** fix241: opens the folded panel that holds the box (the closest section's own "open" header), then marks the box. */
+function revealAndMark(el, section, root) {
+    if (section && openSection(section, root)) { setTimeout(() => mark(el), 380); return true; }
+    const sec = el.closest('section, [class*="panel" i], [class*="Panel"]');
+    const head = sec && Array.from(sec.querySelectorAll('[aria-expanded="false"]')).find(h => !h.contains(el));
+    if (head) { head.click(); setTimeout(() => mark(el), 380); return true; }
+    return mark(el);
+}
+
 /** Marks the box and scrolls to it. Returns true when the box was found. Never throws. */
 export function flagField(name, { section, root = document } = {}) {
     try {
         if (!name && !section) return false;
         const el = name ? findControl(name, root) : null;
+        if (el && hiddenNow(el)) return revealAndMark(el, section, root);
         if (el) return mark(el);
         if (section && openSection(section, root)) {
             // the panel draws its boxes on the next paint
@@ -102,6 +123,7 @@ export function flagField(name, { section, root = document } = {}) {
 export function flagId(id, { section } = {}) {
     try {
         const el = id && document.getElementById(id);
+        if (el && hiddenNow(el)) return revealAndMark(el, section, document);
         if (el) return mark(el);
         if (section && openSection(section, document)) {
             later(() => { const again = document.getElementById(id); if (again) mark(again); else markSection(section, document); });
@@ -147,4 +169,35 @@ export function flagServerError(err, map = {}) {
     if (!hit) return false;
     const [name, section] = Array.isArray(hit) ? hit : [hit];
     return flagField(name, { section });
+}
+
+const STOP = new Set(['the', 'and', 'for', 'optional', 'required', 'ugx', 'this', 'that', 'with', 'from', 'your', 'must', 'more', 'than', 'only', 'are', 'not', 'can', 'cannot']);
+const wordsOf = (t) => norm(t).replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(w => w.length >= 3 && !STOP.has(w));
+
+/** fix241 (David, test D1): a popup refused its save. Find the box the message is about by the words of the box labels
+ *  (for example "ENTER A VALID AMOUNT." -> the box labelled AMOUNT RECEIVED), then mark it and scroll to it inside the
+ *  popup. Returns true when a box was marked. Never throws. */
+export function flagByWords(message, root = document) {
+    try {
+        const msg = new Set(wordsOf(message));
+        if (msg.size === 0) return false;
+        let best = null, bestScore = 0;
+        const consider = (labelText, el) => {
+            const w = wordsOf(labelText);
+            if (!w.length || !el || el.offsetParent === null) return;
+            const score = w.filter(x => msg.has(x)).length;
+            if (score > bestScore) { best = el; bestScore = score; }
+        };
+        root.querySelectorAll('label, [data-field-label]').forEach(lab => {
+            const forId = lab.getAttribute('for');
+            let el = forId ? root.querySelector('#' + CSS.escape(forId)) : null;
+            if (!el) el = lab.querySelector('input, textarea, select, [role="combobox"], button');
+            if (!el && lab.parentElement) el = lab.parentElement.querySelector('input, textarea, select, [role="combobox"], button');
+            consider(lab.textContent, el);
+        });
+        root.querySelectorAll('[aria-label]').forEach(el => {
+            if (el.matches('input, textarea, select, [role="combobox"], button')) consider(el.getAttribute('aria-label'), el);
+        });
+        return best ? mark(best) : false;
+    } catch { return false; }
 }

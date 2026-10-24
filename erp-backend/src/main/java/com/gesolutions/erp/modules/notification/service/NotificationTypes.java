@@ -54,7 +54,7 @@ public final class NotificationTypes {
         add("EXPENSE_DELETED",       Group.MONEY, "WARN",     Repeat.EVERY_TIME, DIR);
         add("BOOKS_MISMATCH",        Group.MONEY, "CRITICAL", Repeat.ONCE_PER_DAY, DIR, ADM);
         // PIPELINE
-        add("PENDING_CREATED",       Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, SEC, MGR);
+        add("PENDING_CREATED",       Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, SEC, MGR, DIR);   // fix241: the Director too
         add("NEW_INTAKE",            Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, MGR);
         add("STATUS_ADVANCED",       Group.PIPELINE, "POSITIVE", Repeat.EVERY_TIME, MGR);
         add("DOC_UPLOADED",          Group.PIPELINE, "INFO",     Repeat.GROUP_30_MIN, MGR);   // 17.7: grouped
@@ -65,7 +65,7 @@ public final class NotificationTypes {
         add("PROJECT_DELETED",       Group.PIPELINE, "CRITICAL", Repeat.EVERY_TIME, DIR, ADM);
         add("PROJECT_RESTORED",      Group.PIPELINE, "POSITIVE", Repeat.EVERY_TIME, DIR);
         add("AUTO_RECEIVABLE_365",   Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, DIR);
-        add("PENDING_STALE",         Group.PIPELINE, "WARN",     Repeat.ONCE_PER_DAY, SEC, MGR);
+        add("PENDING_STALE",         Group.PIPELINE, "WARN",     Repeat.ONCE_PER_DAY, SEC, MGR, DIR);   // fix241: the Director too
         add("PROJECT_GRADUATED",     Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, MGR, DIR);   // 17.15a
         add("NEGOTIATION_DEADLINE",  Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, MGR);
         add("FOLLOW_UP_DUE",         Group.PIPELINE, "INFO",     Repeat.ONCE_PER_EVENT_DATE, SEC, MGR, DIR);   // fix215: a note's follow-up day

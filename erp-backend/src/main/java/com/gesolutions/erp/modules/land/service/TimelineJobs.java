@@ -53,16 +53,19 @@ public class TimelineJobs {
     public void remindToday() {
         LocalDate today = LocalDate.now();
         for (FollowUpLog n : noteRepository.findByFollowUpOn(today)) {
+            boolean onlyMe = "ME".equals(n.getRemindFor());   // fix241: a reminder "only for me" rings only the writer's bell
             if (n.getProjectId() == null) {   // fix225: a note about a client alone
-                if (n.getClientId() != null) notificationService.emitToAudience("FOLLOW_UP_DUE",
-                        "Follow-up today on a client note (by " + n.getRecordedBy() + "). Open the client's Notes to read it.", "CLIENT", n.getClientId(), today);
+                if (n.getClientId() == null) continue;
+                String msg = "Follow-up today on a client note (by " + n.getRecordedBy() + "). Open the client's Notes to read it.";
+                if (onlyMe) notificationService.emitToUser("FOLLOW_UP_DUE", msg, "CLIENT", n.getClientId(), n.getRecordedBy(), today);
+                else notificationService.emitToAudience("FOLLOW_UP_DUE", msg, "CLIENT", n.getClientId(), today);
                 continue;
             }
             LandProject p = projectRepository.findById(n.getProjectId()).orElse(null);
             if (p == null || p.isDeleted()) continue;
-            notificationService.emitToAudience("FOLLOW_UP_DUE",
-                    "Follow-up today on project #" + p.getProjectIndex() + " (note by " + n.getRecordedBy() + "). Open its Notes to read it.",
-                    "PROJECT", p.getId(), today);
+            String msg = "Follow-up today on project #" + p.getProjectIndex() + " (note by " + n.getRecordedBy() + "). Open its Notes to read it.";
+            if (onlyMe) notificationService.emitToUser("FOLLOW_UP_DUE", msg, "PROJECT", p.getId(), n.getRecordedBy(), today);
+            else notificationService.emitToAudience("FOLLOW_UP_DUE", msg, "PROJECT", p.getId(), today);
         }
     }
 

@@ -168,4 +168,19 @@ public class TimelineTest {
         notes.delete(id, "Wrong details");
         assertTrue(entries(timeline.forClient(c.getId())).stream().noneMatch(r -> Boolean.TRUE.equals(r.get("clientNote"))));
     }
+
+    /** fix241 (David): a pin "only for me" is pinned only for its pinner; the follow-up scope is kept. */
+    @Test
+    public void pinOnlyForMeShowsPinnedOnlyToThePinner() throws Exception {
+        LandProject p = project();
+        as("sec.one", "ROLE_SECRETARY");
+        FollowUpLog n = notes.add(p.getId(), "Only my reminder", null, LocalDate.now().plusDays(2), true, null, "ME", "ME");
+        assertEquals("ME", noteRepository.findById(n.getId()).orElseThrow().getRemindFor());
+        Map<String, Object> mine = entries(timeline.forProject(p.getId())).stream().filter(r -> n.getId().equals(r.get("id"))).findFirst().orElseThrow();
+        assertEquals(Boolean.TRUE, mine.get("pinned"));
+        as("mgr.two", "ROLE_MANAGER");
+        Map<String, Object> theirs = entries(timeline.forProject(p.getId())).stream().filter(r -> n.getId().equals(r.get("id"))).findFirst().orElseThrow();
+        assertEquals(Boolean.FALSE, theirs.get("pinned"), "someone else does not see it pinned");
+        assertEquals("ME", theirs.get("remindFor"));
+    }
 }

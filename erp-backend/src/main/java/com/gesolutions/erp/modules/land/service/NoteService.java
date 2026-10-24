@@ -41,8 +41,18 @@ public class NoteService {
     private final com.gesolutions.erp.modules.client.repository.ClientRepository clientRepository;   // fix225
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;   // fix225
 
+    /** fix241: "ALL" (or nothing) = for everyone; "ME" = only for the person writing / pinning it. */
+    public static String scope(String s) { return s != null && "ME".equalsIgnoreCase(s.trim()) ? "ME" : null; }
+    static boolean forMe(String s) { return "ME".equals(s); }
+
     @Transactional(rollbackFor = Exception.class)
     public FollowUpLog add(UUID projectId, String content, String topic, LocalDate followUpOn, boolean pinned, MultipartFile file) throws Exception {
+        return add(projectId, content, topic, followUpOn, pinned, file, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public FollowUpLog add(UUID projectId, String content, String topic, LocalDate followUpOn, boolean pinned, MultipartFile file,
+                           String pinFor, String remindFor) throws Exception {
         LandProject p = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND: This project no longer exists."));
         if (p.isDeleted()) throw new BusinessException("NOTE_BLOCKED: This project is deleted. Restore it first.");
@@ -57,7 +67,9 @@ public class NoteService {
             if (!filed.isEmpty()) docId = filed.get(0).getId();
         }
         FollowUpLog n = noteRepository.save(FollowUpLog.builder().projectId(projectId).notes(text).topic(t).followUpOn(followUpOn)
-                .pinned(pinned).documentId(docId).recordedBy(AuditService.currentOperator()).build());
+                .pinned(pinned).documentId(docId).recordedBy(AuditService.currentOperator())
+                .pinFor(pinned ? scope(pinFor) : null).pinnedBy(pinned ? AuditService.currentOperator() : null)
+                .remindFor(followUpOn != null ? scope(remindFor) : null).build());
         auditService.logActionAfterCommit("NOTE_ADDED", "Operator [" + AuditService.currentOperator() + "] added a note to project #"
                 + p.getProjectIndex() + (t != null ? " (" + t + ")" : "") + (followUpOn != null ? " | follow up on " + followUpOn : "")
                 + (docId != null ? " | with a file" : "") + ": " + shortText(text));
@@ -65,9 +77,15 @@ public class NoteService {
         return n;
     }
 
-    /** fix225 (David): a note about the CLIENT alone, written on the client page (no project, no file). */
     @Transactional
     public FollowUpLog addForClient(UUID clientId, String content, String topic, LocalDate followUpOn, boolean pinned) {
+        return addForClient(clientId, content, topic, followUpOn, pinned, null, null);
+    }
+
+    /** fix225 (David): a note about the CLIENT alone, written on the client page (no project, no file). */
+    @Transactional
+    public FollowUpLog addForClient(UUID clientId, String content, String topic, LocalDate followUpOn, boolean pinned,
+                                    String pinFor, String remindFor) {
         com.gesolutions.erp.modules.client.model.Client c = clientRepository.findById(clientId)
                 .orElseThrow(() -> new BusinessException("CLIENT_NOT_FOUND: This client no longer exists."));
         String text = text(content);
@@ -77,15 +95,19 @@ public class NoteService {
         String t = topic(topic);
         checkDay(followUpOn);
         FollowUpLog n = noteRepository.save(FollowUpLog.builder().clientId(clientId).notes(text).topic(t).followUpOn(followUpOn)
-                .pinned(pinned).recordedBy(AuditService.currentOperator()).build());
+                .pinned(pinned).recordedBy(AuditService.currentOperator())
+                .pinFor(pinned ? scope(pinFor) : null).pinnedBy(pinned ? AuditService.currentOperator() : null)
+                .remindFor(followUpOn != null ? scope(remindFor) : null).build());
         auditService.logActionAfterCommit("NOTE_ADDED", "Operator [" + AuditService.currentOperator() + "] added a client note about "
                 + c.getFullName() + (t != null ? " (" + t + ")" : "") + (followUpOn != null ? " | follow up on " + followUpOn : "") + ": " + shortText(text));
         if (pinned) announcePin(n);
         return n;
     }
 
-    /** fix225 (David): a pinned note also rings the bell of the Secretary, Manager and Director (once per pin). */
+    /** fix225 (David): a pinned note also rings the bell of the Secretary, Manager and Director (once per pin).
+     *  fix241: a pin "only for me" rings nobody else's bell. */
     private void announcePin(FollowUpLog n) {
+        if (forMe(n.getPinFor())) return;
         try {
             String who = AuditService.currentOperator();
             String words = shortText(n.getNotes());
@@ -106,7 +128,14 @@ public class NoteService {
 
     @Transactional
     public FollowUpLog edit(UUID noteId, String content, String topic, LocalDate followUpOn) {
+        return edit(noteId, content, topic, followUpOn, null, false);
+    }
+
+    /** fix241: remindFor is changed only when `setRemind` is true (older pages do not send it). */
+    @Transactional
+    public FollowUpLog edit(UUID noteId, String content, String topic, LocalDate followUpOn, String remindFor, boolean setRemind) {
         FollowUpLog n = mine(noteId);
+        if (setRemind) n.setRemindFor(followUpOn != null ? scope(remindFor) : null);
         String text = text(content);
         if (LandService.isEvidenceNote(text)) {
             throw new BusinessException("NOTE_INVALID: A note cannot start with a system label like [PROBLEM] or [HANDED OVER].");
@@ -126,14 +155,20 @@ public class NoteService {
 
     /** Anyone who can read the timeline may pin or unpin a note (it only changes the order). */
     @Transactional
-    public FollowUpLog pin(UUID noteId, boolean pinned) {
+    public FollowUpLog pin(UUID noteId, boolean pinned) { return pin(noteId, pinned, null); }
+
+    /** fix241: pinFor "ME" = pinned only for the person pressing it (it stays unpinned for everyone else). */
+    @Transactional
+    public FollowUpLog pin(UUID noteId, boolean pinned, String pinFor) {
         FollowUpLog n = noteRepository.findById(noteId)
                 .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
         if (LandService.isEvidenceNote(n.getNotes())) throw new BusinessException("NOTE_LOCKED: Record lines cannot be pinned.");
-        boolean was = Boolean.TRUE.equals(n.getPinned());
+        boolean was = Boolean.TRUE.equals(n.getPinned()) && !forMe(n.getPinFor());
         n.setPinned(pinned);
+        n.setPinFor(pinned ? scope(pinFor) : null);
+        n.setPinnedBy(pinned ? AuditService.currentOperator() : null);
         FollowUpLog saved = noteRepository.save(n);
-        if (pinned && !was) announcePin(saved);   // fix225
+        if (pinned && !was) announcePin(saved);   // fix225 (fix241: announcePin skips a pin "only for me")
         return saved;
     }
 

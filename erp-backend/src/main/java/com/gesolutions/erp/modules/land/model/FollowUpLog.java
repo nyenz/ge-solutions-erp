@@ -75,4 +75,15 @@ public class FollowUpLog {
 
     @Column(name = "edited_at")
     private LocalDateTime editedAt;
+
+    // fix241 (David): a pin and a follow-up reminder can be FOR EVERYONE (null / "ALL") or ONLY FOR ME ("ME"), so the
+    // other ranks are not shown notes and reminders that do not concern them. pinnedBy = who pinned it.
+    @Column(name = "pin_for", length = 4)
+    private String pinFor;
+
+    @Column(name = "pinned_by", length = 100)
+    private String pinnedBy;
+
+    @Column(name = "remind_for", length = 4)
+    private String remindFor;
 }

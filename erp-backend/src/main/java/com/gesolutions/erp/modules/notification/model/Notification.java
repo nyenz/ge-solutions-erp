@@ -22,4 +22,6 @@ public class Notification {
     @Column(length = 100) private String actor;
     // fix181 (17.1): the repeat key for ONCE_PER_EVENT_DATE types (entity id + date)
     @Column(name = "dedupe_key", length = 120) private String dedupeKey;
+    // fix241 (David): an alert for ONE person (a note pinned or a follow-up set "only for me"); null = the whole rank
+    @Column(name = "target_user", length = 100) private String targetUser;
 }
