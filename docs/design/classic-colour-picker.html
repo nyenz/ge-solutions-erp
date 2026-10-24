@@ -41,13 +41,11 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
 .btn:hover{border-color:var(--focus)}
 .btnP{background:var(--focus);border-color:var(--focus);color:#fff}
 .chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.chips .chip{justify-content:flex-start;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chip.on{border-color:var(--focus);background:rgba(196,106,31,.1)}
-.chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px 0 6px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 12px var(--ui);cursor:pointer}
+.chip{display:flex;flex-direction:column;align-items:stretch;gap:5px;padding:6px 8px 7px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 12px var(--ui);cursor:pointer;text-align:left;min-width:0}
 .chip:hover{border-color:var(--focus)}
-.dots{display:inline-flex}
-.dots i{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--surface);margin-left:-4px}
-.dots i:first-child{margin-left:0}
+.chip.on{border-color:var(--focus);background:rgba(196,106,31,.1)}
+.chip small{display:block;font:500 10.5px var(--ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip{display:grid;grid-template-columns:1.4fr 1fr 1fr .7fr .9fr;height:16px;border-radius:5px;overflow:hidden;border:1px solid rgba(0,0,0,.12)}
 .out{font-family:var(--mono);font-size:12px;line-height:1.6;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;white-space:pre-wrap;word-break:break-word;user-select:all}
 .done{font-size:12.5px;color:var(--focus);font-weight:700;min-height:1em}
 .tip{font-size:12.5px;line-height:1.55;color:var(--muted);margin:0}
@@ -113,7 +111,7 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
         </div>
       </div>
 
-      <div class="lbl">Quick starts</div>
+      <div class="lbl">Quick starts: 20 looks + today's. Tap one, then fine-tune above</div>
       <div class="chips" id="presets"></div>
 
       <div class="lbl">3. Send to Claude</div>
@@ -167,18 +165,31 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
     {k:'acc',   n:'Accent',      d:'Orange buttons, headings, lines',v:'#EE8C3A'}
   ];
   var TODAY={}; ROLES.forEach(function(r){TODAY[r.k]=r.v;});
+  // 20 green / orange / cream looks; each keeps white readable on the panel, the text colour readable on the page,
+  // and dark ink readable on the orange buttons.
+  var P=function(n,d,page,panel,deep,text,acc){return {n:n,d:d,c:{page:page,panel:panel,deep:deep,text:text,acc:acc}};};
   var PRESETS=[
-    {n:"Today's",        c:TODAY},
-    {n:'True teal',      c:{page:'#F3F1EC',panel:'#1E4547',deep:'#133234',text:'#12302F',acc:'#E8873A'}},
-    {n:'Night teal',     c:{page:'#EEECE7',panel:'#0F2E30',deep:'#081E20',text:'#0B1F21',acc:'#F28A2E'}},
-    {n:'Petrol blue',    c:{page:'#F1F2EF',panel:'#1D4250',deep:'#122E3A',text:'#132E39',acc:'#EE8C3A'}},
-    {n:'Ink navy',       c:{page:'#F3F1ED',panel:'#1E2F45',deep:'#131F31',text:'#152235',acc:'#EA8A3A'}},
-    {n:'Forest',         c:{page:'#F2F1EA',panel:'#1F3D33',deep:'#142B23',text:'#16302A',acc:'#E0892F'}},
-    {n:'Olive brass',    c:{page:'#F3F0E6',panel:'#3A4433',deep:'#262E21',text:'#2A3226',acc:'#D4943A'}},
-    {n:'Charcoal teal',  c:{page:'#F0EFEC',panel:'#2A3A3B',deep:'#1C2829',text:'#1E2A2B',acc:'#E9883C'}},
-    {n:'Warm sand',      c:{page:'#F5EFE4',panel:'#2B4644',deep:'#1D3331',text:'#213634',acc:'#D9822B'}},
-    {n:'Burnt copper',   c:{page:'#F4F1EC',panel:'#213E40',deep:'#162A2C',text:'#1A2E30',acc:'#C8692A'}},
-    {n:'Soft gold',      c:{page:'#F4F2EF',panel:'#213E40',deep:'#162A2C',text:'#1A2E30',acc:'#E3A33D'}}
+    P("Today's",'what the app uses now',TODAY.page,TODAY.panel,TODAY.deep,TODAY.text,TODAY.acc),
+    P('Classic, truer','today, cleaned up','#F4F2EE','#1F4446','#14302F','#172F31','#F08C35'),
+    P('Forest & Marigold','deep green, bright orange','#F5F1E8','#1F4D3F','#143629','#16332A','#E8892F'),
+    P('Pine & Apricot','calm, soft orange','#F6F2EA','#234A43','#17342F','#18322D','#EE9A4D'),
+    P('Deep Teal & Ember','strong, serious','#F3F0EA','#1C4547','#123134','#142E30','#E5782A'),
+    P('Emerald Ledger','clean, bank-like','#F5F3EE','#1A4A3E','#0F3329','#12352C','#F08A2E'),
+    P('Busoga Green','true green, warm orange','#F5F1E6','#1F5136','#133A26','#173826','#EE8C3A'),
+    P('Spruce & Saffron','green with golden orange','#F3F1EB','#24433E','#18302C','#1A322E','#F2A03D'),
+    P('Juniper & Copper','quiet, dark copper','#F2EEE6','#20403A','#142B27','#15302B','#D27A33'),
+    P('Lagoon','bluer teal','#F4F3EE','#1E5054','#12393D','#133A3E','#EE8C3A'),
+    P('Kingfisher','bright teal, vivid orange','#F2F2EC','#155058','#0C3A41','#0F3439','#F28C38'),
+    P('Slate Teal','grey-green, modern','#F1F1EC','#2E4B4E','#203739','#1F3638','#E88A3E'),
+    P('Ivy Night','very dark green','#F1EFE8','#17302B','#0D201C','#13281F','#EB8434'),
+    P('Bottle & Amber','dark green, amber','#F4F0E6','#183F33','#0E2C23','#12302A','#E99A2C'),
+    P('Moss & Terracotta','earthy, clay orange','#F2EEE5','#34503F','#233A2D','#22382C','#D9733B'),
+    P('Fern & Rust','farm green, deep rust','#F3EFE6','#2D5240','#1E3B2D','#1E3729','#C9652C'),
+    P('Coffee Farm','green with brown-orange','#F3EEE3','#2F4A3A','#1F3428','#22362A','#CC7A30'),
+    P('Olive Grove','olive green, warm','#F4F1E6','#3D4A2E','#2A3520','#2B3522','#E0873A'),
+    P('Sage Cream','soft, lighter green','#F4F2EA','#3E5C50','#2C4539','#263D33','#DD8A3C'),
+    P('Eucalyptus','lightest, gentle','#F6F4EE','#45665C','#324F46','#2B443D','#E18A45'),
+    P('Cypress & Peach','gentle peach orange','#F7F3EC','#2A4A45','#1C3531','#1D3532','#F0A06A')
   ];
   var KEY='gs-classic-colours-v1', cur={}, sel='panel';
   try{ var saved=JSON.parse(localStorage.getItem(KEY)||'null'); if(saved) cur=saved; }catch(e){}
@@ -226,7 +237,7 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
   });
   PRESETS.forEach(function(p){
     var b=document.createElement('button');b.type='button';b.className='chip';
-    b.innerHTML='<span class="dots">'+['page','panel','text','acc'].map(function(k){return '<i style="background:'+p.c[k]+'"></i>';}).join('')+'</span>'+p.n;
+    b.innerHTML='<span class="strip">'+['page','panel','deep','text','acc'].map(function(k){return '<i style="background:'+p.c[k]+'"></i>';}).join('')+'</span><span>'+p.n+'<small>'+p.d+'</small></span>';
     b.addEventListener('click',function(){ROLES.forEach(function(r){cur[r.k]=p.c[r.k];});document.querySelectorAll('#presets .chip').forEach(function(c){c.classList.toggle('on',c===b);});loadSel();apply();save();});
     $('presets').appendChild(b);
   });
