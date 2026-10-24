@@ -87,6 +87,9 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
 .aBtn{padding:8px 14px;border-radius:6px;font:900 10px 'DM Sans',sans-serif;letter-spacing:1.2px;border:1.5px solid var(--acc);color:var(--acc);background:transparent}
 .aBtn.p{background:var(--acc);color:var(--deep)}
 .aBtn.d{border-color:var(--text);color:var(--text)}
+.refs{display:flex;flex-wrap:wrap;gap:8px 16px;font:12px var(--mono);color:var(--muted)}
+.refs span{display:inline-flex;align-items:center;gap:7px}
+.refs i{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.15)}
 /* head to head: the three finalists, same screen, side by side (stacked on phones) */
 .h2h{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 @media (min-width:1100px){.h2h{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -103,11 +106,21 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
 <div class="wrap">
   <header>
     <h1>GES DAY: pick the colours</h1>
-    <p class="lead">Fifteen versions of GES DAY in the GES website navy and orange (11 to 15 use only the website's own colours), on the same Golden Seed screen. Pick one, or press <b>Fine-tune this one</b> to adjust it below. Then press <b>Copy my colours</b> and paste the text to Claude.</p>
+    <p class="lead">New set, built from your two pictures: bluer and brighter navy, tangerine orange, a lighter and cleaner page. Pick one, or press <b>Fine-tune this one</b> to adjust it below. Then press <b>Copy my colours</b> and paste the text to Claude.</p>
   </header>
 
+  <section class="box" aria-label="Your pictures">
+    <div class="lbl">The colours in your two pictures</div>
+    <div class="refs">
+      <span><i style="background:#0B1020"></i>Midnight navy #0B1020</span><span><i style="background:#4A6ED1"></i>Cobalt #4A6ED1</span>
+      <span><i style="background:#FF7A2A"></i>Tangerine #FF7A2A</span><span><i style="background:#B59A90"></i>Dusty taupe #B59A90</span>
+      <span><i style="background:#1F3E6E"></i>Industrial navy #1F3E6E</span><span><i style="background:#F07C1A"></i>Industrial orange #F07C1A</span>
+      <span><i style="background:#EEF0F3"></i>Light grey page #EEF0F3</span>
+    </div>
+  </section>
+
   <section class="box" aria-label="Ten GES DAY versions">
-    <div class="lbl">15 versions + today's, side by side (same screen, only the colours differ)</div>
+    <div class="lbl">10 versions from your pictures + today's, side by side (same screen, only the colours differ)</div>
     <div class="h2h" id="h2h"></div>
   </section>
 
@@ -126,7 +139,7 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
         </div>
       </div>
 
-      <div class="lbl">Quick starts: 15 versions + today's. Tap one, then fine-tune above</div>
+      <div class="lbl">Quick starts: 10 versions + today's. Tap one, then fine-tune above</div>
       <div class="chips" id="presets"></div>
 
       <div class="lbl">3. Send to Claude</div>
@@ -180,29 +193,23 @@ h1{margin:0;font-size:clamp(22px,4vw,28px);font-weight:900;letter-spacing:-.3px;
     {k:'acc',   n:'Accent',      d:'Orange buttons, headings, lines',v:'#EA580C'}
   ];
   var TODAY={}; ROLES.forEach(function(r){TODAY[r.k]=r.v;});
-  // GES DAY: 10 versions in the GES website colours (Prussian navy + orange on cream). Each keeps white readable on the
-  // panel, the text colour readable on the page, and dark ink readable on the orange buttons. They differ on purpose in
-  // ONE or two things at a time (page warmth, navy depth, orange tone) so the choice is easy to see.
+  // GES DAY, round 2: built from David's two pictures (24 Oct 2026) -- the Pinterest palette (Midnight Navy #0B1020,
+  // Cobalt Bloom #4A6ED1, Tangerine Petal #FF7A2A, Dusty Taupe #B59A90) and the industrial site (a brighter mid navy,
+  // punchy orange, light grey-white page). The navy is bluer and brighter than before, the orange more tangerine and
+  // the page lighter and cleaner. Each keeps white readable on the panel and dark ink readable on the orange.
   var P=function(n,d,page,panel,deep,text,acc){return {n:n,d:d,c:{page:page,panel:panel,deep:deep,text:text,acc:acc}};};
   var PRESETS=[
     P("Today's",'what GES DAY uses now',TODAY.page,TODAY.panel,TODAY.deep,TODAY.text,TODAY.acc),
-    P('1. Website exact','brighter cream, as on the site','#FDFAF4','#0B2545','#071A33','#0B2545','#EA580C'),
-    P('2. Logo match','navy and orange of the GES logo','#F6F1E8','#183C66','#062442','#062442','#EA661E'),
-    P('3. Soft navy','lighter navy, calmer','#F7F3EB','#1B3A63','#13355E','#13355E','#EA580C'),
-    P('4. Midnight & ember','darkest navy, warm orange','#F3EEE4','#071A33','#040F20','#071A33','#F06A1F'),
-    P('5. Navy & amber','golden orange, softer','#F6F1E7','#0B2545','#071A33','#0B2545','#F08C1E'),
-    P('6. Navy & terracotta','deep clay orange','#F4EEE3','#102C4F','#0A1F3A','#102C4F','#C2410C'),
-    P('7. Sand & navy','deeper sand page','#EFE6D6','#0B2545','#071A33','#0B2545','#EA580C'),
-    P('8. Cool paper','grey-white page, crisp','#F2F3F0','#0E2A4A','#081C34','#0E2A4A','#EA580C'),
-    P('9. Ocean navy','bluer navy, bright orange','#F5F2EC','#0F3460','#0A2647','#0A2647','#F2742A'),
-    P('10. Slate navy','grey-blue navy, quiet','#F4F1EA','#243B53','#18293D','#1B2E44','#E8692A'),
-    // 11-15: built only from the colours the GES website itself uses (navy #0b2545, #13355e, #1b3a63, #071a33,
-    // orange #ea580c / #c2410c, cream #fdfaf4, sand #f3ede2, body text #4b5563)
-    P('11. Site cream, slate boxes','website cream, its slate navy panels','#FDFAF4','#13355E','#0B2545','#0B2545','#EA580C'),
-    P('12. Site sand & dark orange','website sand page, its hover orange','#F3EDE2','#0B2545','#071A33','#0B2545','#C2410C'),
-    P('13. Site hover orange','website cream, the darker orange','#FDFAF4','#0B2545','#071A33','#0B2545','#C2410C'),
-    P('14. Site grey words','website cream, its grey body text','#FDFAF4','#1B3A63','#0B2545','#4B5563','#EA580C'),
-    P('15. Site sand, night bar','website sand, slate panels, night header','#F3EDE2','#13355E','#071A33','#071A33','#EA580C')
+    P('1. Midnight & tangerine','the Pinterest palette, as is','#F3F1EF','#142347','#0B1020','#0B1020','#FF7A2A'),
+    P('2. Cobalt & tangerine','cobalt panels, midnight bars','#F4F5F7','#2B4C9B','#0B1020','#0B1020','#FF7A2A'),
+    P('3. Industrial','the second picture: mid navy, grey page','#EEF0F3','#1F3E6E','#16305A','#1A2B48','#F07C1A'),
+    P('4. Industrial bright','brighter navy, white page','#F7F7F8','#24477F','#183564','#1A2B48','#F5821F'),
+    P('5. Taupe warmth','midnight with a dusty taupe page','#F1ECE8','#1C2F5E','#0B1020','#0B1020','#FF7A2A'),
+    P('6. Cobalt day','the bluest, most cheerful','#F2F4F8','#3557A8','#1E3470','#14213D','#FF7A2A'),
+    P('7. Navy & sunflower','warm cream, sunflower orange','#F5F3EF','#1A3263','#0F1D3D','#0F1D3D','#F68B1F'),
+    P('8. Steel navy','grey-blue, calm and serious','#EDEFF2','#2A4373','#1B2D52','#1B2D52','#EE7623'),
+    P('9. Deep cobalt & burnt orange','strong blue, deeper orange','#F3F2F0','#203F86','#12244F','#12244F','#E8661A'),
+    P('10. Clean white & navy','white page, industrial navy, tangerine','#FAFAFA','#1F3E6E','#0B1020','#0B1020','#FF7A2A')
   ];
   var KEY='gs-gesday-colours-v1', cur={}, sel='panel';
   try{ var saved=JSON.parse(localStorage.getItem(KEY)||'null'); if(saved) cur=saved; }catch(e){}
