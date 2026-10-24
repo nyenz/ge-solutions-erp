@@ -268,25 +268,3 @@
     margin: 0;
     text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
-
-/* fix233: GES DAYLIGHT -- the sign-in card and the loading screen stay Prussian navy on the cream page
-   (the website's look), so they put the dark-panel values back for themselves. */
-:global(:root[data-theme="ges"]) .card,
-:global(:root[data-theme="ges"]) .appLoadScreen {
-    --sf-1: #0b2545;
-    --sf-2: #0d2a4e;
-    --sf-navy: #071a33;
-    --sf-raise-1: #1b3a63;
-    --sf-raise-2: #13355e;
-    --ink-rgb: 255, 255, 255;
-    --ink-solid: #ffffff;
-    --tx-accent: #fb923c;
-    --text-on-dark: rgba(244, 242, 239, 0.82);
-    --text-on-dark-soft: rgba(244, 242, 239, 0.72);
-    --text-light: #f4f2ef;
-    color: #f4f2ef;
-}
-:global(:root[data-theme="ges"]) .card,
-:global(:root[data-theme="gesnavy"]) .card {
-    background: linear-gradient(165deg, #1b3a63 0%, #0d2a4e 35%, #0b2545 70%, #071a33 100%);
-}

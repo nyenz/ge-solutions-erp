@@ -129,10 +129,10 @@
 .card[data-accent="violet"] { --accent: var(--violet); --accent-rgb: 167, 139, 250; }
 .card[data-accent="slate"]  { --accent: var(--slate);  --accent-rgb: 234, 179, 8; }
 .card[data-accent="red"]    { --accent: var(--red);    --accent-rgb: 239, 68, 68; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .card[data-accent="cyan"]   { --accent: #0891b2; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .card[data-accent="green"]  { --accent: #059669; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .card[data-accent="violet"] { --accent: #7c3aed; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .card[data-accent="slate"]  { --accent: #ca8a04; }
+:root[data-theme="bright"] .card[data-accent="cyan"]   { --accent: #0891b2; }
+:root[data-theme="bright"] .card[data-accent="green"]  { --accent: #059669; }
+:root[data-theme="bright"] .card[data-accent="violet"] { --accent: #7c3aed; }
+:root[data-theme="bright"] .card[data-accent="slate"]  { --accent: #ca8a04; }
 .cardWide { grid-column: 1 / -1; }
 .cardHead {
     display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
@@ -345,9 +345,9 @@
 }
 
 /* LIGHT theme: the card is already light, so the inner boxes go white to keep the two tones apart */
-:root:is([data-theme="bright"], [data-theme="ges"]) .container { --cream: #ffffff; }
-:root:is([data-theme="bright"], [data-theme="ges"]) .group, :root:is([data-theme="bright"], [data-theme="ges"]) .tile, :root:is([data-theme="bright"], [data-theme="ges"]) .pipeRow,
-:root:is([data-theme="bright"], [data-theme="ges"]) .checkItem, :root:is([data-theme="bright"], [data-theme="ges"]) .chip { box-shadow: 0 1px 3px rgba(var(--brand-ink-rgb, 26, 46, 48), 0.08); }
+:root[data-theme="bright"] .container { --cream: #ffffff; }
+:root[data-theme="bright"] .group, :root[data-theme="bright"] .tile, :root[data-theme="bright"] .pipeRow,
+:root[data-theme="bright"] .checkItem, :root[data-theme="bright"] .chip { box-shadow: 0 1px 3px rgba(var(--brand-ink-rgb, 26, 46, 48), 0.08); }
 
 /* fix210: a link at the foot of a panel sits at the bottom when the row makes the panel taller */
 .cardFootLink {

@@ -211,26 +211,3 @@
     .collapsed .navItem { padding: 0 clamp(9px, 1.1vw, 13px); justify-content: flex-start; }
     .navItem { --nav-row: 48px; }
 }
-
-/* fix233: in GES DAYLIGHT the page and panels are light but the side bar stays Prussian navy (as on the GES website),
-   so the side bar puts the dark-panel values back for itself and everything inside it. */
-:global(:root[data-theme="ges"]) .sidebar {
-    --sf-1: #0b2545;
-    --sf-2: #0d2a4e;
-    --sf-head: #071a33;
-    --sf-deep: #071a33;
-    --sf-navy: #0b2545;
-    --sf-raise-1: #1b3a63;
-    --sf-raise-2: #13355e;
-    --sf-navy-rgb: 11, 37, 69;
-    --well: 0, 0, 0;
-    --ink-rgb: 255, 255, 255;
-    --ink-solid: #ffffff;
-    --tx-accent: #fb923c;
-    --tx-orange: #fdba74;
-    --text-on-dark: rgba(244, 242, 239, 0.82);
-    --text-on-dark-soft: rgba(244, 242, 239, 0.72);
-    --text-light: #f4f2ef;
-    --scroll-track: #071a33;
-    color: #f4f2ef;
-}
