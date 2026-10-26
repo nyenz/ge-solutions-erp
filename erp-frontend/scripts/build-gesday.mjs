@@ -8,7 +8,7 @@ import path from 'node:path';
 import postcss from 'postcss';
 
 const dir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../src/styles/gesday');
-const order = ['src-nh.css', 'src-pay.css', 'src-rx.css', 'src-fd.css'];   // later sheets win, as designed
+const order = ['src-nh.css', 'src-pay.css', 'src-rx.css', 'src-fd.css', 'src-pg.css'];   // later sheets win, as designed
 const P = ':root[data-theme="ges"]';
 
 const scope = (sel) => {

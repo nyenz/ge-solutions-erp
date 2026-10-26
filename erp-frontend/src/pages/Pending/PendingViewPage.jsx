@@ -23,6 +23,8 @@ import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import { useToasts } from '../../components/common/useFeedback';
 import { ToastStack } from '../../components/common/Feedback';
 import styles from './Pending.module.css';
+import RetryButton from '../../components/common/RetryButton';
+import { FiAlertTriangle } from 'react-icons/fi';
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
 const localISO = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -161,9 +163,9 @@ export default function PendingViewPage() {
         run(async () => { await pendingService.reject(id, rejectWhy.trim()); navigate('/land/projects'); }, 'Entry rejected.');
     };
 
-    if (error && !p) return (<div className={styles.page}><div className={styles.error} role="alert">{error}
-        <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>RETRY</button></div></div>);
-    if (!p) return <div className={styles.page}><LoadingState label="LOADING ENTRY..." size="page" /></div>;
+    if (error && !p) return (<div data-page="pending" className={styles.page}><div className={`${styles.error} ${styles.loadError}`} role="alert"><FiAlertTriangle aria-hidden="true" className={styles.errorIcon} /><span className={styles.errorText}>Could not load this entry: {error}</span>
+        <RetryButton className={styles.retryBtn} onClick={load} /></div></div>);
+    if (!p) return <div data-page="pending" className={styles.page}><LoadingState label="LOADING ENTRY..." size="page" /></div>;
 
     const waiting = waitingFor({ pending: !!p.pending && !p.rejected, deleted: !!p.rejected,
         invoiceNumber: p.invoiceNumber, contractNumber: p.contractNumber, priceSet: p.priceSet });
@@ -171,7 +173,7 @@ export default function PendingViewPage() {
     const catOptions = cats.map(c => ({ value: c.code, label: c.label }));
 
     return (
-        <div className={styles.page}>
+        <div data-page="pending" className={styles.page}>
             <header className={styles.head}>
                 <div className={styles.headLeft}>
                     <h1 className={styles.title}>Project #{p.projectIndex} <span className={`${styles.badge} ${styles.badgePending}`}>PENDING</span></h1>

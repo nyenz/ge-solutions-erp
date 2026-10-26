@@ -714,7 +714,7 @@ export default function IntakePage() {
     );
 
     return (
-        <div className={styles.container} ref={topRef}>
+        <div data-page="intake" className={styles.container} ref={topRef}>
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>New Project</h1>
