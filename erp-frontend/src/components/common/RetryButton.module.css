@@ -1,0 +1,4 @@
+.spin { animation: rbSpin 0.8s linear infinite; }
+.on { cursor: default; }
+@keyframes rbSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }

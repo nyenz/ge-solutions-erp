@@ -22,3 +22,5 @@
 .danger:active { background: #7f1d1d; color: #fff; }
 .danger[aria-disabled="true"] { opacity: 0.75; }
 .danger:disabled { opacity: 0.6; cursor: default; }
+
+.modalBody { display: block; }

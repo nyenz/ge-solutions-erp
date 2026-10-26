@@ -1,0 +1,189 @@
+/* ===== GES DAY: Folder page ===== */
+/* panels: navy header, blue frame, one cream card inside (same as Settings) */
+[data-page="folder"] [class*="_panelInner_"]{background:#FFFFFC!important;margin:0;border-radius:10px;border:1px solid rgba(17,47,102,.14);box-shadow:0 1px 0 #fff inset;color:#0B2250;position:static!important}
+[data-page="folder"] [class*="_hwPanel_"]{position:relative}
+[data-page="folder"] [class*="_specLabel_"]{color:#5B6B8C!important}
+[data-page="folder"] [class*="_specValue_"]{color:#0B2250!important}
+[data-page="folder"] [class*="_specItem_"]{border-left:2px solid #F26A0D!important;padding-left:12px!important}
+[data-page="folder"] [class*="_sectionSubHeader_"]{color:#C9550A!important}
+[data-page="folder"] [class*="_inputHint_"],[data-page="folder"] [class*="_recHint_"]{color:#5B6B8C!important}
+[data-page="folder"] [class*="_statBox_"]{background:#E4E3DD!important;border:1px solid rgba(17,47,102,.12)!important}
+[data-page="folder"] [class*="_statBox_"] label{color:#5B6B8C!important}
+[data-page="folder"] [class*="_statBox_"] strong{color:#0B2250!important}
+[data-page="folder"] [class*="_statBox_"][class*="_statGreen_"] strong{color:#0F7A4A!important}
+[data-page="folder"] [class*="_statBox_"][class*="_statRed_"] strong{color:#B91C1C!important}
+[data-page="folder"] [class*="_statBox_"][class*="_statAmber_"] strong{color:#A16207!important}
+/* stage checklist */
+[data-page="folder"] [class*="_statusProgress_"]{color:#12347A!important}
+[data-page="folder"] [class*="_statusItem_"]{background:#FFFFFC!important;border:1px solid rgba(17,47,102,.10)!important;color:#0B2250!important}
+[data-page="folder"] [class*="_statusItem_"]:nth-of-type(even){background:#E4E3DD!important}
+[data-page="folder"] [class*="_statusItemName_"]{color:#0B2250!important}
+[data-page="folder"] [class*="_statusItemChecked_"] [class*="_statusItemName_"]{color:#6A7B9B!important}
+[data-page="folder"] [class*="_statusMeta_"]{color:#5B6B8C!important}
+[data-page="folder"] [class*="_statusDocLink_"]{background:#E4E3DD!important;color:#0B2250!important;border:1px solid rgba(17,47,102,.18)!important}
+[data-page="folder"] [class*="_statusDocLink_"]:hover{background:#F26A0D!important;color:#fff!important}
+[data-page="folder"] [class*="_plusBtn_"]{background:rgba(17,47,102,.08)!important;border:1px solid rgba(17,47,102,.2)!important;color:#12347A!important}
+[data-page="folder"] [class*="_plusBtn_"]:hover{background:#F26A0D!important;color:#fff!important;border-color:#C9550A!important}
+
+/* header buttons: orange = main action, REFRESH look = the rest, soft red = flag */
+[data-page="folder"] [class*="_printBtn_"],[data-page="folder"] [class*="_ghostBtn_"],[data-page="folder"] [class*="_releaseBtn_"],[data-page="folder"] [class*="_receiptLink_"]{background:rgba(17,47,102,.08)!important;border:1px solid rgba(17,47,102,.2)!important;color:#0B2250!important;border-radius:6px!important;font-weight:900!important;letter-spacing:1.5px;box-shadow:none!important;text-shadow:none!important;transition:background .15s,color .15s,border-color .15s}
+[data-page="folder"] [class*="_printBtn_"] svg,[data-page="folder"] [class*="_ghostBtn_"] svg,[data-page="folder"] [class*="_releaseBtn_"] svg,[data-page="folder"] [class*="_receiptLink_"] svg{color:inherit!important}
+[data-page="folder"] [class*="_printBtn_"]:hover:not(:disabled),[data-page="folder"] [class*="_ghostBtn_"]:hover:not(:disabled),[data-page="folder"] [class*="_releaseBtn_"]:hover:not(:disabled),[data-page="folder"] [class*="_receiptLink_"]:hover:not(:disabled){background:#F26A0D!important;border-color:#C9550A!important;color:#fff!important}
+[data-page="folder"] [class*="_printBtn_"]:active:not(:disabled),[data-page="folder"] [class*="_ghostBtn_"]:active:not(:disabled),[data-page="folder"] [class*="_releaseBtn_"]:active:not(:disabled),[data-page="folder"] [class*="_receiptLink_"]:active:not(:disabled){background:#BF4C04!important}
+[data-page="folder"] [class*="_releaseBtn_"]:disabled{opacity:.5;cursor:not-allowed}
+[data-page="folder"] [class*="_unlockMasterBtn_"]{background:#F26A0D!important;border:1px solid #C9550A!important;color:#fff!important;border-radius:6px!important;font-weight:900!important;letter-spacing:1.5px;text-shadow:0 1px 1px rgba(120,45,0,.35);box-shadow:0 2px 8px rgba(242,106,13,.3)!important;transition:background .15s}
+[data-page="folder"] [class*="_unlockMasterBtn_"] svg{color:#fff!important}
+[data-page="folder"] [class*="_unlockMasterBtn_"]:hover:not(:disabled){background:#DA5A06!important}
+[data-page="folder"] [class*="_unlockMasterBtn_"]:active:not(:disabled){background:#BF4C04!important;transform:translateY(1px)}
+[data-page="folder"] [class*="_problemBtn_"],[data-page="folder"] [class*="_reverseBtn_"]{background:#FDE2E2!important;border:1px solid #B91C1C!important;color:#7F1D1D!important;border-radius:6px!important;font-weight:900!important;letter-spacing:1.5px;box-shadow:none!important}
+[data-page="folder"] [class*="_problemBtn_"] svg,[data-page="folder"] [class*="_reverseBtn_"] svg{color:#7F1D1D!important}
+[data-page="folder"] [class*="_problemBtn_"]:hover,[data-page="folder"] [class*="_reverseBtn_"]:hover{background:#C81E1E!important;border-color:#8F1515!important;color:#fff!important}
+[data-page="folder"] [class*="_problemBtn_"]:hover svg,[data-page="folder"] [class*="_reverseBtn_"]:hover svg{color:#fff!important}
+[data-page="folder"] [class*="_problemBtnActive_"]{background:#C81E1E!important;color:#fff!important;border-color:#8F1515!important}
+/* tabs: always orange when chosen */
+[data-page="folder"] [class*="_tabOn_"],[data-page="folder"] [class*="_tabOn_"] span,[data-page="folder"] [class*="_tabOn_"] svg{color:#fff!important;text-shadow:0 1px 1px rgba(0,30,40,.3)}
+[data-page="folder"] [class*="_tabOn_"][data-accent="orange"]{background:#F26A0D!important;border-color:#F26A0D!important}
+[data-page="folder"] [class*="_tabOn_"][data-accent="cyan"]{background:#0EA5C6!important;border-color:#0EA5C6!important}
+[data-page="folder"] [class*="_tabOn_"][data-accent="violet"]{background:#10B981!important;border-color:#10B981!important}
+[data-page="folder"] [class*="_tabOn_"][data-accent="slate"]{background:#D99A06!important;border-color:#D99A06!important}
+[data-page="folder"] [class*="_tabOn_"][data-accent="red"]{background:#B91C1C!important;border-color:#B91C1C!important}
+/* payments list: zebra rows */
+[data-page="folder"] [class*="_paymentList_"]{display:flex;flex-direction:column;gap:0;border:1px solid rgba(17,47,102,.12);border-radius:8px;overflow:hidden}
+[data-page="folder"] [class*="_paymentRow_"]{background:#FFFFFC!important;border:0!important;border-radius:0!important;border-left:5px solid #34D399!important;box-shadow:none!important;color:#0B2250!important}
+[data-page="folder"] [class*="_paymentRow_"]:nth-child(even){background:#E4E3DD!important}
+[data-page="folder"] [class*="_paymentRow_"]:hover{background:#FDEBD7!important}
+[data-page="folder"] [class*="_payAmount_"]{color:#0B2250!important}
+[data-page="folder"] [class*="_payAmountNeg_"]{color:#B91C1C!important}
+[data-page="folder"] [class*="_payType_"]{color:#0B2250!important}
+[data-page="folder"] [class*="_payPayer_"]{color:#1E4A8C!important}
+[data-page="folder"] [class*="_payMethod_"]{color:#0F7A4A!important}
+[data-page="folder"] [class*="_payMethodNone_"]{color:#6A7B9B!important}
+[data-page="folder"] [class*="_payBy_"],[data-page="folder"] [class*="_payDate_"]{color:#5B6B8C!important}
+[data-page="folder"] [class*="_payNoteText_"]{color:#3E4A63!important}
+[data-page="folder"] [class*="_payStorageChip_"]{color:#A16207!important;background:none!important;border-color:#A16207!important}
+[data-page="folder"] [class*="_payReversed_"]{color:#B91C1C!important}
+/* people */
+[data-page="folder"] [class*="_ownerStaticCard_"],[data-page="folder"] [class*="_ownerEditCard_"]{background:#E4E3DD!important;border:1px solid rgba(17,47,102,.14)!important;color:#0B2250!important}
+[data-page="folder"] [class*="_ownerStaticCard_"] *{color:#0B2250}
+[data-page="folder"] [class*="_ownerStaticCard_"] svg{color:#F26A0D!important}
+[data-page="folder"] [class*="_ownerName_"],[data-page="folder"] [class*="_ownerNameLink_"]{color:#0B2250!important}
+[data-page="folder"] [class*="_ownerNameLink_"]:hover{color:#fff!important;-webkit-text-stroke:2px #0B2250;paint-order:stroke fill}
+[data-page="folder"] [class*="_phoneHighlight_"]{color:#12347A!important}
+[data-page="folder"] [class*="_ownerRelName_"]{color:#0B2250!important;border-color:rgba(17,47,102,.18)!important}
+[data-page="folder"] [class*="_portfolioTable_"] th{color:#5B6B8C!important}
+[data-page="folder"] [class*="_portfolioTable_"] td{color:#0B2250!important;border-color:rgba(17,47,102,.1)!important}
+[data-page="folder"] [class*="_portfolioTable_"] tbody tr:nth-child(odd) td{background:#FFFFFC!important}
+[data-page="folder"] [class*="_portfolioTable_"] tbody tr:nth-child(even) td{background:#E4E3DD!important}
+[data-page="folder"] [class*="_portfolioTable_"] tbody tr:hover td{background:#FDEBD7!important}
+[data-page="folder"] [class*="_portfolioTable_"] tbody tr:active td{background:#FBD9B5!important}
+[data-page="folder"] [class*="_emptyState_"]{color:#5B6B8C!important}
+
+[data-page="folder"] [class*="_payRowRight_"]{gap:8px}
+[data-page="folder"] [class*="_payRowRight_"] button+button{margin-left:6px}
+
+[data-page="folder"] [class*="_bodyOpen_"]{padding:16px 16px 30px}
+/* documents */
+[data-page="folder"] [class*="_list_"]{background:#FFFFFC!important;border:1px solid rgba(17,47,102,.14)!important;padding:0!important;gap:0!important;border-radius:8px!important;overflow:hidden}
+[data-page="folder"] [class*="_groupLabel_"]{color:#12347A!important;background:#E4E3DD;margin:0!important;padding:8px 14px!important;border-bottom:1px solid rgba(17,47,102,.12)}
+[data-page="folder"] [class*="_groupCount_"]{color:#6A7B9B!important}
+[data-page="folder"] [class*="_row_"]{background:#FFFFFC!important;border:0!important;border-bottom:1px solid rgba(17,47,102,.08)!important;border-radius:0!important;padding:9px 14px}
+[data-page="folder"] [class*="_row_"]:nth-of-type(even){background:#F4F3EE!important}
+[data-page="folder"] [class*="_row_"]:hover{background:#FDEBD7!important}
+[data-page="folder"] [class*="_row_"] [class*="_icon_"]{color:#F26A0D!important}
+[data-page="folder"] [class*="_row_"] [class*="_name_"]{color:#0B2250!important}
+[data-page="folder"] [class*="_row_"] [class*="_meta_"]{color:#5B6B8C!important}
+[data-page="folder"] [class*="_row_"] [class*="_btn_"]{background:rgba(17,47,102,.08)!important;border:1px solid rgba(17,47,102,.2)!important;color:#0B2250!important;border-radius:6px!important}
+[data-page="folder"] [class*="_row_"] [class*="_btn_"]:hover{background:#F26A0D!important;border-color:#C9550A!important;color:#fff!important}
+[data-page="folder"] [class*="_row_"] [class*="_btnDel_"]{background:#FDE2E2!important;border-color:#B91C1C!important;color:#B91C1C!important}
+[data-page="folder"] [class*="_row_"] [class*="_btnDel_"]:hover{background:#C81E1E!important;color:#fff!important;border-color:#8F1515!important}
+[data-page="folder"] [class*="_zone_"]{color:#5B6B8C!important;background:#FFFFFC}
+[data-page="folder"] [class*="_zone_"]:hover{color:#C9550A!important;background:#FDEBD7!important}
+/* only the bottom corner marks and pins show (like the other pages) */
+[data-page="folder"] [class*="_cornerAccent_"][class*="_topLeft_"],[data-page="folder"] [class*="_cornerAccent_"][class*="_topRight_"],[data-page="folder"] [class*="_pins_"][class*="_top_"]{display:none!important}
+[data-page="folder"] [class*="_panelInner_"] label:not([class]){color:#5B6B8C!important;font-weight:900}
+[data-page="folder"] [class*="_btnDanger_"]{background:rgba(17,47,102,.08)!important;border:1px solid rgba(17,47,102,.2)!important;color:#0B2250!important;border-radius:6px!important;font-weight:900!important;box-shadow:none!important}
+[data-page="folder"] [class*="_btnDanger_"] svg{color:inherit!important}
+[data-page="folder"] [class*="_btnDanger_"]:hover{background:#F26A0D!important;border-color:#C9550A!important;color:#fff!important}
+[data-page="folder"] [class*="_btnPrimary_"]{background:#F26A0D!important;border:1px solid #C9550A!important;color:#fff!important;border-radius:6px!important;font-weight:900!important;text-shadow:0 1px 1px rgba(120,45,0,.35)}
+[data-page="folder"] [class*="_btnPrimary_"]:hover:not(:disabled){background:#DA5A06!important}
+[data-page="folder"] [class*="_purgeBtn_"]{background:#FDE2E2!important;border:1px solid #B91C1C!important;color:#7F1D1D!important;border-radius:6px!important;font-weight:900!important}
+[data-page="folder"] [class*="_purgeBtn_"]:hover{background:#C81E1E!important;color:#fff!important;border-color:#8F1515!important}
+[data-hw-modal] [class*="_inputHint_"]{color:#DCE8FA!important}
+[data-hw-modal] [class*="_addDocBtn_"]{background:#FFFFFC!important;border:1px solid rgba(17,47,102,.25)!important;color:#0B2250!important;font-size:11px!important;font-weight:900!important;letter-spacing:1.5px!important;border-radius:8px!important}
+[data-hw-modal] [class*="_addDocBtn_"]:hover{background:#F26A0D!important;color:#fff!important;border-color:#C9550A!important}
+/* notice bars: same shape as the red error bar, one colour per meaning */
+[data-page="folder"] [class*="_infoStrip_"]{background:#E4EEFB!important;border:0!important;border-left:6px solid #4F8FE0!important;border-radius:8px!important;color:#0B2250!important;box-shadow:none!important}
+[data-page="folder"] [class*="_infoStrip_"] *{color:#0B2250!important}
+[data-page="folder"] [class*="_infoStrip_"] svg{color:#2A5AA3!important}
+[data-page="folder"] [class*="_infoStrip_"] strong{color:#0F7A4A!important}
+[data-page="folder"] [class*="_infoStripWarn_"]{background:#FEF3C7!important;border-left-color:#EAB308!important}
+[data-page="folder"] [class*="_infoStripWarn_"] *{color:#713F12!important}
+[data-page="folder"] [class*="_infoStripBad_"]{background:#FDE2E2!important;border-left-color:#B91C1C!important}
+[data-page="folder"] [class*="_infoStripBad_"] *{color:#7F1D1D!important}
+[data-page="folder"] [class*="_infoStrip_"] strong{color:#0F7A4A!important}
+[data-page="folder"] [class*="_infoStripBad_"] strong{color:#7F1D1D!important}
+[data-page="folder"] [class*="_infoStripWarn_"] strong{color:#713F12!important}
+[data-hw-modal] [class*="_modalErr_"] strong,[data-hw-modal] [class*="_infoBox_"] strong,[data-hw-modal] [class*="_hwNote_"] strong{color:#7F1D1D!important}
+[data-hw-modal] [class*="_modalInfoBoxDanger_"] strong{color:#7F1D1D!important}
+[data-hw-modal] [class*="_modalInfoBox_"] strong{color:inherit}
+[data-page="folder"] input[placeholder="dd/mm/yyyy"]{border:1px solid rgba(242,106,13,.35)!important;outline:none!important;border-radius:6px}
+[data-page="folder"] input[placeholder="dd/mm/yyyy"]:focus{border-color:#F26A0D!important}
+
+/* RECORD PAYMENT: quiet at rest (REFRESH look), green when hovered / pressed / focused */
+[data-page="folder"] [class*="_ctrlBtnPay_"]{background:rgba(17,47,102,.08)!important;border:1px solid rgba(17,47,102,.2)!important;color:#0B2250!important;border-radius:6px!important;font-weight:900!important;letter-spacing:1.5px;box-shadow:none!important;text-shadow:none!important;transition:background .15s,color .15s,border-color .15s}
+[data-page="folder"] [class*="_ctrlBtnPay_"] svg{color:inherit!important}
+[data-page="folder"] [class*="_ctrlBtnPay_"]:hover:not(:disabled),[data-page="folder"] [class*="_ctrlBtnPay_"]:focus-visible{background:#10B981!important;border-color:#0B8A62!important;color:#fff!important;outline:none}
+[data-page="folder"] [class*="_ctrlBtnPay_"]:active:not(:disabled){background:#0B8A62!important;transform:translateY(1px)}
+/* the two big consequences (remove title, move to receivables) go red, not orange */
+[data-page="folder"] [class*="_ghostBtn_"][data-tone="danger"]:hover:not(:disabled),[data-page="folder"] [class*="_ghostBtn_"][data-tone="danger"]:focus-visible{background:#C81E1E!important;border-color:#8F1515!important;color:#fff!important}
+[data-page="folder"] [class*="_ghostBtn_"][data-tone="danger"]:active:not(:disabled){background:#8C1313!important}
+/* collapsed panels: no corner marks or pins */
+[data-page="folder"] [class*="_hwPanel_"]:has([class*="_bodyClosed_"]) [class*="_cornerAccent_"],[data-page="folder"] [class*="_hwPanel_"]:has([class*="_bodyClosed_"]) [class*="_pins_"]{display:none!important}
+/* pop-up labels that sit straight on the blue card */
+[class*="_modalBody_"] [class*="_modalLabelOnBlue_"]{color:#DCE8FA!important}
+/* unsaved changes: red tint */
+[class*="_modalBody_"] div[class*="_warnBox_"]{background:#FDE2E2!important;border:0!important;border-left:6px solid #B91C1C!important;color:#7F1D1D!important}
+[class*="_modalBody_"] div[class*="_warnBox_"] *{color:#7F1D1D!important}
+[class*="_modalBody_"] [class*="_warnIcon_"]{color:#EF4444!important}
+[class*="_modalBody_"] button[class*="_leaveBtn_"]{background:#FDE2E2!important;border:1px solid #B91C1C!important;color:#7F1D1D!important;font-weight:900!important}
+[class*="_modalBody_"] button[class*="_leaveBtn_"] svg{color:inherit!important}
+[class*="_modalBody_"] button[class*="_leaveBtn_"]:hover{background:#C81E1E!important;border-color:#8F1515!important;color:#fff!important}
+/* edit mode: each group of boxes sits on its own grey card with a small title (like Settings) */
+[data-page="folder"] [class*="_inputGrid3_"][data-group]{background:#E4E3DD;border:1px solid rgba(17,47,102,.14);border-radius:8px;padding:14px 14px 16px;margin-bottom:14px;position:relative}
+[data-page="folder"] [class*="_inputGrid3_"][data-group]::before{content:attr(data-group);grid-column:1 / -1;font:900 10px/1 var(--font-ui,'DM Sans'),sans-serif;letter-spacing:1.5px;color:#12347A;padding-bottom:4px}
+/* drop-downs: same as the other pages */
+[data-page="folder"] [class*="_selectTrigger_"]{background:#FFFFFC!important;border:1.5px solid #F26A0D!important;color:#0B2250!important;box-shadow:none!important}
+[data-page="folder"] [class*="_selectTrigger_"]:hover,[data-page="folder"] [class*="_selectTriggerOpen_"]{box-shadow:0 0 15px rgba(242,106,13,.22)!important}
+[data-page="folder"] [class*="_selectValue_"]{color:#0B2250!important;font-weight:800!important;letter-spacing:1px;text-transform:uppercase}
+[data-page="folder"] [class*="_selectChevron_"]{color:#F26A0D!important;opacity:1!important}
+[data-page="folder"] [class*="_selectDropdown_"]{background:#FFFFFC!important;border:1.5px solid #F26A0D!important;border-radius:6px!important;box-shadow:0 10px 24px rgba(17,47,102,.28)!important;overflow:hidden}
+[data-page="folder"] [class*="_selectOption_"]{color:#0B2250!important;font-weight:800!important;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(17,47,102,.08)}
+[data-page="folder"] [class*="_selectOption_"]:hover{background:#FDEBD7!important;color:#0B2250!important}
+[data-page="folder"] [class*="_selectOptionActive_"],[data-page="folder"] [class*="_selectOptionActive_"]:hover{background:#DA7A2E!important;color:#fff!important}
+[data-page="folder"] [class*="_inputLabelRow_"] span{color:#6A7B9B!important}
+[data-hw-modal] label[class*="_modalLabelOnBlue_"],[data-hw-modal] [class*="_modalField_"] label[class*="_modalLabelOnBlue_"]{color:#DCE8FA!important}
+[data-hw-modal] small[class*="_modalLabelOnBlue_"]{color:#DCE8FA!important;font-weight:700}
+[data-hw-modal] [class*="_modalBody_"] small[class*="_modalLabelOnBlue_"]{color:#DCE8FA!important;font-weight:700}
+[data-hw-modal] [class*="_modalBody_"] label[class*="_modalLabelOnBlue_"]{color:#DCE8FA!important}
+/* tabs everywhere: the glow and the hover follow the tab's own colour (no orange behind other colours) */
+[class*="_tabOn_"][data-accent]{transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s!important}
+[class*="_tab_"][data-accent]{transition:background-color .18s,color .18s!important;box-shadow:none!important}
+[class*="_tabOn_"][data-accent="orange"]{box-shadow:0 4px 14px rgba(242,106,13,.40)!important}
+[class*="_tabOn_"][data-accent="green"],[class*="_tabOn_"][data-accent="violet"]{box-shadow:0 4px 14px rgba(16,185,129,.38)!important}
+[class*="_tabOn_"][data-accent="cyan"]{box-shadow:0 4px 14px rgba(14,165,198,.38)!important}
+[class*="_tabOn_"][data-accent="yellow"],[class*="_tabOn_"][data-accent="slate"]{box-shadow:0 4px 14px rgba(217,154,6,.38)!important}
+[class*="_tabOn_"][data-accent="red"]{box-shadow:0 4px 14px rgba(185,28,28,.38)!important}
+[class*="_tab_"][data-accent="cyan"]:hover,[class*="_tab_"][data-accent="cyan"]:hover span,[class*="_tab_"][data-accent="cyan"]:hover svg{color:#0B8FAD!important}
+[class*="_tab_"][data-accent="green"]:hover,[class*="_tab_"][data-accent="green"]:hover span,[class*="_tab_"][data-accent="green"]:hover svg,[class*="_tab_"][data-accent="violet"]:hover,[class*="_tab_"][data-accent="violet"]:hover span,[class*="_tab_"][data-accent="violet"]:hover svg{color:#0B8A62!important}
+[class*="_tab_"][data-accent="yellow"]:hover,[class*="_tab_"][data-accent="yellow"]:hover span,[class*="_tab_"][data-accent="yellow"]:hover svg,[class*="_tab_"][data-accent="slate"]:hover,[class*="_tab_"][data-accent="slate"]:hover span,[class*="_tab_"][data-accent="slate"]:hover svg{color:#A87604!important}
+[class*="_tab_"][data-accent="red"]:hover,[class*="_tab_"][data-accent="red"]:hover span,[class*="_tab_"][data-accent="red"]:hover svg{color:#B91C1C!important}
+/* the sliding pill behind the chosen tab, in the same colours as the tabs */
+[data-thumb]{--thumb-bg:#F26A0D!important;--thumb-glow:rgba(242,106,13,.40)!important}
+[data-thumb][data-accent="green"],[data-thumb][data-accent="violet"]{--thumb-bg:#10B981!important;--thumb-glow:rgba(16,185,129,.38)!important}
+[data-thumb][data-accent="cyan"]{--thumb-bg:#0EA5C6!important;--thumb-glow:rgba(14,165,198,.38)!important}
+[data-thumb][data-accent="yellow"],[data-thumb][data-accent="slate"]{--thumb-bg:#D99A06!important;--thumb-glow:rgba(217,154,6,.38)!important}
+[data-thumb][data-accent="red"]{--thumb-bg:#B91C1C!important;--thumb-glow:rgba(185,28,28,.38)!important}
+/* the pill alone carries the colour of the chosen tab, so nothing orange fades out behind it */
+[data-page="folder"] [data-thumb-ready] > button[aria-selected="true"],[data-page="folder"] [data-thumb-ready] > button[aria-pressed="true"]{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
+[data-thumb-ready] > button{transition:color .18s!important}
+[data-thumb-ready] > button[aria-selected="true"],[data-thumb-ready] > button[aria-pressed="true"]{background:transparent!important;border-color:transparent!important;box-shadow:none!important}

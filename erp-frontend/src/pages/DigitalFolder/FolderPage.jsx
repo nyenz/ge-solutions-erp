@@ -43,7 +43,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
-import ErrorMessage from '../../components/common/ErrorMessage';
+import RetryButton from '../../components/common/RetryButton';
 import CornerDecor from '../../components/ui/CornerDecor';
 import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { readShillings, MONEY_BAD } from '../../utils/money';   // fix199 (test note 23)
@@ -998,7 +998,9 @@ const FolderPage = () => {
     });
 
     if (loading) return (<div className={styles.container}><div className={styles.skeletonPage}><div className={styles.skeletonTermHeader} /><div className={styles.skeletonHUD} /><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div></div></div>);
-    if (loadError || !binder || !buffer) return (<div style={{ padding: 'clamp(40px,8vw,80px) clamp(20px,4vw,40px)' }}><ErrorMessage type="error" title="Record not found" message="This archive entry could not be loaded." onRetry={loadFolderData} retryLabel="Try Again" /></div>);
+    if (loadError || !binder || !buffer) return (<div className={styles.loadErrorWrap}><div className={styles.loadError} role="alert"><FiAlertCircle className={styles.loadErrorIcon} aria-hidden="true" />
+        <span className={styles.loadErrorText}>Could not load this folder: No reply from the server (the internet is down, or the server is waking up). Nothing was saved. Try again in a few seconds.</span>
+        <RetryButton className={styles.loadErrorBtn} onClick={loadFolderData} /></div></div>);
 
     const project = binder.project;
     const isDeleted = !!project.deleted;
@@ -1076,7 +1078,7 @@ const FolderPage = () => {
     const waiting = waitingFor(project, liveStages || binder.statuses);
 
     return (
-        <div className={styles.container}>
+        <div className={styles.container} data-page="folder">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing && !uploadDraft} />
             {/* fix199 (test note 10): what PRINT puts on paper -- a proper Project File, not the screen */}
@@ -1152,7 +1154,7 @@ const FolderPage = () => {
                                     info: 'Confirm the client has received the title deed for ' + plotName + '. The record is then locked (a director can UNDO it). Write who collected it and how they were identified.' })}
                                 title={project.releaseBlocker ? 'Cannot hand over yet: ' + project.releaseBlocker : amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
                         {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && pType.titleMode !== 'ALWAYS' && (
-                            <button type="button" className={styles.ghostBtn} title="Take the saved Title Details off this project (reason required)."
+                            <button type="button" className={styles.ghostBtn} data-tone="danger" title="Take the saved Title Details off this project (reason required)."
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REMOVE TITLE DETAILS', confirmLabel: 'REMOVE TITLE DETAILS',
                                     info: 'This removes the saved Title Details (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the Titled stage. The old values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REMOVE TITLE DETAILS</button>)}
                         {(canEdit || (flags.isSecretary && !isDeleted)) && <button type="button" className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot (reason required).' : 'Flag this plot as having a problem and alert staff (say what it is).'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
@@ -1200,11 +1202,11 @@ const FolderPage = () => {
                                     <FiCheckCircle aria-hidden="true" /> {buffer.titleDetailsEnabled ? 'NO TITLE DETAILS' : 'ADD TITLE DETAILS'}</button>
                                 <span className={styles.inputHint}>Title Details are optional on a Topographic Survey. Saved with SAVE.</span>
                             </div>)}
-                            {pType.value === 'SUBDIVISION' && (<div className={styles.inputGrid3}>
+                            {pType.value === 'SUBDIVISION' && (<div className={styles.inputGrid3} data-group="SUBDIVISIONS">
                                 <SmartInput label="NUMBER OF SUBDIVISIONS" value={buffer.subdivisionCount} required inputMode="numeric" error={fieldErrors.subdivisionCount}
                                     hint="Cannot go below a plot that was already transferred." onChange={e => touchedSetBuffer({ ...buffer, subdivisionCount: e.target.value.replace(/[^0-9]/g, '') })} />
                             </div>)}
-                            <div className={styles.inputGrid3}>
+                            <div className={styles.inputGrid3} data-group="LOCATION">
                                 {/* fix188: the five location boxes offer the places of past projects; a pick fills the empty ones */}
                                 <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} {...placeHelp('district')} onChange={e => touchedSetBuffer({ ...buffer, district: e.target.value.toUpperCase() })} />
                                 <SmartInput label="COUNTY" value={buffer.county} showCaps {...placeHelp('county')} onChange={e => touchedSetBuffer({ ...buffer, county: e.target.value.toUpperCase() })} />
@@ -1213,7 +1215,7 @@ const FolderPage = () => {
                                 <SmartInput label="VILLAGE" value={buffer.village} showCaps {...placeHelp('village')} onChange={e => touchedSetBuffer({ ...buffer, village: e.target.value.toUpperCase() })} />
                                 {!showTitleFields && <SmartInput label="AREA (HECTARES)" value={buffer.area} inputMode="decimal" error={fieldErrors.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value.replace(',', '.') })} />}
                             </div>
-                            {showTitleFields && (<div className={styles.inputGrid3}>
+                            {showTitleFields && (<div className={styles.inputGrid3} data-group="TITLE DETAILS">
                                 <SmartInput ref={firstInputRef} label="PLOT NUMBER" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({ ...buffer, plotNumber: e.target.value.toUpperCase() })} />
                                 <SmartSelect label="TENURE" options={['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({ ...buffer, tenure: v })} />
                                 <SmartInput label="BLOCK" value={buffer.block} showCaps required error={fieldErrors.block} suggestions={suggestValues(sg('block'), buffer.block)} suggestHint="Typed before on this device" onChange={e => touchedSetBuffer({ ...buffer, block: e.target.value.toUpperCase() })} />
@@ -1288,7 +1290,7 @@ const FolderPage = () => {
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
                         <div className={`${styles.panelBody} ${drawers.balance ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                             <CornerDecor hideTop />
-                            {isEditing ? (<div className={styles.inputGrid3}>
+                            {isEditing ? (<div className={styles.inputGrid3} data-group="MONEY">
                                 <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({ ...buffer, totalCost: v })} hint="Changing it needs a reason (box appears below)." />
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT PAID</label><span className={styles.autoCalcBadge}>LOCKED</span></div>
                                     <input className={`${styles.hwInput} ${styles.calcInput}`} value={(Number(buffer.initialPayment) || 0).toLocaleString()} disabled />
@@ -1318,7 +1320,7 @@ const FolderPage = () => {
                                         title={'Take a payment for the kept fees (receipt required). The project stays set aside and no new fees start. Unpaid: UGX ' + fmt(keptFees)}
                                         onClick={() => openPayModal('STORAGE')}><FiDollarSign aria-hidden="true" /> COLLECT SET-ASIDE FEES</button>}
                                     {canMoney && !isDeleted && !isReleased && amountOwed + keptFees > 0 && <button type="button" className={styles.ghostBtn}
-                                        title="Start monthly storage fees on this project (director only, reason required)."
+                                        data-tone="danger" title="Start monthly storage fees on this project (director only, reason required)."
                                         onClick={() => openReasonModal({ kind: 'ENTER', title: 'MOVE TO RECEIVABLES', confirmLabel: 'MOVE TO RECEIVABLES',
                                             info: 'This freezes the balance (UGX ' + fmt(amountOwed + keptFees) + ' owed' + (keptFees > 0 ? ', set-aside fees included' : '') + ') and starts a monthly storage fee of UGX ' + fmt(defaultRate) + ' unless a different rate is set, added every 30 days. Write why.' })}><FiAlertOctagon aria-hidden="true" /> MOVE TO RECEIVABLES</button>}
                                     {canMoney && !isDeleted && keptFees > 0 && (<>
@@ -1562,12 +1564,12 @@ const FolderPage = () => {
             <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title={uploadDraft && uploadDraft.statusName ? 'UPLOAD DOCUMENTS - ' + uploadDraft.statusName.toUpperCase() : 'UPLOAD DOCUMENTS'}>
                 {uploadDraft && (<>
                     {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the stage &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
                         <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText={catEmptyText} ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
                         <span className={styles.upFileName} title={f.file.name}>{f.file.name}{f.note && <small className={styles.upFileNote}>{f.note}</small>}</span>
                         <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setFileCategory(i, code)} placeholder="Category" emptyText={catEmptyText} ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
-                    {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
+                    {newCatOpen ? (<div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>NEW CATEGORY NAME</label>
                         <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
                         <div className={styles.upCatActions}>
                             <button type="button" className={styles.addDocBtn} onClick={handleAddCategory} disabled={catBusy || newCatName.trim().length < 2}>SAVE CATEGORY</button>
@@ -1587,28 +1589,28 @@ const FolderPage = () => {
                         ? 'Attach the scan of the title (plot ' + (titleModal.plotNumber || '---') + ', block ' + (titleModal.block || '---') + '). "Titled" is ticked when it is saved.'
                         : 'The title now exists, so type its details and attach its scan. "Titled" is ticked only when both are saved. After that, when everything is paid, the title can be handed over.'}</div>
                     {!titleModal.scanOnly && (<>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-plot">PLOT NUMBER</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="tt-plot">PLOT NUMBER</label>
                         <input id="tt-plot" type="text" className={modalStyles.modalInput} value={titleModal.plotNumber} maxLength={100} autoComplete="off" autoFocus
                             onChange={e => { setTitleModal(m => ({ ...m, plotNumber: e.target.value })); if (titleErr) setTitleErr(''); }} /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-block">BLOCK</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="tt-block">BLOCK</label>
                         <input id="tt-block" type="text" className={modalStyles.modalInput} value={titleModal.block} maxLength={100} autoComplete="off"
                             onChange={e => { setTitleModal(m => ({ ...m, block: e.target.value })); if (titleErr) setTitleErr(''); }} /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-area">AREA (HECTARES)</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="tt-area">AREA (HECTARES)</label>
                         <input id="tt-area" type="text" inputMode="decimal" className={modalStyles.modalInput} value={titleModal.areaHectares} autoComplete="off"
                             onChange={e => { setTitleModal(m => ({ ...m, areaHectares: e.target.value.replace(/[^0-9.]/g, '') })); if (titleErr) setTitleErr(''); }} /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>TENURE</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>TENURE</label>
                         <HardwareModalSelect value={titleModal.tenure} options={['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'].map(t => ({ value: t, label: t }))} onChange={v => setTitleModal(m => ({ ...m, tenure: v }))} placeholder="Choose the tenure" ariaLabel="Tenure" /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-vol">VOLUME (OPTIONAL)</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="tt-vol">VOLUME (OPTIONAL)</label>
                         <input id="tt-vol" type="text" className={modalStyles.modalInput} value={titleModal.volume} maxLength={60} autoComplete="off"
                             onChange={e => setTitleModal(m => ({ ...m, volume: e.target.value }))} /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-folio">FOLIO (OPTIONAL)</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="tt-folio">FOLIO (OPTIONAL)</label>
                         <input id="tt-folio" type="text" className={modalStyles.modalInput} value={titleModal.folio} maxLength={60} autoComplete="off"
                             onChange={e => setTitleModal(m => ({ ...m, folio: e.target.value }))} /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>TITLE DATE</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>TITLE DATE</label>
                         <HardwareDatePicker block value={titleModal.titleIssueDate} max={localISO()} onChange={v => { setTitleModal(m => ({ ...m, titleIssueDate: v })); if (titleErr) setTitleErr(''); }} ariaLabel="Title date" /></div>
                     </>)}
                     {/* fix202 (David, test note 26): the title scan is required; it is filed as Copy of Title under this stage */}
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="tt-scan">SCAN OF THE TITLE (REQUIRED)</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="tt-scan">SCAN OF THE TITLE (REQUIRED)</label>
                         <input id="tt-scan" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }}
                             onChange={e => { const list = Array.from(e.target.files || []); e.target.value = ''; pickTitleScans(list); }} />
                         {(titleModal.files || []).map((f, i) => (
@@ -1631,10 +1633,10 @@ const FolderPage = () => {
                     <div className={modalStyles.modalInfoBox}>{canSetNumbers
                         ? 'Type both numbers exactly as they are written on the papers. Any format is fine. No other project can have the same number. Every change is logged.'
                         : 'These are the numbers of this project. A Secretary or above can correct them.'}</div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="num-invoice">INVOICE NUMBER</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="num-invoice">INVOICE NUMBER</label>
                         <input id="num-invoice" type="text" className={modalStyles.modalInput} value={numModal.invoice} maxLength={80} autoComplete="off" autoFocus={canSetNumbers} readOnly={!canSetNumbers}
                             onChange={e => { setNumModal(m => ({ ...m, invoice: e.target.value })); if (numErr) setNumErr(''); }} /></div>
-                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="num-contract">CONTRACT NUMBER</label>
+                    <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="num-contract">CONTRACT NUMBER</label>
                         <input id="num-contract" type="text" className={modalStyles.modalInput} value={numModal.contract} maxLength={80} autoComplete="off" readOnly={!canSetNumbers}
                             onChange={e => { setNumModal(m => ({ ...m, contract: e.target.value })); if (numErr) setNumErr(''); }}
                             onKeyDown={e => { if (e.key === 'Enter' && canSetNumbers) saveNumbers(); }} /></div>
@@ -1653,24 +1655,24 @@ const FolderPage = () => {
                     <button type="button" className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`} onClick={() => { setPayType('STORAGE'); setPayErr(''); }} disabled={feesUnpaid <= 0} title={feesUnpaid <= 0 ? 'No storage fees are unpaid.' : 'Money for storage fees. Unpaid: UGX ' + fmt(feesUnpaid)}><FiArchive size={12} /> STORAGE FEE</button>
                 </div></div>)}
                 <div className={modalStyles.modalInfoBox}>{payType === 'STORAGE' ? 'Storage fees unpaid: UGX ' + fmt(feesUnpaid) : 'Owed on the title work: UGX ' + fmt(workOwed)}</div>
-                {payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHICH CLIENT PAID? (REQUIRED)</label>
+                {payers.length > 1 && (<div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>WHICH CLIENT PAID? (REQUIRED)</label>
                     <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the client" ariaLabel="Client who paid" /></div>)}
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>HOW WAS IT PAID? (REQUIRED)</label>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>HOW WAS IT PAID? (REQUIRED)</label>
                     <HardwareModalSelect value={payMethod} options={PAY_METHODS.map(m => ({ value: m.value, label: m.label }))} onChange={v => { setPayMethod(v); setPayErr(''); }} placeholder="Choose the method" ariaLabel="How was it paid?" />
-                    {payMethod && <small className={modalStyles.modalHint}>{PAY_METHODS.find(m => m.value === payMethod).hint}</small>}</div>
-                {payMethod && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{referenceLabel(payMethod).toUpperCase()}</label>
+                    {payMethod && <small className={`${modalStyles.modalHint} ${styles.modalLabelOnBlue}`}>{PAY_METHODS.find(m => m.value === payMethod).hint}</small>}</div>
+                {payMethod && (<div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>{referenceLabel(payMethod).toUpperCase()}</label>
                     <input type="text" className={modalStyles.modalInput} value={payRef} maxLength={80} aria-label={referenceLabel(payMethod)}
                         placeholder={payMethod === 'OTHER' ? 'e.g. Cheque no. 1042' : payMethod === 'MOBILE_MONEY' ? 'e.g. MP241019.1532.A12345' : ''}
                         onChange={e => { setPayRef(e.target.value); if (payErr) setPayErr(''); }} /></div>)}
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>AMOUNT RECEIVED (UGX)</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount} onChange={e => { const v = e.target.value; setPayAmount(v); setPayErr(readShillings(v).ok ? '' : MONEY_BAD.toUpperCase()); }} /></div>
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="pay-date">DATE PAID</label>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="pay-date">DATE PAID</label>
                     <HardwareDatePicker id="pay-date" block className={modalStyles.modalInput} value={payDate} max={localISO()} ariaLabel="Date paid"
                         min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={v => { setPayDate(v); if (payErr) setPayErr(''); }} />
-                    <small className={modalStyles.modalHint}>Leave as today if the money came today.</small></div>
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
+                    <small className={`${modalStyles.modalHint} ${styles.modalLabelOnBlue}`}>Leave as today if the money came today.</small></div>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Paid by the client's son at the office." /></div>
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT (REQUIRED)</label>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>PAYMENT RECEIPT (REQUIRED)</label>
                     <input ref={payReceiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; pickReceipt(f); }} />
                     {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}{payReceiptNote && <small className={styles.upFileNote}>{payReceiptNote}</small>}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt" title="Remove this file"><FiX aria-hidden="true" /></button></div>)
                         : (<button type="button" className={styles.addDocBtn} onClick={() => payReceiptRef.current && payReceiptRef.current.click()} title="Choose the receipt scan or photo"><FiPaperclip aria-hidden="true" />&nbsp;ATTACH RECEIPT SCAN</button>)}
@@ -1682,12 +1684,12 @@ const FolderPage = () => {
             </HardwareModal>
             <HardwareModal isOpen={reasonModal.open} lockBackdrop onClose={closeReasonModal} title={reasonModal.title}>
                 <div className={`${modalStyles.modalInfoBox} ${reasonCfg.danger ? modalStyles.modalInfoBoxDanger : ''}`}>{reasonModal.info}</div>
-                {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.amountLabel}</label>
+                {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>{reasonModal.amountLabel}</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} value={reasonModal.amount} autoFocus aria-label="New total storage fees"
                         onChange={e => { const v = e.target.value; setReasonModal(m => ({ ...m, amount: v })); setReasonErr(readShillings(v).ok ? '' : MONEY_BAD.toUpperCase()); }} /></div>)}
-                {reasonCfg.agree && payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AGREED WITH (OPTIONAL - FEES ARE FOR THE WHOLE PROJECT)</label>
+                {reasonCfg.agree && payers.length > 1 && (<div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>AGREED WITH (OPTIONAL - FEES ARE FOR THE WHOLE PROJECT)</label>
                     <HardwareModalSelect value={reasonModal.agreedWith} options={[{ value: '', label: 'All clients / not one person' }, ...ownerOptions]} onChange={v => setReasonModal(m => ({ ...m, agreedWith: v }))} placeholder="Choose the client" ariaLabel="Client who agreed" /></div>)}
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.kind === 'RELEASE' ? 'WHO COLLECTED IT? (REQUIRED - SAVED IN THE AUDIT LOG)' : 'REASON (REQUIRED - SAVED IN THE AUDIT LOG)'}</label>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>{reasonModal.kind === 'RELEASE' ? 'WHO COLLECTED IT? (REQUIRED - SAVED IN THE AUDIT LOG)' : 'REASON (REQUIRED - SAVED IN THE AUDIT LOG)'}</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder={reasonCfg.ph || 'Write the reason...'} aria-label="Reason"
                         onChange={e => { setReasonModal(m => ({ ...m, reason: e.target.value })); if (reasonErr) setReasonErr(''); }} />
                     <span className={styles.probCount}>{reasonModal.reason.length}/300</span>
@@ -1720,7 +1722,7 @@ const FolderPage = () => {
             </HardwareModal>
             <HardwareModal isOpen={problemModal.open} lockBackdrop onClose={closeProblemModal} title={'FLAG PROBLEM - ' + plotName}>
                 <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies the office (clearing it later is reported to the Director). While flagged, the title cannot be handed over. What you write goes into the notes and the audit trail.</div>
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (REQUIRED)</label>
+                <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`}>WHAT IS THE PROBLEM? (REQUIRED)</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder="e.g. Owner name on the deed plan does not match the ID..." aria-label="Problem description" onChange={e => { setProblemModal(m => ({ ...m, note: e.target.value })); if (probErr) setProbErr(''); }} />
                     <span className={styles.probCount}>{problemModal.note.length}/500</span></div>
                 <ModalError toast={toast} text={probErr} />

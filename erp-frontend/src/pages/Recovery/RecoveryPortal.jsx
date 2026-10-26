@@ -149,7 +149,7 @@ export default function RecoveryPortal() {
   const askDelete = (noteId) => {
     if (deleting) return;
     askReason({
-      title: 'DELETE CALL NOTE', okLabel: 'DELETE CALL NOTE', picks: DELETE_PICKS.CALL,
+      title: 'DELETE CALL NOTE', okLabel: 'DELETE', picks: DELETE_PICKS.CALL,
       message: 'Delete this call note? The client\u2019s last-contact date and score are put back.',
       run: async (reason) => {
         setDeleting(noteId);
@@ -219,6 +219,7 @@ export default function RecoveryPortal() {
                 </button>
                 {isOpen && (
                   <div className={styles.rowBody}>
+                    <span className={styles.rowInfo}>
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>CONTACT</label>
                       <span className={styles.nin}>{c.nin}</span>
@@ -246,6 +247,7 @@ export default function RecoveryPortal() {
                       <span className={styles.attemptLine}><FiClock aria-hidden="true" /> Good calls this 30 days: {c.calls30}/2 - Misses: {c.miss30}</span>
                       {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
                     </span>
+                    </span>
                     <span className={styles.rowActions}>
                       <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={syncing}
                         title={c.state === 'LOCKED' ? 'Resting: see the call history (read only). A Manager can delete a wrong call note there.' : 'Log a call and see the call history'}><FiPhone aria-hidden="true" /> CALL LOG</button>
@@ -266,6 +268,7 @@ export default function RecoveryPortal() {
       )}
       <HardwareModal isOpen={!!sel} onClose={() => setSel(null)} title={sel ? 'CALL LOG - ' + sel.name : 'CALL LOG'} lockBackdrop>
         {sel && (<>
+          <div className={styles.modalBody}>
           <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span>{splitPhones(sel.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span></div>
           {(sel.unlock || sel.state === 'LOCKED') && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}
           <div className={styles.tagwall}>
@@ -297,7 +300,7 @@ export default function RecoveryPortal() {
                   <button type="button" disabled={!!deleting} className={`${styles.histDelete} ${deleting === n.id ? styles.histDeleteArmed : ''}`} aria-label="Delete this call note"
                     title="Delete this call note (Manager and above). You are asked why; the audit log keeps the reason."
                     onClick={() => askDelete(n.id)}>
-                    <FiTrash2 aria-hidden="true" /> {deleting === n.id ? 'DELETING...' : 'DELETE'}
+                    <FiTrash2 aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -305,6 +308,7 @@ export default function RecoveryPortal() {
             {notesState === 'loading' && (<div className={styles.histEmpty}>LOADING THE CALL HISTORY...</div>)}
             {notesState === 'error' && (<div className={styles.histEmpty} role="alert">COULD NOT LOAD THE CALL HISTORY. <button type="button" className={styles.histRetry} onClick={() => loadNotes(sel.id)} title="Try loading the history again">TRY AGAIN</button></div>)}
             {!notesState && notes.length === 0 && (<div className={styles.histEmpty}>NO CALLS LOGGED YET.</div>)}
+          </div>
           </div>
           <div className={modalStyles.modalFooter}>
             <HardwareButton type="button" onClick={save} loading={busy} icon={FiPhone} disabled={!picked || (!!sel.unlock || sel.state === 'LOCKED')}>LOG OUTCOME</HardwareButton>

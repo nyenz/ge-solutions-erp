@@ -212,3 +212,5 @@
 
 /* fix230: the small lines under the index never break in the middle of a number on a phone */
 .stackSub, .stackPlot { white-space: nowrap; }
+
+.errorText{display:block}

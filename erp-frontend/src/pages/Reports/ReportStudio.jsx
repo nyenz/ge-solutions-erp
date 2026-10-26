@@ -5,7 +5,7 @@
 // chart, table and downloads can never disagree.
 import { GES_GLOBE } from '../../components/print/GesMark';   // fix233: the real GES logo
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FiSearch, FiX, FiChevronDown, FiAlertCircle } from 'react-icons/fi';
+import { FiSearch, FiX, FiChevronDown, FiAlertCircle, FiCheck } from 'react-icons/fi';
 import { Chart } from '../../components/common/Charts';
 import {
   DATASETS, datasetsFor, fieldsFor, fieldByKey, applyFilters,
@@ -515,7 +515,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                   <div className={styles.ddScroll}>
                     {fields.map(f => (
                       <label key={f.key} className={styles.pickCheck + (columns.indexOf(f.key) >= 0 ? ' ' + styles.pickCheckOn : '')}>
-                        <input type="checkbox" checked={columns.indexOf(f.key) >= 0} onChange={() => toggleColumn(f.key)} />{f.label}
+                        <input type="checkbox" checked={columns.indexOf(f.key) >= 0} onChange={() => toggleColumn(f.key)} /><span className={styles.pickBox} aria-hidden="true">{columns.indexOf(f.key) >= 0 && <FiCheck />}</span><span>{f.label}</span>
                       </label>
                     ))}
                   </div>

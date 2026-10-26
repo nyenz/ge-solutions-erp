@@ -13,6 +13,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
+import RetryButton from '../../components/common/RetryButton';
 import TabDock, { accentOf } from '../../components/common/TabDock';
 import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
@@ -109,7 +110,7 @@ const LedgerPage = () => {
     }, []);
     useEffect(() => { Promise.resolve().then(fetchLedger); }, [fetchLedger]);
     // REFRESH / RETRY: the spinner only when nothing is on screen yet
-    const reload = () => { if (!projects.length) setLoading(true); setLoadError(false); fetchLedger(); };
+    const reload = () => { if (!projects.length) setLoading(true); setLoadError(false); return fetchLedger(); };
 
     // STATUSES COLUMN (fix47): each row's status list -- exactly the statuses (template + custom) saved from the
     // Intake page. fix182: the ledger answer already carries them (LandService.getGlobalLedger), so the second
@@ -251,8 +252,8 @@ const LedgerPage = () => {
                             {loading && <LoadingRow colSpan={9} label="SYNCING ARCHIVE..." />}
                             {!loading && loadError && (
                                 <tr><td colSpan={9} className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
-                                    <button className={styles.retryBtn} onClick={reload}>RETRY</button>
+                                    <span className={styles.errorText}>Could not load the project ledger: No reply from the server (the internet is down, or the server is waking up). Nothing was saved. Try again in a few seconds.</span>
+                                    <RetryButton className={styles.retryBtn} onClick={reload} />
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.length === 0 && (

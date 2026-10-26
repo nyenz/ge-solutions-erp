@@ -265,3 +265,5 @@
 
 /* fix228: delete buttons turn solid dark red with a white icon on hover / press */
 .deleteIconBtn:hover:not(:disabled), .deleteIconBtn:focus-visible, .deleteIconBtn:active { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+
+.modalBody { display: block; }

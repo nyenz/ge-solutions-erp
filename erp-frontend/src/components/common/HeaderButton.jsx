@@ -1,6 +1,8 @@
 // PATH: erp-frontend/src/components/common/HeaderButton.jsx
 import React from 'react';
+import { FiCheck } from 'react-icons/fi';
 import { Tooltip } from './Tooltip';
+import useActionFeedback from './useActionFeedback';
 import styles from './HeaderButton.module.css';
 
 /**
@@ -40,23 +42,29 @@ export const HeaderButton = ({
     disabled = false,
     type = 'button',
     ariaLabel,
-}) => (
-    <Tooltip label={tip || label}>
-        <button
-            type={type}
-            className={`${styles.btn} ${styles[variant] || ''}`}
-            onClick={onClick}
-            disabled={disabled || busy}
-            aria-label={ariaLabel || label}
-        >
-            {Icon && (
-                <span className={`${styles.icon} ${busy ? styles.spin : ''}`} aria-hidden="true">
-                    <Icon />
-                </span>
-            )}
-            <span className={styles.label}>{label}</span>
-        </button>
-    </Tooltip>
-);
+}) => {
+    // fix (feedback): the arrows spin while it works and a tick shows when it is done, even if the page answered at once
+    const [phase, run] = useActionFeedback(onClick);
+    const working = busy || phase === 'working';
+    return (
+        <Tooltip label={tip || label}>
+            <button
+                type={type}
+                className={`${styles.btn} ${styles[variant] || ''} ${phase === 'done' ? styles.done : ''}`}
+                onClick={onClick ? run : undefined}
+                disabled={disabled || working}
+                aria-label={ariaLabel || label}
+                aria-busy={working}
+            >
+                {Icon && (
+                    <span className={`${styles.icon} ${working ? styles.spin : ''}`} aria-hidden="true">
+                        {phase === 'done' && !busy ? <FiCheck /> : <Icon />}
+                    </span>
+                )}
+                <span className={styles.label}>{label}</span>
+            </button>
+        </Tooltip>
+    );
+};
 
 export default HeaderButton;

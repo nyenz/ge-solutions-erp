@@ -345,6 +345,8 @@ const SettingsPage = () => {
                 {/* fix181 (15.6d): a hidden username so the browser's password manager knows whose key this is */}
                 <input type="text" name="username" autoComplete="username" value={user?.username || ''} readOnly hidden />
                 <div className={styles.securityAlert}><FiShield aria-hidden="true" /><span>{locked ? 'You signed in with a temporary key. Choose your own key to unlock the system.' : 'Changing your key signs you out on your other devices.'}</span></div>
+                <div className={styles.prefGroupBox}>
+                <div className={styles.prefGroupLabel}>Change your key</div>
                 <div className={styles.dualRow}>
                   <div className={styles.eyeInpWrap}>
                     <HardwareInput id="current-key" name="current-password" autoComplete="current-password" label="CURRENT KEY" type={showOld ? 'text' : 'password'} value={oldPw} onChange={e => setOldPw(e.target.value)} />
@@ -358,6 +360,7 @@ const SettingsPage = () => {
                 <div className={styles.dualRow}>
                   <div className={styles.eyeInpWrap}>
                     <HardwareInput id="new-key-repeat" name="new-password-repeat" autoComplete="new-password" label="REPEAT NEW KEY" type={showNew ? 'text' : 'password'} value={newPw2} onChange={e => setNewPw2(e.target.value)} />
+                    <button type="button" className={styles.eyeBtn} onClick={() => setShowNew(s => !s)} aria-label={showNew ? 'Hide the new key' : 'Show the new key'}>{showNew ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}</button>
                   </div>
                   <ul className={styles.keyRules} aria-label="Key rules">
                     {KEY_RULES.map(r => (
@@ -370,11 +373,13 @@ const SettingsPage = () => {
                 <div className={styles.submitRow}>
                   <button type="submit" className={styles.commitBtn} disabled={!canChangePw}><FiKey aria-hidden="true" /> {savingPw ? 'SAVING...' : 'SAVE NEW KEY'}</button>
                 </div>
+                </div>
               </form>
             )}
 
             {activeTab.key === 'governance' && isOwner && (
-              <>
+              <div className={styles.prefGroupBox}>
+                <div className={styles.prefGroupLabel}>Staff accounts</div>
                 <div className={styles.ledgerActions}>
                   <button type="button" className={styles.addOpBtn} onClick={() => setAddOpen(true)} disabled={RANKS.length === 0}><FiUserPlus aria-hidden="true" /> ADD STAFF</button>
                 </div>
@@ -425,11 +430,12 @@ const SettingsPage = () => {
                     );
                   })}
                 </div>
-              </>
+              </div>
             )}
 
             {activeTab.key === 'danger' && flags.canWipe && (
-              <>
+              <div className={styles.prefGroupBox} data-tone="danger">
+                <div className={styles.prefGroupLabel}>Wipe all business data</div>
                 {/* fix181 (14.4a, owner choice B): the text says exactly what is deleted and what is kept */}
                 <div className={styles.dangerAlert}><FiAlertTriangle aria-hidden="true" /><span>This deletes every project, client, payment, expense, document and uploaded file, every note and notification, the custom stage lists and the expense presets. There is no undo. Kept: all staff accounts, the audit trail, document types and the appearance choices.</span></div>
                 {wipeResult && (
@@ -459,11 +465,12 @@ const SettingsPage = () => {
                 <button type="button" className={styles.wipeBtn} disabled={wipeText !== 'WIPE-EVERYTHING' || !wipeKey || wiping} onClick={wipe}>
                   <FiTrash2 aria-hidden="true" /> {wiping ? 'WIPING...' : wipeFresh ? 'FRESH START: WIPE EVERYTHING' : 'WIPE ALL BUSINESS DATA'}
                 </button>
-              </>
+              </div>
             )}
 
             {activeTab.key === 'deleted' && isOwner && (
-              <>
+              <div className={styles.prefGroupBox}>
+                <div className={styles.prefGroupLabel}>Deleted projects</div>
                 <div className={styles.wipeField}>
                   <HardwareInput id="archive-search" label="SEARCH THE ARCHIVE" value={delSearch} onChange={e => setDelSearch(e.target.value)} placeholder="Project, plot, client, reason..." />
                 </div>
@@ -475,13 +482,13 @@ const SettingsPage = () => {
                 )}
                 {!delLoading && !delError && deleted && delRows.length === 0 && <p className={styles.hint}>{deleted.length === 0 ? 'No deleted projects.' : 'Nothing matches the search.'}</p>}
                 {!delLoading && !delError && delRows.map(p => (
-                  <div key={p.id} className={styles.opCard} style={{ marginBottom: 8 }}>
+                  <div key={p.id} className={styles.opCard} data-tone="yellow" style={{ marginBottom: 8 }}>
                     <div className={styles.opHeader}>
                       <div className={styles.opInfo}>
                         <strong>#{p.projectIndex || '---'} · {p.plotLabel}{p.pending ? ' · PENDING' : ''}</strong>
                         <span className={styles.rankManager}>{[p.projectType, p.district].filter(Boolean).join(' · ') || '---'}</span>
                       </div>
-                      <button type="button" className={styles.commitBtn} onClick={() => restore(p)}>
+                      <button type="button" className={styles.addOpBtn} data-tone="yellow" onClick={() => restore(p)}>
                         <FiRotateCcw aria-hidden="true" /> RESTORE
                       </button>
                     </div>
@@ -492,7 +499,7 @@ const SettingsPage = () => {
                     </div>
                   </div>
                 ))}
-              </>
+              </div>
             )}
 
           </div></div>}
@@ -542,7 +549,6 @@ const SettingsPage = () => {
             </div>
             <div className={styles.modalCenter}>
               <button type="button" className={modalStyles.modalBtnPrimary} onClick={changeRank} disabled={rankFor.role === rankFor.op.role}>CHANGE</button>
-              <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setRankFor(null)}>CANCEL</button>
             </div>
           </>
         )}
@@ -557,7 +563,6 @@ const SettingsPage = () => {
             </div>
             <div className={styles.modalCenter}>
               <button type="button" className={modalStyles.modalBtnPrimary} onClick={resetKey}><FiRotateCcw aria-hidden="true" /> RESET KEY</button>
-              <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setResetFor(null)}>CANCEL</button>
             </div>
           </>
         )}
@@ -570,7 +575,6 @@ const SettingsPage = () => {
             <div className={styles.modalBody}><p className={styles.revealHint}>{restoreAsk.message}</p></div>
             <div className={styles.modalCenter}>
               <button type="button" className={modalStyles.modalBtnPrimary} onClick={() => restore(restoreAsk.project, true)}>RESTORE ANYWAY</button>
-              <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setRestoreAsk(null)}>CANCEL</button>
             </div>
           </>
         )}

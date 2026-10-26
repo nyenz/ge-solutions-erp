@@ -15,6 +15,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './ClientLedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
+import RetryButton from '../../components/common/RetryButton';
 import TabDock, { accentOf } from '../../components/common/TabDock';
 import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
@@ -51,7 +52,7 @@ const ClientLedgerPage = () => {
     const [rows, setRows] = useState(() => cached('clients') || []);
     const [loading, setLoading] = useState(() => !cached('clients'));
     const [loadError, setLoadError] = useState(false);
-    const [loadCode, setLoadCode] = useState('');
+    const [, setLoadCode] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('ALL');
     const swapRef = useSwapMotion(activeFilter);   // fix192: the list fades in gently when the tab changes
@@ -81,7 +82,7 @@ const ClientLedgerPage = () => {
         setLoadCode('');   // fix205: no status numbers on screen
     }, []);
     useEffect(() => { Promise.resolve().then(load); }, [load]);
-    const reload = () => { if (!rows.length) setLoading(true); setLoadError(false); load(); };
+    const reload = () => { if (!rows.length) setLoading(true); setLoadError(false); return load(); };
 
     const processedData = useMemo(() => {
         let filtered = rows.filter(c => matchesSearch(c, searchTerm));
@@ -200,8 +201,8 @@ const ClientLedgerPage = () => {
                             {loading && <LoadingRow colSpan={cols} label="SYNCING CLIENT REGISTER..." />}
                             {!loading && loadError && (
                                 <tr><td colSpan={cols} className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> CLIENT SYNC FAULT{loadCode ? ` (${loadCode})` : ''} —{' '}
-                                    <button className={styles.retryBtn} onClick={reload}>RETRY</button>
+                                    <span className={styles.errorText}>Could not load the client ledger: No reply from the server (the internet is down, or the server is waking up). Nothing was saved. Try again in a few seconds.</span>
+                                    <RetryButton className={styles.retryBtn} onClick={reload} />
                                 </td></tr>
                             )}
                             {!loading && !loadError && pageData.length === 0 && (
