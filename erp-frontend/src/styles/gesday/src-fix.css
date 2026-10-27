@@ -59,3 +59,10 @@
 [data-page="client"] [data-editing] [class*="_editInput_"]{background:#fff!important;border:1px solid rgba(242,106,13,.35)!important;border-radius:6px!important;height:40px;padding:0 14px!important;color:#12347A!important;font-weight:800!important;font-size:13px!important;letter-spacing:.5px;box-shadow:none!important}
 [data-page="client"] [data-editing] [class*="_editInput_"]:focus{border-color:#F26A0D!important;box-shadow:0 0 0 3px rgba(242,106,13,.16)!important;outline:none}
 [data-page="client"] [data-editing] [class*="_inputError_"]{border-color:#B91C1C!important}
+/* fix267 (David): bell drawer -- every group chip reads in white (not greyed when empty), and the top of the drawer is
+   one even blue (the lighter shade), without the dark corner behind ALL */
+[class*="_notifHero_"]{background:linear-gradient(180deg,#2F60AA,#2A57A0)!important}
+[class*="_notifChips_"]{background:rgba(11,34,80,.28)!important}
+[class*="_notifChip_"],[class*="_notifChip_"][data-empty="true"]{color:#fff!important;opacity:1!important}
+[class*="_notifChip_"][data-empty="true"] [class*="_notifChipCount_"]{opacity:.7}
+[class*="_notifChip_"]:hover{background:rgba(255,255,255,.12)!important}

@@ -322,7 +322,7 @@ const Header = ({ onToggle }) => {
                                     <span className={styles.notifCount} tabIndex={-1} ref={titleRef} aria-live="polite"
                                         title={mode === 'ALL' ? 'Alerts in this view, read or not' : 'Unread alerts in this view'}>
                                         {scopeCount}<small className={styles.notifCountWord}>{mode === 'ALL' ? ' in all' : ' unread'}</small>
-                                        {critical > 0 && filter === 'ALL' && mode === 'UNREAD' ? ' (' + critical + ' critical)' : ''}</span>
+                                        {critical > 0 && filter === 'ALL' && mode === 'UNREAD' && <small className={styles.notifCountWord}>{' (' + critical + ' critical)'}</small>}</span>
                                     <div className={styles.notifMeter} aria-hidden="true">
                                         {groups.filter(g => countOf(g) > 0).map(g => (
                                             <span key={g} className={styles.notifMeterSeg}
