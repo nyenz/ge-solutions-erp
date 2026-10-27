@@ -17,8 +17,10 @@ const INK = [31, 41, 55];
 const MUTED = [75, 85, 99];
 const LINE = [229, 231, 235];
 const ZEBRA = [253, 250, 244];
-const PALETTE = [[234, 88, 12], [11, 37, 69], [100, 116, 139], [251, 146, 60], [27, 58, 99],
-    [194, 65, 12], [148, 163, 184], [253, 186, 140], [71, 85, 105], [154, 52, 18]];
+// fix260 (David): the SAME colour ramp as the charts on the screen (Charts.jsx RAMP, orange first), so a bar, column
+// or slice has the same colour on paper as in the app and each one is told apart from its neighbour
+const PALETTE = [[234, 88, 12], [79, 163, 165], [194, 100, 63], [126, 155, 84], [155, 111, 168],
+    [78, 124, 168], [212, 166, 60], [176, 90, 120], [91, 140, 123], [138, 114, 80]];
 const colour = (i) => PALETTE[i % PALETTE.length];
 const NUMERIC = new Set(['money', 'number', 'percent']);
 
@@ -88,14 +90,15 @@ function logo(doc, cx, cy, r, img) {
 
 function drawBars(doc, rows, fmt, x, y, w, h) {
     const list = rows.slice(0, 16);
-    const rowH = Math.min(22, h / Math.max(list.length, 1));
+    const rowH = Math.min(30, h / Math.max(list.length, 1));
     const labelW = Math.min(170, w * 0.3);
     const valueW = 90;
     const trackW = w - labelW - valueW - 12;
     const max = Math.max(0, ...list.map(r => Math.abs(Number(r.value) || 0))) || 1;
-    doc.setFontSize(8);
+    const top = y + Math.max(0, (h - list.length * rowH) / 2);   // fix260: centred in its box, like the donut
+    doc.setFontSize(rowH >= 24 ? 9 : 8);
     list.forEach((r, i) => {
-        const cy = y + i * rowH;
+        const cy = top + i * rowH;
         doc.setTextColor(...INK);
         const label = doc.splitTextToSize(plain(r.label), labelW - 6)[0] || '';
         doc.text(label, x, cy + rowH * 0.62);
@@ -106,7 +109,7 @@ function drawBars(doc, rows, fmt, x, y, w, h) {
         doc.setTextColor(...INK);
         doc.text(plain(fmt(r.value)), x + w, cy + rowH * 0.62, { align: 'right' });
     });
-    return list.length * rowH;
+    return h;
 }
 
 function drawColumns(doc, rows, x, y, w, h, asLine) {
@@ -129,7 +132,7 @@ function drawColumns(doc, rows, x, y, w, h, asLine) {
         const bh = ph * (v / top);
         const cx = x + axisW + slot * i + slot / 2;
         if (asLine) pts.push([cx, y + ph - bh]);
-        else { doc.setFillColor(...ORANGE); doc.rect(cx - slot * 0.32, y + ph - bh, slot * 0.64, bh, 'F'); }
+        else { doc.setFillColor(...colour(i)); doc.rect(cx - slot * 0.32, y + ph - bh, slot * 0.64, bh, 'F'); }   // fix260
         doc.setTextColor(...INK);
         const lbl = doc.splitTextToSize(plain(r.label), Math.max(slot - 2, 20))[0] || '';
         doc.text(lbl, cx, y + ph + 11, { align: 'center' });
@@ -137,8 +140,7 @@ function drawColumns(doc, rows, x, y, w, h, asLine) {
     if (asLine && pts.length) {
         doc.setDrawColor(...ORANGE); doc.setLineWidth(1.6);
         for (let i = 1; i < pts.length; i++) doc.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
-        doc.setFillColor(...ORANGE);
-        pts.forEach(([px, py]) => doc.circle(px, py, 2.2, 'F'));
+        pts.forEach(([px, py], i) => { doc.setFillColor(...colour(i)); doc.circle(px, py, 2.6, 'F'); });   // fix260
     }
     return h;
 }
