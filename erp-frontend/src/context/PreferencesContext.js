@@ -2,7 +2,7 @@
 import { createContext } from 'react';
 
 export const DEFAULT_PREFS = {
-    theme: 'classic',    // fix255: classic (Kingfisher, default) | ges (GES DAY) | gesnavy (C GES NAVY) | dark (SLATE) | bright (LIGHT)
+    theme: 'ges',        // fix256: ges (GES DAY, default) | classic (Kingfisher) | gesnavy (C GES NAVY) | dark (SLATE) | bright (LIGHT)
                          // the old value 'light' (CREAM) is no longer allowed, so it falls back to the new default once
     uiScale: '100',      // 90 | 100 | 110 | 125
     statSize: 'standard',// small | standard | large

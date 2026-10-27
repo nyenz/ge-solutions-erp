@@ -59,3 +59,6 @@
 @media (prefers-reduced-motion: reduce) {
     .spin { animation-duration: 2.4s; }
 }
+
+.btn:disabled[aria-busy="true"] { opacity: 1; cursor: progress; }
+.done .icon { color: #16a34a; }

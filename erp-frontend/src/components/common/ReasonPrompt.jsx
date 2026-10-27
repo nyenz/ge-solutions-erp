@@ -32,6 +32,7 @@ const ReasonPrompt = ({ state, onClose }) => {
     const picks = state.picks || [];
     return (
         <HardwareModal isOpen={!!state.open} stacked lockBackdrop onClose={() => { if (!busy) onClose(); }} title={state.title || 'DELETE'}>
+            <div className={styles.modalBody}>
             {state.message && <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>{state.message}</div>}
             <div className={modalStyles.modalField}>
                 <label className={modalStyles.modalLabel} htmlFor="delete-reason">WHY? <span className={styles.need}>(needed)</span></label>
@@ -50,8 +51,8 @@ const ReasonPrompt = ({ state, onClose }) => {
                 {err && <p className={styles.err} role="alert"><FiAlertCircle aria-hidden="true" /> {err}</p>}
                 <p className={modalStyles.modalHint}>The reason is kept in the audit log{state.noteKept ? ' and in the project’s Notes' : ''}.</p>
             </div>
+            </div>
             <div className={modalStyles.modalFooter}>
-                <button type="button" className={modalStyles.modalBtnSecondary} onClick={onClose} disabled={busy}>CANCEL</button>
                 <button type="button" className={styles.danger} onClick={submit} disabled={busy} aria-disabled={!ready}>
                     <FiTrash2 aria-hidden="true" /> {busy ? 'DELETING...' : (state.okLabel || 'DELETE')}
                 </button>

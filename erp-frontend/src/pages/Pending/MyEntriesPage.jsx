@@ -8,6 +8,8 @@ import { errorText } from '../../utils/errorText';
 import { LoadingState, EmptyState } from '../../components/common/LoadingState';
 import { waitingFor } from '../../utils/projectStatus';
 import styles from './Pending.module.css';
+import RetryButton from '../../components/common/RetryButton';
+import { FiAlertTriangle } from 'react-icons/fi';
 
 const WAITING = waitingFor({ pending: true });   // fix185: one wording for every Pending entry
 
@@ -32,14 +34,14 @@ export default function MyEntriesPage() {
     const open = (r) => { if (r.pending && !r.rejected) navigate('/pending/' + r.id); };
 
     return (
-        <div className={styles.page}>
+        <div data-page="entries" className={styles.page}>
             <header className={styles.head}>
                 <div className={styles.headLeft}>
                     <h1 className={styles.title}>My Entries</h1>
                     <span className={styles.sub}>Projects you entered. The office adds the prices and starts them.</span>
                 </div>
             </header>
-            {error && <div className={styles.error} role="alert">{error} <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>RETRY</button></div>}
+            {error && <div className={`${styles.error} ${styles.loadError}`} role="alert"><FiAlertTriangle aria-hidden="true" className={styles.errorIcon} /><span className={styles.errorText}>Could not load your entries: {error}</span> <RetryButton className={styles.retryBtn} onClick={load} /></div>}
             {rows === null && <LoadingState label="LOADING YOUR ENTRIES..." size="page" />}
             {rows && rows.length === 0 && !error && <EmptyState label="NO ENTRIES YET">Use NEW PROJECT to enter one.</EmptyState>}
             {rows && rows.map(r => {

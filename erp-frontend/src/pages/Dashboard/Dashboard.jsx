@@ -19,6 +19,7 @@ import api from '../../api/axios';
 import styles from './Dashboard.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
+import RetryButton from '../../components/common/RetryButton';
 import { friendlyAction } from '../Audit/auditCatalog';
 import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
@@ -199,7 +200,7 @@ const Dashboard = () => {
         return () => { alive = false; document.removeEventListener('visibilitychange', onVis); };
     }, [load]);
 
-    if (!data && !error) return (<div className={styles.container}><LoadingState label="LOADING DASHBOARD..." size="page" /></div>);
+    if (!data && !error) return (<div data-page="dashboard" className={styles.container}><LoadingState label="LOADING DASHBOARD..." size="page" /></div>);
 
     const b = new Set((data && data.blocks) || []);
     const wq = (data && data.workQueue) || {};
@@ -208,7 +209,7 @@ const Dashboard = () => {
     const today = new Date();
 
     return (
-        <div className={styles.container}>
+        <div data-page="dashboard" className={styles.container}>
             <header className={styles.header}>
                 <div className={styles.titleBlock}>
                     <h1 className={styles.pageTitle}>Dashboard</h1>
@@ -233,7 +234,7 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {error && (<div className={styles.error} role="alert"><FiAlertTriangle aria-hidden="true" /> {error} <button type="button" className={styles.retry} onClick={load}>RETRY</button></div>)}
+            {error && (<div className={styles.error} role="alert"><FiAlertTriangle aria-hidden="true" className={styles.errorIcon} /> <span className={styles.errorText}>Could not load the dashboard: {error}</span> <RetryButton className={styles.retry} onClick={load} /></div>)}
 
             {data && (() => {
                 // fix210 (David: "awkward spaces, panels of unmatched lengths" on ranks with few panels). The small panels

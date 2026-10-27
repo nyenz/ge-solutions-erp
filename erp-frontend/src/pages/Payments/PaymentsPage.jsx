@@ -7,10 +7,13 @@
 //  - one date format (05 Oct 2026); "Date not recorded" for undated opening deposits; the entry time on a second line;
 //  - search, tab, sort, dates and filters live in the address, so Back returns to the same list;
 //  - a failed load says so (with RETRY) instead of looking like "no payments".
-import React, { useState, useEffect, useCallback } from 'react';
+import RetryButton from '../../components/common/RetryButton';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiSearch, FiX, FiUser, FiRefreshCw, FiLayers, FiArrowUp, FiArrowDown, FiFileText, FiCheckSquare, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiX, FiUser, FiRefreshCw, FiLayers, FiArrowUp, FiArrowDown, FiFileText, FiCheckSquare, FiChevronLeft, FiChevronRight, FiChevronDown, FiCheck, FiAlertTriangle } from 'react-icons/fi';
+import HardwareModal from '../../components/common/HardwareModal';
+import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import api from '../../api/axios';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
@@ -43,6 +46,76 @@ const PAGE = 50;
 // fix214 (David): the method buttons -- every method, then "Not recorded" for payments saved before methods were asked for
 const METHOD_FILTERS = PAY_METHODS.map(m => ({ key: m.value, label: m.label })).concat([{ key: 'NONE', label: 'Not recorded' }]);
 
+
+const dayCount = (s) => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return null; return Math.max(0, Math.round((Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 864e5)); };
+
+// One small custom drop-down (never the browser's own). Closes on a click outside or Escape.
+const useClose = (open, setOpen) => {
+    const ref = useRef(null);
+    useEffect(() => {
+        if (!open) return undefined;
+        const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        const k = (e) => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('mousedown', h); document.addEventListener('keydown', k);
+        return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
+    }, [open, setOpen]);
+    return ref;
+};
+const FilterMenu = ({ label, value, options, onPick, allLabel = 'All', compact = false, className = '' }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useClose(open, setOpen);
+    const cur = options.find(o => o.key === value);
+    return (
+        <div className={`${styles.fMenu} ${className}`} ref={ref}>
+            <button type="button" className={`${styles.fBtn} ${value ? styles.fBtnOn : ''} ${compact ? styles.fBtnCompact : ''}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+                <span className={styles.fLab}>{label}</span>
+                <span className={styles.fVal}>{cur ? cur.label : allLabel}</span>
+                <FiChevronDown className={`${styles.fCaret} ${open ? styles.fCaretUp : ''}`} aria-hidden="true" />
+            </button>
+            {open && (
+                <div className={styles.fPop} role="listbox" aria-label={label}>
+                    <button type="button" role="option" aria-selected={!value} className={`${styles.fItem} ${!value ? styles.fItemOn : ''}`} onClick={() => { onPick(''); setOpen(false); }}>
+                        <span>{allLabel}</span>{!value && <FiCheck aria-hidden="true" />}
+                    </button>
+                    {options.map(o => (
+                        <button key={o.key} type="button" role="option" aria-selected={value === o.key} className={`${styles.fItem} ${value === o.key ? styles.fItemOn : ''}`} onClick={() => { onPick(o.key); setOpen(false); }}>
+                            <span>{o.label}</span>
+                            {o.note && <em>{o.note}</em>}
+                            {value === o.key && <FiCheck aria-hidden="true" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+// the "MORE" drop-down: the two tick boxes (Missing receipt, Include deleted projects) behind one button
+const ToggleMenu = ({ label, items }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useClose(open, setOpen);
+    const n = items.filter(i => i.on).length;
+    return (
+        <div className={styles.fMenu} ref={ref}>
+            <button type="button" className={`${styles.fBtn} ${n ? styles.fBtnOn : ''}`} aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+                <span className={styles.fLab}>{label}</span>
+                <span className={styles.fVal}>{n ? n + ' on' : 'None'}</span>
+                <FiChevronDown className={`${styles.fCaret} ${open ? styles.fCaretUp : ''}`} aria-hidden="true" />
+            </button>
+            {open && (
+                <div className={styles.fPop} role="group" aria-label={label}>
+                    {items.map(i => (
+                        <label key={i.key} className={`${styles.fItem} ${styles.fTick} ${i.on ? styles.fItemOn : ''}`}>
+                            <input type="checkbox" checked={i.on} onChange={e => i.onToggle(e.target.checked)} />
+                            <span className={styles.fBox} aria-hidden="true">{i.on && <FiCheck />}</span>
+                            <span>{i.label}</span>
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const PaymentsPage = () => {
     const navigate = useNavigate();
     const tableHandoffRef = useTableScrollHandoff();
@@ -57,6 +130,8 @@ const PaymentsPage = () => {
     const includeDeleted = params.get('deleted') === '1';
     const missingReceipt = params.get('noreceipt') === '1';
     const method = params.get('method') || '';   // fix214
+    const recordedBy = params.get('by') || '';
+        const [receiptFor, setReceiptFor] = useState(null);
     const page = Math.max(0, Number(params.get('page') || 0));
     const highlight = params.get('row') || '';
 
@@ -81,23 +156,23 @@ const PaymentsPage = () => {
 
     const load = useCallback(() => {
         setBusy(true); setError('');
-        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, page, size: PAGE };
+        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, recordedBy: recordedBy || undefined, page, size: PAGE };
         return Promise.all([
             api.get('/recovery/payments/list', { params: p }).then(r => setData(r.data)),
             fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined } }).then(r => setTotals(r.data)) : Promise.resolve(),
         ]).catch(e => setError(errorText(e))).finally(() => setBusy(false));
-    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, page, fullView]);
+    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, recordedBy, page, fullView]);
 
     useEffect(() => {
         let alive = true;
-        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, page, size: PAGE };
+        const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, recordedBy: recordedBy || undefined, page, size: PAGE };
         Promise.all([
             api.get('/recovery/payments/list', { params: p }),
             fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined } }) : Promise.resolve({ data: null }),
         ]).then(([l, t]) => { if (alive) { setData(l.data); setTotals(t.data); setError(''); } })
           .catch(e => { if (alive) setError(errorText(e)); });
         return () => { alive = false; };
-    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, page, fullView]);
+    }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, recordedBy, page, fullView]);
 
     // search waits a moment after typing
     useEffect(() => {
@@ -156,7 +231,7 @@ const PaymentsPage = () => {
                     {!books.ok && (books.differences || []).map(d => (
                         <div key={d.projectId}>#{d.projectIndex} {d.client}: lines UGX {fmt(d.sumOfLines)}, amount paid UGX {fmt(d.amountPaid)} (difference UGX {fmt(d.difference)})</div>
                     ))}
-                    <button type="button" className={styles.clearBtn} onClick={() => setBooks(null)} aria-label="Close"><FiX size={14} /></button>
+                    <button type="button" className={styles.booksClose} onClick={() => setBooks(null)} aria-label="Close the books check"><FiX size={14} /></button>
                 </div>
             )}
 
@@ -205,48 +280,47 @@ const PaymentsPage = () => {
                     </div>
                     <TabDock className={styles.dockSlot} items={TABS} value={tab} onChange={v => set({ tab: v === 'ALL' ? '' : v })} label="Filter payments" />
                 </div>
-                {/* fix182: the Audit page's date fields (themed calendar, never the browser's) and themed check toggles */}
-                <div className={styles.filterRow}>
-                    <label className={styles.dateField}>
-                        <span>FROM</span>
-                        <HardwareDatePicker value={from} max={to || undefined} ariaLabel="From date" onChange={v => set({ from: v })} />
-                    </label>
-                    <label className={styles.dateField}>
-                        <span>TO</span>
-                        <HardwareDatePicker value={to} min={from || undefined} ariaLabel="To date" onChange={v => set({ to: v })} />
-                    </label>
-                    <label className={`${styles.checkToggle} ${missingReceipt ? styles.checkToggleOn : ''}`}>
-                        <input type="checkbox" checked={missingReceipt} onChange={e => set({ noreceipt: e.target.checked })} /> Missing receipt
-                    </label>
-                    {fullView && <label className={`${styles.checkToggle} ${includeDeleted ? styles.checkToggleOn : ''}`}>
-                        <input type="checkbox" checked={includeDeleted} onChange={e => set({ deleted: e.target.checked })} /> Include deleted projects
-                    </label>}
-                    {/* fix228 (David): one tidy filter bar -- dates, toggles and PAID WITH on the same line, one height */}
-                    {/* fix214: filter by HOW the money was paid; the Director also sees the net amount of each method */}
-                    <span className={styles.filterSep} aria-hidden="true" />
-                        <div className={styles.methodRow} role="group" aria-label="Payment method">
-                        <span className={styles.methodLabel}>PAID WITH</span>
-                        {METHOD_FILTERS.filter(m => m.key !== 'NONE' || !totals || (totals.byMethod || []).some(b => b.method === 'NONE')).map(m => {
-                            const on = method === m.key;
-                            const sum = totals && (totals.byMethod || []).find(b => b.method === m.key);
-                            return (
-                                <button key={m.key} type="button" aria-pressed={on} className={`${styles.methodChip} ${on ? styles.methodChipOn : ''} ${m.key === 'NONE' ? styles.methodChipNone : ''}`}
-                                    title={on ? 'Show every method again' : 'Show only payments made with ' + m.label}
-                                    onClick={() => set({ method: on ? '' : m.key })}>
-                                    <span>{m.label}</span>
-                                    {fullView && sum && <strong>UGX {fmt(sum.net)}</strong>}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+                {/* filters as labelled drop-downs */}
+                {(() => {
+                    const methodOpts = METHOD_FILTERS.filter(m => m.key !== 'NONE' || !totals || (totals.byMethod || []).some(b => b.method === 'NONE')).map(m => {
+                        const sum = totals && (totals.byMethod || []).find(b => b.method === m.key);
+                        return { key: m.key, label: m.label, note: fullView && sum ? 'UGX ' + fmt(sum.net) : undefined };
+                    });
+                    const byOpts = ((data && data.recorders) || []).map(r => ({ key: r, label: r }));
+                    const dates = (<>
+                        <label className={styles.dateField}><span>FROM</span><HardwareDatePicker value={from} max={to || undefined} ariaLabel="From date" onChange={v => set({ from: v })} /></label>
+                        <label className={styles.dateField}><span>TO</span><HardwareDatePicker value={to} min={from || undefined} ariaLabel="To date" onChange={v => set({ to: v })} /></label>
+                    </>);
+                    const toggles = [
+                        { key: 'nr', label: 'Missing receipt', on: missingReceipt, onToggle: v => set({ noreceipt: v }) },
+                        ...(fullView ? [{ key: 'del', label: 'Include deleted projects', on: includeDeleted, onToggle: v => set({ deleted: v }) }] : []),
+                    ];
+                    const active = [
+                        method && { k: 'method', label: 'Paid with: ' + methodLabel(method), clear: () => set({ method: '' }) },
+                        recordedBy && { k: 'by', label: 'Recorded by: ' + recordedBy, clear: () => set({ by: '' }) },
+                        missingReceipt && { k: 'nr', label: 'Missing receipt', clear: () => set({ noreceipt: false }) },
+                        includeDeleted && { k: 'del', label: 'Deleted projects included', clear: () => set({ deleted: false }) },
+                    ].filter(Boolean);
+                    const clearAll = () => set({ method: '', by: '', noreceipt: false, deleted: false, from: '', to: '' });
+                    return (
+                        <div className={styles.filterRow} data-layout="A">
+                            {dates}
+                            <span className={styles.filterSep} aria-hidden="true" />
+                            <FilterMenu label="PAID WITH" value={method} options={methodOpts} onPick={v => set({ method: v })} allLabel="All methods" />
+                            <FilterMenu label="RECORDED BY" value={recordedBy} options={byOpts} onPick={v => set({ by: v })} allLabel="Everyone" />
+                            <ToggleMenu label="MORE" items={toggles} />
+                            {(active.length > 0 || from || to) && <button type="button" className={styles.clearAll} onClick={clearAll}>CLEAR ALL</button>}
+                        </div>
+                    );
+                })()}
                 <div className={styles.legendRow}>
                     <span className={styles.legendItem}>Deleted projects are never in the totals. A line can be in two tabs (for example an opening deposit that paid the title).</span>
+                    <span className={styles.legendItem}><PaymentHealthLegend /></span>
                 </div>
             </div>
 
             {error && (
-                <div className={styles.booksBad} role="alert">{error} <button type="button" className={styles.retryBtn} onClick={load}>RETRY</button></div>
+                <div className={styles.errorBar} role="alert"><FiAlertTriangle className={styles.errorIcon} aria-hidden="true" /><span className={styles.errorText}>{error}</span><RetryButton className={styles.errorRetry} onClick={load} /></div>
             )}
 
             {!data && !error ? (
@@ -280,12 +354,12 @@ const PaymentsPage = () => {
                                         const day = fmtDay(pay.paidOn);
                                         return (
                                             <tr key={pay.id} id={'pay-' + pay.id} onClick={() => openRow(pay)} tabIndex={0} role="row"
-                                                className={`${styles.dataRow} ${String(pay.id) === highlight ? styles.rowHighlight : ''}`}
+                                                className={`${styles.dataRow} ${String(pay.id) === highlight ? styles.rowHighlight : ''}`} data-kind={pay.kind === 'REVERSAL' ? 'rev' : pay.kind === 'OPENING_DEPOSIT' ? 'open' : pay.allocation === 'STORAGE' ? 'stor' : 'title'}
                                                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(pay); } }}
                                                 title="Open the project folder">
                                                 <td>
                                                     <div className={styles.dateCell}>
-                                                        <span>{day || <span className={styles.time}>Date not recorded</span>}</span>
+                                                        <span className={styles.dateLine}>{pay.kind !== 'REVERSAL' && day && <PaymentHealthDot days={dayCount(pay.paidOn)} style={{ marginTop: 0 }} />}{day || <span className={styles.time}>Date not recorded</span>}</span>
                                                         {day && pay.timeKnown && <span className={styles.time}>{fmtTime(pay.paidOn)}</span>}
                                                         <span className={styles.time}>entered {fmtDay(pay.enteredAt)} {fmtTime(pay.enteredAt)}</span>
                                                     </div>
@@ -297,7 +371,7 @@ const PaymentsPage = () => {
                                                 </td>
                                                 <td className={styles.ownerCell}>{pay.clientName}{pay.payerPhone && <div className={styles.time}>{pay.payerPhone}</div>}</td>
                                                 <td>
-                                                    <span className={styles.forCell}>{pay.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}</span>
+                                                    <span className={`${styles.forCell} ${styles['for' + (pay.kind === 'REVERSAL' ? 'Rev' : pay.kind === 'OPENING_DEPOSIT' ? 'Open' : pay.allocation === 'STORAGE' ? 'Stor' : 'Title')]}`}>{pay.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}</span>
                                                     {KIND_LABEL[pay.kind] && <div className={styles.time}>{KIND_LABEL[pay.kind]}</div>}
                                                     {pay.reversed && <div className={`${styles.time} ${styles.bad}`}>Reversed</div>}
                                                     {pay.kind === 'REVERSAL' && pay.reversalOf && (
@@ -306,18 +380,23 @@ const PaymentsPage = () => {
                                                     )}
                                                 </td>
                                                 <td>
-                                                    <span className={pay.paymentMethod ? styles.methodCell : styles.methodCellNone}>{methodLabel(pay.paymentMethod)}</span>
+                                                    <span className={`${pay.paymentMethod ? styles.methodCell : styles.methodCellNone} ${styles['m' + (pay.paymentMethod || 'NONE')]}`}>{methodLabel(pay.paymentMethod)}</span>
                                                     {pay.paymentReference && <div className={styles.time}>{pay.paymentReference}</div>}
                                                 </td>
                                                 <td>
                                                     <strong className={`${styles.amount} ${Number(pay.amountPaid) < 0 ? styles.bad : ''}`} data-strike={pay.reversed ? '' : undefined}>
                                                         UGX {fmt(pay.amountPaid)}</strong>
                                                     {pay.balanceAfter != null && <div className={styles.time}>owed after: UGX {fmt(pay.balanceAfter)}</div>}
+                                                    {pay.paidPct != null && pay.kind !== 'REVERSAL' && (
+                                                        <div className={styles.payProg}>
+                                                            <div className={styles.payBar} role="progressbar" aria-valuenow={pay.paidPct} aria-valuemin={0} aria-valuemax={100} aria-label="How much of the project is paid after this line"><div className={`${styles.payFill} ${pay.paidPct >= 100 ? styles.payFillDone : ''}`} style={{ width: pay.paidPct + '%' }} /></div>
+                                                            <span className={styles.payPct}>{pay.paidPct}% paid</span>
+                                                        </div>)}
                                                 </td>
                                                 <td>
                                                     {pay.kind === 'REVERSAL' ? null : pay.hasReceipt
                                                         ? <button type="button" className={styles.receiptBtn} title="Open the receipt in the project folder" aria-label="Open the receipt"
-                                                            onClick={e => { e.stopPropagation(); openRow(pay); }}><FiFileText aria-hidden="true" /></button>
+                                                            onClick={e => { e.stopPropagation(); setReceiptFor(pay); }}><FiFileText aria-hidden="true" /></button>
                                                         : <span className={`${styles.time} ${styles.bad}`}>No receipt</span>}
                                                 </td>
                                                 <td><span className={styles.recorder}><FiUser size={10} /> {pay.recordedBy}</span></td>
@@ -343,6 +422,23 @@ const PaymentsPage = () => {
                     </footer>
                 </div>
             )}
+            <HardwareModal isOpen={!!receiptFor} onClose={() => setReceiptFor(null)} title="RECEIPT">
+                {receiptFor && (
+                    <>
+                        <div className={styles.rcpPaper}>
+                            <div className={styles.rcpHead}><strong>GE SOLUTIONS</strong><span>OFFICIAL RECEIPT</span></div>
+                            <div className={styles.rcpRow}><span>Project</span><b>#{receiptFor.projectIndex}</b></div>
+                            <div className={styles.rcpRow}><span>Received from</span><b>{receiptFor.clientName}</b></div>
+                            <div className={styles.rcpRow}><span>Date</span><b>{fmtDay(receiptFor.paidOn)}</b></div>
+                            <div className={styles.rcpRow}><span>Method</span><b>{methodLabel(receiptFor.paymentMethod)}</b></div>
+                            <div className={`${styles.rcpRow} ${styles.rcpTotal}`}><span>Amount</span><b>UGX {fmt(receiptFor.amountPaid)}</b></div>
+                        </div>
+                        <div className={styles.rcpBtns}>
+                            <button type="button" className={styles.rcpOpen} onClick={() => { const r = receiptFor; setReceiptFor(null); openRow(r); }}>OPEN PROJECT FOLDER</button>
+                        </div>
+                    </>
+                )}
+            </HardwareModal>
         </div>
     );
 };

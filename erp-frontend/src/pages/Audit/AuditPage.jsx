@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/pages/Audit/AuditPage.jsx
+import RetryButton from '../../components/common/RetryButton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     FiSearch, FiActivity, FiClock, FiRefreshCw,
@@ -233,7 +234,7 @@ const AuditPage = () => {
                     {!loading && fault && (
                         <div className={styles.emptySignal} role="alert">
                             Could not load the audit trail: {cleanMessage(fault.message)}{' '}
-                            <button type="button" className={styles.resetBtn} onClick={() => fetchForensics()}><FiRefreshCw aria-hidden="true" /> RETRY</button>
+                            <RetryButton className={styles.resetBtn} onClick={() => fetchForensics()} />
                         </div>
                     )}
                     {!loading && !fault && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">No audit lines match these filters.</div>}

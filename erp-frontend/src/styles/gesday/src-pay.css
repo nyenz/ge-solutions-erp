@@ -1,0 +1,153 @@
+.zzPick{position:fixed;right:16px;bottom:16px;z-index:9000;display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;background:#FFFFFC;border:2px solid #fff;border-radius:22px;box-shadow:0 0 0 1px rgba(17,47,102,.25),0 8px 20px rgba(9,28,70,.3)}
+.zzPick span{font-size:9px;font-weight:900;letter-spacing:1.5px;color:#12347A}
+.zzPick button{width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(30,74,140,.4);background:#fff;color:#12347A;font-weight:900;cursor:pointer}
+.zzPick button[aria-pressed="true"]{background:#F26A0D;border-color:#C9550A;color:#fff}
+/* ===== GES DAY skin for the Payments page ===== */
+/* the table: blue frame, cream sheet, navy heading band */
+[class*="_tablePanel_"]{background:linear-gradient(135deg,#4F8FE0 0%,#2A5AA3 38%,#1E4A8C 100%)!important;border:1.5px solid rgba(255,255,255,.22)!important;padding:14px 14px 10px!important;box-shadow:0 12px 30px rgba(17,47,102,.35)}
+[class*="_tablePanel_"]:hover{border-color:#F26A0D!important;box-shadow:0 12px 30px rgba(17,47,102,.35),0 0 20px rgba(242,106,13,.3)}
+[class*="_tablePanel_"][data-tab-accent="green"]:hover{border-color:#34D399!important}
+[class*="_tablePanel_"][data-tab-accent="yellow"]:hover{border-color:#EAB308!important}
+[class*="_tablePanel_"][data-tab-accent="cyan"]:hover{border-color:#22D3EE!important}
+[class*="_tablePanel_"][data-tab-accent="red"]:hover{border-color:#EF4444!important}
+[class*="_tablePanel_"] [class*="_tableScroll_"]{background:linear-gradient(180deg,#FFFFFC,#FFFCF4)!important;border:2px solid #fff;box-shadow:0 0 0 1px rgba(17,47,102,.22),0 6px 16px rgba(9,28,70,.25);border-radius:10px!important}
+[class*="_ledgerTable_"] th{background:#12347A!important;color:#FFE9CC!important;border-bottom:2px solid #F26A0D!important;box-shadow:none!important}
+[class*="_ledgerTable_"] th:hover{background:#1A4392!important}
+[class*="_ledgerTable_"] td{color:#0B2250!important;border-bottom:1px solid rgba(30,74,140,.14)!important}
+[class*="_ledgerTable_"] tbody tr:nth-child(even) td{background:#EFEDE6}
+[class*="_ledgerTable_"] tbody tr:nth-child(odd) td{background:#FFFFFC}
+[class*="_ledgerTable_"] tbody tr:hover td{background:#FBD9B5!important}
+[class*="_ledgerTable_"] [class*="_time_"]{color:#3E4A63!important}
+[class*="_ledgerTable_"] [class*="_plotNum_"]{color:#C9550A!important}
+[class*="_ledgerTable_"] [class*="_amount_"]{color:#0B2250!important}
+[class*="_ledgerTable_"] [class*="_bad_"]{color:#B91C1C!important}
+[class*="_ledgerTable_"] [class*="_recorder_"]{color:#12347A!important;font-weight:600}
+[class*="_ledgerTable_"] [class*="_linkBtn_"]{color:#12347A!important}
+[class*="_receiptBtn_"]{background:rgba(30,74,140,.10)!important;border:1.5px solid rgba(30,74,140,.5)!important;color:#12347A!important}
+[class*="_receiptBtn_"]:hover,[class*="_receiptBtn_"]:focus-visible{background:#F26A0D!important;border-color:#C9550A!important;color:#fff!important}
+[class*="_tablePanel_"] [class*="_pageBtn_"]{background:rgba(255,255,255,.16)!important;border:1.5px solid rgba(255,255,255,.5)!important;color:#fff!important}
+[class*="_tablePanel_"] [class*="_pageBtn_"]:hover:not(:disabled){background:#fff!important;color:#12347A!important}
+[class*="_pageIndicator_"]{color:#fff!important}
+[class*="_recordCount_"]{color:#FFB877!important}
+[class*="_noRecords_"] *{color:#3E4A63!important}
+/* books strip: solid colour, white words, round white x */
+/* filter bar text */
+[class*="_legendItem_"]{color:#12347A!important}
+[class*="_filterSep_"]{background:rgba(17,47,102,.3)!important}
+[class*="_dateField_"] span{color:#12347A!important}
+/* receipt window sits in the same cream-on-blue look as the Settings pop-ups */
+[class*="_dateCell_"],[class*="_dateCell_"] span,[class*="_dateLine_"]{color:#0B2250!important}
+[class*="_dateCell_"] [class*="_time_"]{color:#3E4A63!important}
+[class*="_checkToggle_"]{color:#0B2250!important}
+[class*="_checkToggleOn_"]{border-color:#F26A0D!important;background:#fff6ee!important}
+[class*="_filterNote_"]{color:#12347A!important}
+/* classic stat cards on the blue page: brighter words so they read well */
+[class*="_sumGreen_"] label,[class*="_sumGreen_"] strong{color:#6EE7B7!important}
+[class*="_sumYellow_"] label,[class*="_sumYellow_"] strong{color:#FCD34D!important}
+[class*="_sumRed_"] label,[class*="_sumRed_"] strong{color:#FCA5A5!important}
+[class*="_sumWhite_"] label{color:#BFD6F6!important}
+[class*="_sumCard_"] span{color:rgba(255,255,255,.72)!important}
+
+/* messages: soft tint, thin edge, calm dark words (not a loud solid block) */
+[class*="_booksOk_"]{background:rgba(22,163,74,.10)!important;border:1px solid rgba(22,163,74,.35)!important;color:#14532D!important;font-weight:500}
+[class*="_booksBad_"]{background:rgba(185,28,28,.07)!important;border:1px solid rgba(185,28,28,.28)!important;color:#7F1D1D!important;font-weight:500}
+[class*="_booksOk_"] [class*="_booksClose_"]{background:transparent;border:1px solid rgba(22,101,52,.4);color:#14532D}
+[class*="_booksBad_"] [class*="_booksClose_"]{background:transparent;border:1px solid rgba(127,29,29,.35);color:#7F1D1D}
+[class*="_booksOk_"] [class*="_booksClose_"]:hover{background:rgba(22,163,74,.18);color:#14532D}
+[class*="_booksBad_"] [class*="_booksClose_"]:hover{background:rgba(185,28,28,.14);color:#7F1D1D}
+[class*="_retryBtn_"]{color:#7F1D1D!important;border-color:rgba(127,29,29,.5)!important}
+/* stat cards: a soft, light-based blue (calmer than the big panels); each card's edge is its own colour */
+[class*="_sumCard_"]{background:linear-gradient(160deg,#5E94DC 0%,#4A7FCB 55%,#3F73BF 100%)!important;border:1.5px solid #F26A0D!important;box-shadow:0 6px 16px rgba(17,47,102,.22)}
+[class*="_sumGreen_"]{border-color:#34D399!important}
+[class*="_sumYellow_"]{border-color:#EAB308!important}
+[class*="_sumRed_"]{border-color:#EF4444!important}
+[class*="_sumWhite_"]{border-color:#FFFFFF!important}
+[class*="_sumGreen_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(52,211,153,.45)}
+[class*="_sumYellow_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(234,179,8,.45)}
+[class*="_sumRed_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(239,68,68,.45)}
+[class*="_sumWhite_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(255,255,255,.55)}
+[class*="_sumCard_"] label{color:#E6F0FF!important}
+[class*="_sumGreen_"] strong{color:#D1FAE5!important}
+[class*="_sumYellow_"] strong{color:#FEF3C7!important}
+[class*="_sumRed_"] strong{color:#FEE2E2!important}
+[class*="_sumWhite_"] strong{color:#FFFFFF!important}
+[class*="_sumGreen_"] label{color:#A7F3D0!important}
+[class*="_sumYellow_"] label{color:#FDE68A!important}
+[class*="_sumRed_"] label{color:#FECACA!important}
+[class*="_sumCard_"] span{color:rgba(255,255,255,.82)!important}
+/* selected tabs: white words on a slightly deeper tab colour, so they read */
+[class*="_tabOn_"],[class*="_tabOn_"] span,[class*="_tabOn_"] svg{color:#FFFFFF!important;text-shadow:0 1px 1px rgba(0,40,30,.35)}
+[class*="_tabOn_"] svg{text-shadow:none}
+[class*="_tabOn_"][data-accent="green"]{background:#10B981!important;border-color:#10B981!important}
+[class*="_tabOn_"][data-accent="cyan"]{background:#0EA5C6!important;border-color:#0EA5C6!important}
+[class*="_tabOn_"][data-accent="yellow"]{background:#D99A06!important;border-color:#D99A06!important}
+[class*="_tabOn_"][data-accent="red"]{background:#B91C1C!important;border-color:#B91C1C!important}
+/* Add staff / Restore match the new tab colours */
+[class*="_prefGroupBox_"] [class*="_addOpBtn_"]{border-color:#10B981!important;background:rgba(16,185,129,.18)!important}
+[class*="_prefGroupBox_"] [class*="_addOpBtn_"]:hover{background:#10B981!important;border-color:#10B981!important;color:#fff!important}
+[class*="_prefGroupBox_"] [class*="_addOpBtn_"][data-tone="yellow"]{border-color:#D99A06!important;background:rgba(217,154,6,.18)!important}
+[class*="_prefGroupBox_"] [class*="_addOpBtn_"][data-tone="yellow"]:hover{background:#D99A06!important;border-color:#D99A06!important;color:#fff!important}
+[class*="_prefGroupBox_"] [class*="_opCard_"]:not([data-tone]){border-left-color:#10B981!important}
+[class*="_prefGroupBox_"] [class*="_opCard_"][data-tone="yellow"]{border-left-color:#D99A06!important}
+[class*="_legend_"]{color:#12347A!important}
+
+/* stat cards: a little deeper blue and crisper words */
+[class*="_sumCard_"]{background:linear-gradient(160deg,#4A82D3 0%,#3B72C2 50%,#2F62AD 100%)!important}
+[class*="_sumCard_"] label{font-weight:900!important;text-shadow:0 1px 1px rgba(10,30,70,.35)}
+[class*="_sumCard_"] strong{font-weight:800!important;text-shadow:0 1px 1px rgba(10,30,70,.4)}
+[class*="_sumGreen_"] label{color:#D1FAE5!important}
+[class*="_sumYellow_"] label{color:#FEF3C7!important}
+[class*="_sumRed_"] label{color:#FEE2E2!important}
+[class*="_sumWhite_"] label{color:#E6F0FF!important}
+[class*="_sumGreen_"] strong{color:#ECFDF5!important}
+[class*="_sumYellow_"] strong{color:#FFFBEB!important}
+[class*="_sumRed_"] strong{color:#FFF1F2!important}
+[class*="_sumCard_"] span{color:rgba(255,255,255,.92)!important}
+
+/* stat cards: soft light-blue base, darkish coloured words (not whitish) */
+[class*="_sumCard_"]{background:linear-gradient(160deg,#E6EFFC 0%,#D5E4F9 55%,#C7DBF5 100%)!important;box-shadow:0 0 0 1px rgba(17,47,102,.14),0 6px 16px rgba(17,47,102,.16)!important}
+[class*="_sumCard_"] label,[class*="_sumCard_"] strong{text-shadow:none!important}
+[class*="_sumGreen_"] label{color:#166534!important}[class*="_sumGreen_"] strong{color:#14532D!important}
+[class*="_sumYellow_"] label{color:#855A00!important}[class*="_sumYellow_"] strong{color:#6B4300!important}
+[class*="_sumRed_"] label{color:#991B1B!important}[class*="_sumRed_"] strong{color:#7F1D1D!important}
+[class*="_sumWhite_"] label{color:#12347A!important}[class*="_sumWhite_"] strong{color:#0B2250!important}
+[class*="_sumCard_"] span{color:#3E4A63!important}
+[class*="_sumGreen_"]:hover{box-shadow:0 0 0 1px rgba(17,47,102,.14),0 6px 18px rgba(17,47,102,.2),0 0 16px rgba(52,211,153,.5)!important}
+[class*="_sumYellow_"]:hover{box-shadow:0 0 0 1px rgba(17,47,102,.14),0 6px 18px rgba(17,47,102,.2),0 0 16px rgba(234,179,8,.5)!important}
+[class*="_sumRed_"]:hover{box-shadow:0 0 0 1px rgba(17,47,102,.14),0 6px 18px rgba(17,47,102,.2),0 0 16px rgba(239,68,68,.5)!important}
+[class*="_sumWhite_"]:hover{box-shadow:0 0 0 1px rgba(17,47,102,.2),0 6px 18px rgba(17,47,102,.2),0 0 16px rgba(255,255,255,.9)!important}
+/* pop-up sentences: normal sentence case, easy to read (no shouting capitals) */
+[data-hw-modal] [class*="_revealHint_"],[data-hw-modal] [class*="_revealDisclaimer_"]{text-transform:none!important;letter-spacing:.2px!important;font-family:var(--font-body,'Inter'),sans-serif!important;font-size:14px!important;font-weight:500!important;line-height:1.55!important;color:#1F2F4D!important}
+[data-hw-modal] [class*="_revealDisclaimer_"]{font-size:12.5px!important;color:#3E4A63!important}
+[data-hw-modal] [class*="_modalCenter_"]{justify-content:flex-end}
+/* ===== stat cards: back to the blue card, words light but not white-white ===== */
+[class*="_sumCard_"]{background:linear-gradient(160deg,#4A82D3 0%,#3B72C2 50%,#2F62AD 100%)!important;box-shadow:0 6px 16px rgba(17,47,102,.24)!important}
+[class*="_sumGreen_"] label{color:#86EFAC!important}[class*="_sumGreen_"] strong{color:#BBF7D0!important}
+[class*="_sumYellow_"] label{color:#FCD34D!important}[class*="_sumYellow_"] strong{color:#FDE68A!important}
+[class*="_sumRed_"] label{color:#FCA5A5!important}[class*="_sumRed_"] strong{color:#FECACA!important}
+[class*="_sumWhite_"] label{color:#BFD6F6!important}[class*="_sumWhite_"] strong{color:#E3EDFD!important}
+[class*="_sumCard_"] span{color:rgba(255,255,255,.85)!important}
+[class*="_sumCard_"] label,[class*="_sumCard_"] strong{text-shadow:0 1px 1px rgba(10,30,70,.35)!important}
+[class*="_sumGreen_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(52,211,153,.45)!important}
+[class*="_sumYellow_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(234,179,8,.45)!important}
+[class*="_sumRed_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(239,68,68,.45)!important}
+[class*="_sumWhite_"]:hover{box-shadow:0 6px 18px rgba(17,47,102,.3),0 0 16px rgba(255,255,255,.55)!important}
+/* ===== pop-up buttons: one size, one type, good spacing, and a gentle darkening when pointed at or pressed ===== */
+[data-hw-modal] [class*="_modalBtnPrimary_"],[data-hw-modal] [class*="_revealBox_"] [class*="_commitBtn_"],[data-hw-modal] [class*="_rcpOpen_"]{
+  display:inline-flex!important;align-items:center;justify-content:center;gap:9px;height:42px!important;min-width:140px;padding:0 24px!important;border-radius:8px!important;
+  font-family:var(--font-body,'Inter'),sans-serif!important;font-size:11.5px!important;font-weight:800!important;letter-spacing:1.4px!important;text-transform:uppercase;line-height:1;
+  background:#F26A0D!important;border:1.5px solid #C9550A!important;color:#FFFFFF!important;text-shadow:0 1px 1px rgba(120,45,0,.35);box-shadow:none!important;transform:none;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .08s ease}
+[data-hw-modal] [class*="_modalBtnPrimary_"] svg,[data-hw-modal] [class*="_revealBox_"] [class*="_commitBtn_"] svg{font-size:15px;flex-shrink:0}
+[data-hw-modal] [class*="_modalBtnPrimary_"]:hover:not(:disabled),[data-hw-modal] [class*="_revealBox_"] [class*="_commitBtn_"]:hover,[data-hw-modal] [class*="_rcpOpen_"]:hover{background:#DA5A06!important;border-color:#A94705!important;box-shadow:0 4px 12px rgba(150,60,0,.35)!important;transform:none}
+[data-hw-modal] [class*="_modalBtnPrimary_"]:active:not(:disabled),[data-hw-modal] [class*="_revealBox_"] [class*="_commitBtn_"]:active,[data-hw-modal] [class*="_rcpOpen_"]:active{background:#BF4C04!important;border-color:#8C3A03!important;box-shadow:inset 0 2px 4px rgba(80,25,0,.35)!important;transform:translateY(1px)}
+[data-hw-modal] [class*="_modalCenter_"]{margin-top:20px!important}
+[data-hw-modal] [class*="_rcpBtns_"]{margin-top:20px!important}
+/* the Temporary key window: even spacing from top to bottom */
+[data-hw-modal] [class*="_revealBox_"]{display:flex!important;flex-direction:column;align-items:center;gap:14px;padding:20px 18px 18px!important}
+[data-hw-modal] [class*="_revealBox_"] > *{margin:0!important}
+[data-hw-modal] [class*="_revealBox_"] [class*="_serial_"]{width:100%;box-sizing:border-box;padding:14px 12px!important;font-size:20px;letter-spacing:3px}
+[data-hw-modal] [class*="_revealBox_"] [class*="_commitBtn_"]{margin-top:2px!important}
+/* the X in a pop-up: a soft darkening too */
+[data-hw-modal] button[aria-label="Close"]{transition:background .15s,border-color .15s,color .15s,transform .15s}
+[data-hw-modal] button[aria-label="Close"]:active{background:rgba(239,68,68,.3);transform:rotate(90deg) scale(.94)}

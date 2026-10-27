@@ -27,6 +27,7 @@ import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import CornerDecor from '../../components/ui/CornerDecor';
 import { PROJECT_STATUS } from '../../utils/projectStatus';
 import styles from './ClientPortfolioPage.module.css';
+import RetryButton from '../../components/common/RetryButton';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { LoadingState } from '../../components/common/LoadingState';
 import { errorText } from '../../utils/errorText';   // fix205
@@ -90,7 +91,7 @@ const ClientPortfolioPage = () => {
   const [d, setD] = useState(null);
   const [noteTotal, setNoteTotal] = useState(null);   // fix225: the real number of notes, after every change
   const [loading, setLoading] = useState(true);
-  const [loadCode, setLoadCode] = useState('');
+  const [, setLoadCode] = useState('');
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -180,15 +181,15 @@ const ClientPortfolioPage = () => {
 
   const backBtn = (<button type="button" className={styles.backBtn} onClick={() => navigate('/clients')}><FiArrowLeft aria-hidden="true" /> BACK</button>);
 
-  if (loading) return (<div className={styles.container}><LoadingState label="SYNCING CLIENT DOSSIER..." size="page" /></div>);
-  if (!d) return (<div className={styles.container}>
+  if (loading) return (<div data-page="client" className={styles.container}><LoadingState label="SYNCING CLIENT DOSSIER..." size="page" /></div>);
+  if (!d) return (<div data-page="client" className={styles.container}>
     <header className={styles.pageHeader}><div className={styles.headerLeft}>
       <h1 className={styles.title}>Client Dossier</h1>
       <p className={styles.subtitle}>Full portfolio, money and call history</p>
     </div>{backBtn}</header>
     <div className={styles.errorState}>
-      <FiAlertTriangle aria-hidden="true" /> COULD NOT LOAD DOSSIER{loadCode ? ' (' + loadCode + ')' : ''} --{' '}
-      <button type="button" className={styles.retryBtn} onClick={() => load()}>RETRY</button>
+      <FiAlertTriangle aria-hidden="true" className={styles.errorIcon} /> <span className={styles.errorText}>Could not load this client: no reply from the server (the internet is down, or the server is waking up). Nothing was saved. Try again in a few seconds.</span>
+      <RetryButton className={styles.retryBtn} onClick={() => load()} />
     </div>
   </div>);
 
@@ -196,7 +197,7 @@ const ClientPortfolioPage = () => {
   const cols = isDirector ? 8 : 5;
 
   return (
-    <div className={styles.container}>
+    <div data-page="client" className={styles.container}>
       <header className={styles.pageHeader}>
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>{d.name}</h1>

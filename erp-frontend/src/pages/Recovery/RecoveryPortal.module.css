@@ -669,3 +669,7 @@
 .histSection .histMeta { color: rgba(var(--brand-ink-rgb, 26, 46, 48), 0.72); font-weight: 600; }
 .histSection .histText { color: var(--brand-ink, #1a2e30); }
 .histEmpty { padding: 10px 12px; }
+
+.modalBody { display: block; }
+
+.rowInfo{display:block}

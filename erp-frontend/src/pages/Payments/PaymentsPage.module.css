@@ -362,11 +362,11 @@
 }
 
 /* == fix146: Recovery-style control row, dots legend, Ledger scroll box == */
-.controlRow { display: flex; align-items: center; gap: var(--ctl-gap); min-width: 0; }
-.controlRow .searchBlock { flex: 0 0 auto; }
-.dockSlot { flex: 1 1 auto; min-width: 0; }
+/* controlRow dissolves so the search is a direct child of controlHub (sticky for the whole page, like the Ledger); tabs sit on their own row below */
+.controlRow { display: contents; }
+.controlRow .searchBlock { flex: 0 0 auto; padding: 4px 0; }
+.dockSlot { flex: none; width: 100%; min-width: 0; }
 @media (max-width: 640px) {
-    .controlRow { flex-direction: column; align-items: stretch; }
     .controlRow .searchBlock { width: 100%; }
     .dockSlot { flex: none; width: 100%; }
 }
@@ -526,3 +526,88 @@
 .methodChipOn, .methodChipOn:hover { box-shadow: none; }
 .legendRow { margin-top: 2px; }
 .legendItem { font-weight: 600; }
+
+/* ===== fix256 (GES DAY, 26 Oct): drop-down filters, Ledger colours, receipt window, books strip ===== */
+.fMenu { position: relative; }
+.fBtn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; background: #fff; border: 1.5px solid #c8d6d7; border-radius: 6px; cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; color: #0B2250; transition: border-color .2s, background .2s, box-shadow .2s; white-space: nowrap; }
+.fBtn:hover { border-color: #F26A0D; }
+.fBtn:focus-visible { outline: none; border-color: #F26A0D; box-shadow: 0 0 15px rgba(242,106,13,.22); }
+.fLab { font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #5b6f70; }
+.fVal { font-size: 12px; font-weight: 700; color: #0B2250; }
+.fCaret { font-size: 14px; color: #12347A; transition: transform .15s; }
+.fCaretUp { transform: rotate(180deg); }
+.fBtnOn, .fBtnOn:hover { border-color: #C9550A; background: #F26A0D; box-shadow: 0 3px 10px rgba(242,106,13,.35); }
+.fBtnOn .fLab, .fBtnOn .fVal, .fBtnOn .fCaret { color: #FFFFFF; }
+.fCount { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #F26A0D; color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.fBtnWide .fLab { color: #12347A; }
+.fPop { position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content; max-width: 340px; z-index: 80; display: flex; flex-direction: column; padding: 0; overflow: hidden;
+    background: #ffffff; border: 1.5px solid #F26A0D; border-radius: 6px; box-shadow: 0 14px 40px rgba(0,0,0,.5), 0 6px 16px rgba(0,0,0,.3); animation: fSlide .2s ease-out; }
+@keyframes fSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.fItem { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; text-align: left; padding: 10px 16px; border: none; border-bottom: 1px solid #f1f5f9; border-radius: 0; background: #ffffff; color: #0B2250; cursor: pointer; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .5px; position: relative; transition: .2s; }
+.fItem:last-child { border-bottom: none; }
+.fItem em { font-style: normal; font-size: 10.5px; font-weight: 600; color: #3E4A63; margin-left: auto; }
+.fItem svg { color: #F26A0D; flex-shrink: 0; }
+.fItem:hover, .fItemOn { background: #F26A0D; color: #FFFFFF; }
+.fItem:hover em, .fItemOn em, .fItem:hover svg, .fItemOn svg { color: #FFFFFF; }
+.fTick { justify-content: flex-start; }
+.fTick input { position: absolute; opacity: 0; pointer-events: none; }
+.fBox { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #12347A; background: #fff; color: #F26A0D; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fTick input:checked + .fBox { background: #fff; border-color: #fff; }
+.fTick input:checked + .fBox svg { color: #F26A0D !important; font-size: 12px; }
+.fTick input:focus-visible + .fBox { box-shadow: 0 0 0 3px rgba(242,106,13,.3); }
+.clearAll { height: 36px; padding: 0 14px; background: #F26A0D; border: 1.5px solid #C9550A; border-radius: 6px; color: #FFFFFF; text-shadow: 0 1px 1px rgba(120,45,0,.35); font-family: var(--font-body, 'Inter'), sans-serif; font-size: 10px; font-weight: 900; letter-spacing: 1.2px; cursor: pointer; text-decoration: none; }
+.clearAll:hover { background: #d4580b; color: #fff; }
+.filterNote { font-size: 11px; font-weight: 600; color: #3E4A63; }
+.activeChips { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.activeChip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 6px 0 11px; border-radius: 15px; background: #FFE9CC; border: 1.5px solid #F26A0D; color: #7A3A05; font-size: 11px; font-weight: 700; }
+.activeChip button { width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(242,106,13,.2); color: #7A3A05; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.activeChip button:hover { background: #F26A0D; color: #fff; }
+.fPanel { width: min(460px, 86vw); padding: 12px; gap: 12px; }
+.fpSec { display: flex; flex-direction: column; gap: 7px; }
+.fpLab { font-size: 9px; font-weight: 900; letter-spacing: 1.6px; color: #12347A; }
+.fpChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fpChip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 7px; background: #E4E3DD; border: 1px solid rgba(30,74,140,.22); color: #0B2250; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+.fpChip em { font-style: normal; font-size: 10.5px; color: #3E4A63; font-weight: 600; }
+.fpChip input { position: absolute; opacity: 0; pointer-events: none; }
+.fpChip:hover { background: #FBD9B5; border-color: rgba(242,106,13,.45); }
+.fpChipOn { background: #F26A0D; border-color: #C9550A; color: #fff; }
+.fpChipOn em { color: #fff; }
+.hf { position: relative; display: inline-block; margin-left: 8px; vertical-align: middle; }
+.hfBtn { display: inline-flex; align-items: center; gap: 4px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 5px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.45); color: #fff; cursor: pointer; font-size: 10px; font-weight: 800; letter-spacing: .5px; text-transform: none; }
+.hfBtn:hover { background: rgba(255,255,255,.28); }
+.hfBtnOn { background: #F26A0D; border-color: #FFB877; color: #fff; }
+.hfPop { top: calc(100% + 8px); min-width: 200px; }
+.legendGrad { display: inline-block; width: 56px; height: 6px; border-radius: 3px; vertical-align: middle; background: linear-gradient(90deg, #22c55e, #eab308, #f97316, #ef4444); }
+.dateLine { display: inline-flex; align-items: center; gap: 7px; }
+.payProg { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-width: 120px; }
+.payBar { flex: 1; height: 6px; border-radius: 3px; background: rgba(17,47,102,.14); overflow: hidden; }
+.payFill { height: 100%; border-radius: 3px; background: #F26A0D; }
+.payFillDone { background: #16a34a; }
+.payPct { font-size: 10px; font-weight: 800; color: #3E4A63; white-space: nowrap; }
+.forTitle { color: #166534; } .forStor { color: #8A5A00; } .forOpen { color: #0E6F86; } .forRev { color: #B91C1C; }
+.mOFFICE { color: #0B2250; } .mMOBILE_MONEY { color: #8A5A00; } .mBANK { color: #1E4A8C; } .mOTHER { color: #7C3AED; } .mNONE { color: #64748b; }
+.booksClose { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.16); border: 1.5px solid #fff; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .15s, color .15s; }
+.booksClose:hover { background: #fff; color: #0B2250; }
+.rcpPaper { background: #fff; border: 2px solid #fff; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 0 1px rgba(17,47,102,.22), 0 6px 16px rgba(9,28,70,.25); }
+.rcpHead { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px dashed rgba(17,47,102,.3); padding-bottom: 8px; color: #0B2250; }
+.rcpHead span { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; color: #3E4A63; }
+.rcpRow { display: flex; justify-content: space-between; font-size: 12px; color: #3E4A63; padding: 5px 8px; background: #E4E3DD; border-radius: 6px; }
+.rcpRow b { color: #0B2250; }
+.rcpTotal { background: #FFE9CC; } .rcpTotal b { color: #C9550A; font-size: 14px; }
+.rcpBtns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.rcpOpen { height: 40px; padding: 0 16px; border-radius: 8px; background: #F26A0D; border: 1.5px solid #C9550A; color: #fff; font-weight: 900; font-size: 11px; letter-spacing: 1px; cursor: pointer; }
+.rcpClose { height: 40px; padding: 0 16px; border-radius: 8px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.4); color: #fff; font-weight: 900; font-size: 11px; letter-spacing: 1px; cursor: pointer; }
+
+/* the MORE list (tick boxes): a ticked row is a soft tint, not a solid block (classic look) */
+.fTick.fItemOn { background: #FDF0E3; color: #B8651D; }
+.fTick.fItemOn:hover { background: #F26A0D; color: #FFFFFF; }
+.fTick input:checked + .fBox { background: #F26A0D !important; border-color: #F26A0D !important; }
+.fTick input:checked + .fBox svg { color: #FFFFFF !important; }
+
+/* an IMPORTANT error (could not load): clear and unmissable, with a real RETRY button */
+.errorBar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; padding: 12px 14px; border-radius: 8px; background: #FDE2E2; border: 1.5px solid #DC2626; border-left: 6px solid #B91C1C; color: #7F1D1D; box-shadow: 0 4px 14px rgba(185,28,28,.18); }
+.errorIcon { font-size: 20px; color: #B91C1C; flex-shrink: 0; }
+.errorText { flex: 1 1 260px; font-size: 13px; font-weight: 700; line-height: 1.4; color: #7F1D1D; }
+.errorRetry { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 16px; border-radius: 7px; background: #B91C1C; border: 1.5px solid #7F1D1D; color: #FFFFFF; font-family: var(--font-body, 'Inter'), sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 1.2px; cursor: pointer; text-shadow: 0 1px 1px rgba(60,0,0,.35); transition: background .15s, box-shadow .15s; }
+.errorRetry:hover { background: #991B1B; box-shadow: 0 4px 12px rgba(185,28,28,.35); }
+.errorRetry:focus-visible { outline: 2px solid #F26A0D; outline-offset: 2px; }

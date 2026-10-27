@@ -222,7 +222,7 @@ const ExpensesPage = () => {
     const handleDelete = (expense) => {
         if (deletingId) return;
         askReason({
-            title: 'DELETE EXPENSE', okLabel: 'DELETE EXPENSE', picks: DELETE_PICKS.EXPENSE,
+            title: 'DELETE EXPENSE', okLabel: 'DELETE', picks: DELETE_PICKS.EXPENSE,
             message: `Delete the ${expense.category} entry of UGX ${fmt(expense.amount)}? This cannot be undone.`,
             run: async (reason) => {
                 setDeletingId(expense.id);
@@ -400,6 +400,7 @@ const ExpensesPage = () => {
             {/* LOG EXPENSE MODAL */}
             <HardwareModal isOpen={logModal.open} onClose={closeLogModal} lockBackdrop /* fix190: typed text is not lost to a tap outside */
                 title={logModal.isOther ? 'LOG EXPENSE -- OTHER' : `LOG EXPENSE -- ${logModal.presetName.toUpperCase()}`}>
+<div className={styles.modalBody}>
                 {logModal.isOther && (
                     <div className={modalStyles.modalField}>
                         <label className={modalStyles.modalLabel}>WHAT IS THIS EXPENSE FOR?</label>
@@ -437,10 +438,8 @@ const ExpensesPage = () => {
                     <SuggestInput className={modalStyles.modalInput} placeholder="Defaults to you" aria-label="Who actually spent this"
                         hint="Named before" value={logSpentBy} onChange={setLogSpentBy} suggestions={suggestValues(knownSpenders, logSpentBy)} />
                 </div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeLogModal}>
-                        CANCEL
-                    </button>
+                </div>
+<div className={modalStyles.modalFooter}>
                     <HardwareButton onClick={submitLog} loading={logging} icon={FiPlus}>
                         SAVE EXPENSE
                     </HardwareButton>
@@ -449,6 +448,7 @@ const ExpensesPage = () => {
 
             {/* NEW PRESET MODAL */}
             <HardwareModal isOpen={presetModal} onClose={() => setPresetModal(false)} title="NEW PRESET" lockBackdrop>
+<div className={styles.modalBody}>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>PRESET NAME</label>
                     <input
@@ -461,10 +461,8 @@ const ExpensesPage = () => {
                         onChange={e => setNewPresetName(e.target.value)}
                     />
                 </div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setPresetModal(false)}>
-                        CANCEL
-                    </button>
+                </div>
+<div className={modalStyles.modalFooter}>
                     <HardwareButton onClick={submitPreset} loading={savingPreset} icon={FiPlus}>
                         ADD PRESET
                     </HardwareButton>
@@ -474,6 +472,7 @@ const ExpensesPage = () => {
             {/* EDIT MODAL */}
             <HardwareModal isOpen={editModal.open} onClose={() => setEditModal({ open: false, expense: null })} lockBackdrop
                 title="EDIT EXPENSE">
+<div className={styles.modalBody}>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>CATEGORY</label>
                     <SuggestInput className={modalStyles.modalInput} aria-label="Category" hint="Used before"
@@ -505,11 +504,8 @@ const ExpensesPage = () => {
                     <SuggestInput className={modalStyles.modalInput} placeholder="Defaults to whoever logged it" aria-label="Who actually spent this"
                         hint="Named before" value={editSpentBy} onChange={setEditSpentBy} suggestions={suggestValues(knownSpenders, editSpentBy)} />
                 </div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnSecondary}
-                        onClick={() => setEditModal({ open: false, expense: null })}>
-                        CANCEL
-                    </button>
+                </div>
+<div className={modalStyles.modalFooter}>
                     <HardwareButton onClick={submitEdit} loading={saving} icon={FiEdit2}>
                         SAVE CHANGES
                     </HardwareButton>
