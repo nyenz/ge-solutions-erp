@@ -37,6 +37,7 @@ public class PaymentQueryService {
     private final PaymentRecordRepository paymentRepository;
     private final LandProjectRepository projectRepository;
     private final ClientRepository clientRepository;
+    private final com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository documentRepository;   // fix261
 
     // fix214: method = OFFICE / MOBILE_MONEY / BANK / OTHER, or NONE for lines saved before fix214; null = every method
     public record Filter(LocalDate from, LocalDate to, String tab, String projectType, String q,
@@ -72,6 +73,11 @@ public class PaymentQueryService {
         Set<UUID> payerIds = all.stream().map(PaymentRecord::getPayerClientId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<UUID, Client> payers = new HashMap<>();
         for (Client c : clientRepository.findAllById(payerIds)) payers.put(c.getId(), c);
+
+        // fix261 (David): the receipt scan itself (the Payments page opens it, not the project folder)
+        Set<UUID> receiptIds = all.stream().map(PaymentRecord::getReceiptDocumentId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, com.gesolutions.erp.modules.land.model.ProjectDocument> receipts = new HashMap<>();
+        if (!receiptIds.isEmpty()) for (var d : documentRepository.findAllById(receiptIds)) receipts.put(d.getId(), d);
 
         // reversals: "[REVERSAL OF <id>] reason"
         Map<String, PaymentRecord> reversalOf = new HashMap<>();
@@ -140,6 +146,9 @@ public class PaymentQueryService {
             m.put("paymentReference", r.getPaymentReference());
             m.put("hasReceipt", r.getReceiptDocumentId() != null);
             m.put("receiptDocumentId", r.getReceiptDocumentId());
+            var rd = r.getReceiptDocumentId() == null ? null : receipts.get(r.getReceiptDocumentId());
+            m.put("receiptFilePath", rd == null ? null : rd.getFilePath());
+            m.put("receiptFileName", rd == null ? null : rd.getFileName());
             PaymentRecord rev = reversalOf.get(String.valueOf(r.getId()));
             m.put("reversed", rev != null);
             m.put("reversedBy", rev == null ? null : rev.getId());
