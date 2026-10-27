@@ -12,7 +12,8 @@ const rankOf = (f) => (f.isEmployee ? 'Employee' : f.isOwnerLevel ? 'Director' :
 const GuidePage = () => {
     const { user } = useAuth();
     const f = roleFlags(user);
-    const src = '/guide/index.html?role=' + encodeURIComponent(rankOf(f));
+    // fix262 (David): opened on the person's own tasks, and only their rank and the ranks below it are offered
+    const src = '/guide/index.html?role=' + encodeURIComponent(rankOf(f)) + '&rank=' + encodeURIComponent(rankOf(f));
     return (
         <div className={styles.wrap}>
             <iframe className={styles.frame} src={src} title="Golden Seed guide: how to use the system, step by step" />

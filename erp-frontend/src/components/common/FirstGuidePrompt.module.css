@@ -1,0 +1,10 @@
+/* fix262: the first-visit guide window -- the same pop-up look as the sign-out question */
+.text { margin: 0 0 18px; font-size: 13px; line-height: 1.55; font-weight: 600; color: #DCE8FA; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.watch, .skip { height: 40px; padding: 0 18px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-ui, 'DM Sans'), sans-serif; font-weight: 900; font-size: 11px; letter-spacing: 1.5px; transition: background 0.15s, color 0.15s; }
+.watch { background: #F26A0D; border: 1.5px solid #C9550A; color: #fff; }
+.watch:hover { background: #DA5A06; }
+.skip { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.4); color: #fff; }
+.skip:hover { background: rgba(255, 255, 255, 0.2); }
+.watch:focus-visible, .skip:focus-visible { outline: 2px solid #FFB877; outline-offset: 2px; }

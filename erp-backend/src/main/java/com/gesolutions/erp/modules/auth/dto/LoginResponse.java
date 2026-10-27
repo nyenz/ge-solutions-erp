@@ -38,5 +38,9 @@ public class LoginResponse {
         // FIXED: Force the name to match React logic
         @JsonProperty("mustChangePassword")
         private boolean mustChangePassword;
+
+        // fix262: offer the guide (first visit of a new account)
+        @JsonProperty("showGuide")
+        private boolean showGuide;
     }
 }

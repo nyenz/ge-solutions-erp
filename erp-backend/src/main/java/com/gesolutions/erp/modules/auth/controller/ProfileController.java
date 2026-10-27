@@ -100,6 +100,16 @@ public class ProfileController {
         m.put("active", u.isActive());
         m.put("mustChangePassword", u.isMustChangePassword());
         m.put("email", u.getEmail());
+        m.put("showGuide", Boolean.TRUE.equals(u.getShowGuide()));   // fix262
         return ResponseEntity.ok(m);
+    }
+
+    /** fix262 (David): the first-visit guide was watched or skipped -- it is not offered again, on any device. */
+    @PostMapping("/guide-seen")
+    public ResponseEntity<Map<String, Object>> guideSeen() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User u = userRepository.findByUsername(username).orElseThrow();
+        if (Boolean.TRUE.equals(u.getShowGuide())) { u.setShowGuide(false); userRepository.save(u); }
+        return ResponseEntity.ok(Map.of("ok", true));
     }
 }

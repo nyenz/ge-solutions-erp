@@ -105,6 +105,7 @@ public class StaffManagementService {
                 .mustChangePassword(true)
                 .tempKeyExpiresAt(LocalDateTime.now().plusDays(TEMP_KEY_DAYS))
                 .notifySince(LocalDateTime.now())
+                .showGuide(true)   // fix262: the guide is offered at the first visit
                 .build());
 
         auditService.logActionAfterCommit("OPERATOR_PROVISIONED", "New " + rank + " account created: " + username);
