@@ -304,3 +304,28 @@
 .retryBtn svg { color: #fff; }
 .retryBtn:hover { background: #A81919; border-color: #7A1111; }
 .retryBtn:active { background: #8C1313; transform: translateY(1px); }
+
+/* fix266 (David): PAYMENTS (WHO PAID) -- a small zebra table per project (not a run-on bullet list) */
+.payTable { flex: 1 1 100%; margin-top: 8px; border: 1px solid rgba(17, 47, 102, 0.14); border-radius: 8px; overflow: hidden; font-size: 12px; }
+.payHead, .payLine { display: grid; grid-template-columns: 96px 130px minmax(120px, 1.4fr) minmax(110px, 1fr) minmax(90px, auto); gap: 10px; align-items: center; padding: 7px 12px; }
+.payHead { background: rgba(17, 47, 102, 0.08); font-size: 9.5px; font-weight: 900; letter-spacing: 1.2px; color: #5B6B8C; }
+.payHead span:nth-child(2) { text-align: right; }
+.payLine { background: #FFFFFC; color: #1F2F4D; border-top: 1px solid rgba(17, 47, 102, 0.07); }
+.payLine:nth-child(odd) { background: #EFEEE8; }
+.payLine:hover { background: #FDEBD7; }
+.payDate { font-family: 'Space Mono', monospace; font-size: 11px; color: #3E4A63; }
+.payAmt { font-family: 'Space Mono', monospace; font-weight: 700; text-align: right; color: #0B2250; }
+.payWho { font-weight: 700; overflow-wrap: anywhere; }
+.payHow { color: #3E4A63; overflow-wrap: anywhere; }
+.payTags { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.payTag { font-style: normal; font-size: 9px; font-weight: 900; letter-spacing: 1px; padding: 2px 6px; border-radius: 99px; background: rgba(17, 47, 102, 0.08); color: #3E4A63; }
+.payTagRev { background: #FDE2E2; color: #9B1C1C; }
+.payLineRev .payAmt { color: #B91C1C; }
+.payLineGone .payAmt, .payLineGone .payWho, .payLineGone .payDate, .payLineGone .payHow { color: #8A94AA; }
+.payLineGone .payAmt { text-decoration: line-through; text-decoration-thickness: 1px; }
+@media (max-width: 700px) {
+    .payHead { display: none; }
+    .payLine { grid-template-columns: 1fr auto; row-gap: 2px; }
+    .payWho, .payHow { grid-column: 1 / 2; }
+    .payTags { grid-column: 2 / 3; grid-row: 2 / 4; align-self: start; }
+}

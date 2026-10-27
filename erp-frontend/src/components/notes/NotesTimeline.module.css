@@ -136,3 +136,7 @@
 @media print {
     .tools, .acts, .more, .filters, .chev { display: none !important; }
 }
+
+/* fix266 (David): the list does not go on forever -- after about ten lines it scrolls inside its own card */
+.card { max-height: min(600px, 64vh); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+@media print { .card { max-height: none; overflow: visible; } }

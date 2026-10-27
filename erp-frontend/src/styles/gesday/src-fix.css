@@ -44,3 +44,18 @@
 [class*="_coWarnDismiss_"]{color:#9A4407!important}
 [class*="_wipeResult_"]{background:#E3F7EE!important;border:0!important;border-left:6px solid #10B981!important;color:#064E3B!important}
 [class*="_wipeResult_"] *{color:#064E3B!important}
+/* fix266 (David): on New Project every group of boxes sits on the same grey card as the client rows (the third shade),
+   e.g. Location, Financials, Title Details. Entry Mode keeps its own look (its read-only boxes are already grey). */
+[data-page="intake"] [class*="_section_"] > [class*="_body_"] > :is([class*="_grid2_"],[class*="_grid3_"]):not(:has([readonly])){background:#E4E3DD;border:1px solid rgba(17,47,102,.14);border-radius:8px;padding:12px 14px 14px}
+[data-page="intake"] [class*="_section_"] > [class*="_body_"] > :is([class*="_grid2_"],[class*="_grid3_"]):not(:has([readonly])) + :is([class*="_grid2_"],[class*="_grid3_"]){margin-top:12px}
+/* fix266 (David): the client IDENTITY edit mode looks like the Folder edit mode -- one grey card with a small title,
+   plain labels, white boxes with a thin orange edge, navy capitals */
+[data-page="client"] [data-editing]{background:#E4E3DD;border:1px solid rgba(17,47,102,.14);border-radius:8px;padding:14px 14px 16px;row-gap:12px!important}
+[data-page="client"] [data-editing]::before{content:attr(data-editing);grid-column:1 / -1;font:900 10px/1 var(--font-ui,'DM Sans'),sans-serif;letter-spacing:1.5px;color:#12347A;padding-bottom:2px}
+[data-page="client"] [data-editing] [class*="_specItem_"]{border-left:0!important;padding-left:0!important;gap:6px}
+[data-page="client"] [data-editing] [class*="_specLabel_"]{color:#5B6B8C!important;font-weight:900!important;letter-spacing:1.5px}
+[data-page="client"] [data-editing] [class*="_specLabel_"] svg{display:none}
+[data-page="client"] [data-editing] [class*="_specMono_"],[data-page="client"] [data-editing] [class*="_specValue_"]{display:flex;align-items:center;height:40px;padding:0 14px;background:#EDECE6;border:1px solid rgba(17,47,102,.14);border-radius:6px;color:#3E4A63!important}
+[data-page="client"] [data-editing] [class*="_editInput_"]{background:#fff!important;border:1px solid rgba(242,106,13,.35)!important;border-radius:6px!important;height:40px;padding:0 14px!important;color:#12347A!important;font-weight:800!important;font-size:13px!important;letter-spacing:.5px;box-shadow:none!important}
+[data-page="client"] [data-editing] [class*="_editInput_"]:focus{border-color:#F26A0D!important;box-shadow:0 0 0 3px rgba(242,106,13,.16)!important;outline:none}
+[data-page="client"] [data-editing] [class*="_inputError_"]{border-color:#B91C1C!important}
