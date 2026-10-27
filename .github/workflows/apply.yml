@@ -1,4 +1,4 @@
-name: Apply GES DAY
+name: Apply GES DAY 2
 on:
   push:
     branches: [ges-day-upload]
