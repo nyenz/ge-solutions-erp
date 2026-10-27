@@ -458,6 +458,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                   </span>
                 )}
                 <input
+                  type="search" data-keep-case=""
                   className={styles.entInput}
                   style={{ height: 36, width: 'clamp(200px, 22vw, 260px)', boxSizing: 'border-box' }}
                   value={entQuery}
@@ -566,7 +567,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           <span className={styles.badge}>{searched.length} MATCHES</span>
           <div className={styles.searchBox} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
             <FiSearch className={styles.searchIcon} aria-hidden="true" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" style={{ paddingLeft: 40 }} />
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" style={{ paddingLeft: 40 }} />
             {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search" title="Clear the search"><FiX size={13} aria-hidden="true" /></button>}
           </div>
           <span className={styles.headToggle}>

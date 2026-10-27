@@ -12,6 +12,7 @@ import { LoadingState } from './components/common/LoadingState';
 import { readPrefsFor } from './context/prefsStore';
 import { useGlobalTips } from './components/common/globalTips';
 import { useGlobalTypeAhead } from './components/common/globalTypeAhead';   // fix217
+import { useGlobalUpper } from './components/common/globalUpper';   // fix263
 
 import LoginPage      from './pages/login/LoginPage';
 
@@ -125,6 +126,7 @@ const AppLayout = () => {
     usePrefetchPages(!!(user && token));
     useGlobalTips();   // fix199 (test note 4): every title="..." on every page becomes the styled explainer
     useGlobalTypeAhead();   // fix217 (David): letters jump to the matching item in EVERY open pick-list
+    useGlobalUpper();   // fix263 (David): form boxes keep their words in CAPITALS (never e-mail, user names, keys, search)
     return (
         <>
             <CircuitBackground />

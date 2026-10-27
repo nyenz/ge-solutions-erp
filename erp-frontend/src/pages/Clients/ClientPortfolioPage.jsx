@@ -236,7 +236,7 @@ const ClientPortfolioPage = () => {
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiMail aria-hidden="true" /> EMAIL</span>
             {isEditing && !phoneOnly
-              ? (<input className={styles.editInput} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />)
+              ? (<input type="email" aria-label="Email" className={styles.editInput} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />)
               : (<span className={styles.specValue}>{d.email || '---'}</span>)}
           </div>
           <div className={styles.specItem}>
