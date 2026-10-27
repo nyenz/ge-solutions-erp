@@ -73,6 +73,7 @@ public class AuthService {
                         .role(user.getRole())
                         .isRoot(user.isRoot())
                         .mustChangePassword(user.isMustChangePassword())
+                        .showGuide(Boolean.TRUE.equals(user.getShowGuide()))
                         .build())
                 .build();
     }

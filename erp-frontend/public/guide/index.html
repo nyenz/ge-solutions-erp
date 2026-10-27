@@ -107,6 +107,17 @@
 
   function start(data) {
     DATA = data;
+    // fix262 (David): a person sees the guides of their own rank and the ranks below it, never a higher rank's
+    // (?rank=Secretary). Without ?rank (the shareable file) every guide shows.
+    var LEVEL = { 'employee': 0, 'secretary': 1, 'manager': 2, 'director': 3 };
+    var rank = (new URLSearchParams(location.search).get('rank') || '').toLowerCase();
+    if (rank && LEVEL[rank] !== undefined) {
+      data = Object.assign({}, data, { tasks: data.tasks.filter(function (t) {
+        var lv = LEVEL[String(t.role).toLowerCase()];
+        return t.role === 'All staff' || lv === undefined || lv <= LEVEL[rank];
+      }) });
+      DATA = data;
+    }
     var roles = ['All'];
     data.tasks.forEach(function (t) { if (t.role !== 'All staff' && roles.indexOf(t.role) < 0) roles.push(t.role); });
     var want = (new URLSearchParams(location.search).get('role') || '').toLowerCase();

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import FirstGuidePrompt from '../common/FirstGuidePrompt';   // fix262
 import styles from './Shell.module.css';
 import { useLocation } from 'react-router-dom';
 
@@ -64,6 +65,7 @@ const Shell = ({ children }) => {
                     </div>
                 </main>
             </div>
+            <FirstGuidePrompt />
         </div>
     );
 };

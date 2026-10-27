@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
             const cur = readUser() || {};
             if (cur.username && me.username && cur.username.toLowerCase() !== String(me.username).toLowerCase()) return;
             const next = { ...cur, username: me.username ?? cur.username, role: me.role ?? cur.role, isRoot: !!me.isRoot,
-                mustChangePassword: !!me.mustChangePassword, email: me.email ?? cur.email };
+                mustChangePassword: !!me.mustChangePassword, email: me.email ?? cur.email, showGuide: !!me.showGuide };
             localStorage.setItem('gs_user', JSON.stringify(next));
             setUser(next);
         }).catch(() => { /* the 401/403 handler in axios.js deals with a dead session */ });

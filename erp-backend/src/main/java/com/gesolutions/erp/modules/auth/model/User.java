@@ -88,6 +88,11 @@ public class User {
     @Column(name = "notify_since")
     private java.time.LocalDateTime notifySince;
 
+    // fix262 (David): a new account sees the short guide once, at its first visit (it can skip it). null = not offered
+    // (accounts that existed before this was added are not shown it).
+    @Column(name = "show_guide")
+    private Boolean showGuide;
+
     /** fix181: signs this account out everywhere (suspend, key reset, rank change, logout, own key change). */
     public void bumpSessionVersion() {
         sessionVersion = (sessionVersion == null ? 0 : sessionVersion) + 1;
