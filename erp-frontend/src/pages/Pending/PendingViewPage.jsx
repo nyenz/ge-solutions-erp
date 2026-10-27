@@ -32,7 +32,7 @@ const digits = (v) => String(v || '').replace(/[^0-9]/g, '');
 
 function Item({ label, value }) {
     if (value === null || value === undefined || value === '') return null;
-    return (<div><div className={styles.label}>{label}</div><div className={styles.value}>{value}</div></div>);
+    return (<div className={styles.item}><div className={styles.label}>{label}</div><div className={`${styles.value} ${styles.mono}`}>{value}</div></div>);
 }
 
 // fix182: one card shape for the whole page. fix199 (David, test note 8): it is now the app's own collapsible panel
@@ -53,8 +53,8 @@ function People({ title, people }) {
                 {people.map(p => (
                     <li key={p.id || p.fullName} className={styles.person}>
                         <span className={styles.value}>{p.fullName}</span>
-                        {p.phone && <span className={`${styles.muted} ${styles.mono}`}>{p.phone}</span>}
-                        {p.nationalId && <span className={`${styles.muted} ${styles.mono}`}>NIN {p.nationalId}</span>}
+                        <span className={`${styles.muted} ${styles.mono}`}>{p.phone || '---'}</span>
+                        <span className={`${styles.muted} ${styles.mono}`}>{p.nationalId ? 'NIN ' + p.nationalId : '---'}</span>
                     </li>
                 ))}
             </ul>
@@ -187,17 +187,25 @@ export default function PendingViewPage() {
             {office && <div className={styles.banner}>Check every name and National ID. Then save the invoice number, the contract number and the price (one at a time is fine). The project starts when all three are in.</div>}
 
             <Card title="Plot details">
+                {/* fix268 (David): laid out like the Folder's Plot details -- small orange group titles, an orange line
+                    before every item, values in the Folder's typewriter letters */}
+                <div className={styles.groupHead}>LOCATION</div>
                 <div className={styles.grid}>
                     <Item label="District" value={p.district} /><Item label="County" value={p.county} />
                     <Item label="Sub-county" value={p.subCounty} /><Item label="Parish" value={p.parish} />
                     <Item label="Village" value={p.village} />{p.areaHectares == null && <Item label="Area (ha)" value={p.area} />}
                     <Item label="Start date" value={day(p.projectStartDate)} />
-                    <Item label="Plot" value={p.plotNumber} /><Item label="Block" value={p.block} />
-                    <Item label="Tenure" value={p.tenure} /><Item label="Area (ha)" value={p.areaHectares} />
-                    <Item label="Volume" value={p.volume} /><Item label="Folio" value={p.folio} />
-                    <Item label="Title date" value={day(p.titleIssueDate)} />
-                    <Item label="Subdivisions" value={p.subdivisionCount} />
                 </div>
+                {[p.plotNumber, p.block, p.tenure, p.areaHectares, p.volume, p.folio, p.titleIssueDate, p.subdivisionCount].some(v => v != null && v !== '') && (<>
+                    <div className={`${styles.groupHead} ${styles.groupHeadNext}`}>TITLE</div>
+                    <div className={styles.grid}>
+                        <Item label="Plot" value={p.plotNumber} /><Item label="Block" value={p.block} />
+                        <Item label="Tenure" value={p.tenure} /><Item label="Area (ha)" value={p.areaHectares} />
+                        <Item label="Volume" value={p.volume} /><Item label="Folio" value={p.folio} />
+                        <Item label="Title date" value={day(p.titleIssueDate)} />
+                        <Item label="Subdivisions" value={p.subdivisionCount} />
+                    </div>
+                </>)}
             </Card>
 
             <People title="Clients" people={p.clients} />
@@ -205,7 +213,7 @@ export default function PendingViewPage() {
             {p.neighbors && p.neighbors.length > 0 && (
                 <Card title="Neighbors">
                     <ul className={styles.list}>{p.neighbors.map((n, i) => (<li key={i} className={styles.person}><span className={styles.value}>{n.fullName}</span>
-                        {n.side && <span className={styles.muted}>{n.side}</span>}{n.phone && <span className={`${styles.muted} ${styles.mono}`}>{n.phone}</span>}</li>))}</ul>
+                        <span className={styles.muted}>{n.side || '---'}</span><span className={`${styles.muted} ${styles.mono}`}>{n.phone || '---'}</span></li>))}</ul>
                 </Card>
             )}
 
@@ -259,14 +267,16 @@ export default function PendingViewPage() {
                     <Card title="Numbers and price">
                         <span className={styles.muted}>Save what you have. The project stays Pending until it has an invoice number, a contract number and a price; then SAVE starts it.</span>
                         <div className={styles.form}>
+                            {/* fix268 (David): the boxes sit on the grey card in columns, like New Project */}
+                            <div className={styles.fieldCard}>
                             <label className={styles.field}><span className={styles.label}>Invoice number</span>
                                 <input className={`${styles.input} ${styles.mono}`} value={invoiceNo} maxLength={80} autoComplete="off" onChange={e => setInvoiceNo(e.target.value)} placeholder="As written on the invoice" /></label>
                             <label className={styles.field}><span className={styles.label}>Contract number</span>
                                 <input className={`${styles.input} ${styles.mono}`} value={contractNo} maxLength={80} autoComplete="off" onChange={e => setContractNo(e.target.value)} placeholder="As written on the contract" /></label>
                             <label className={styles.field}><span className={styles.label}>Total cost (UGX)</span>
                                 <input className={styles.input} inputMode="numeric" value={cost ? Number(digits(cost)).toLocaleString() : ''} onChange={e => setCost(digits(e.target.value))} /></label>
-                            <label className={styles.field}><span className={styles.label}>Money already received (UGX, optional)</span>
-                                <input className={styles.input} inputMode="numeric" value={deposit ? Number(digits(deposit)).toLocaleString() : ''} onChange={e => setDeposit(digits(e.target.value))} /></label>
+                            <label className={styles.field}><span className={styles.label}>Already received (UGX)</span>
+                                <input className={styles.input} inputMode="numeric" placeholder="Optional" value={deposit ? Number(digits(deposit)).toLocaleString() : ''} onChange={e => setDeposit(digits(e.target.value))} /></label>
                             {Number(digits(deposit)) > 0 && (p.clients || []).length > 1 && (
                                 <label className={styles.field}><span className={styles.label}>Which client paid?</span>
                                     <HardwareModalSelect value={payerNin} options={payerOptions} onChange={setPayerNin} placeholder="Choose the client" ariaLabel="Client who paid" /></label>
@@ -282,9 +292,10 @@ export default function PendingViewPage() {
                                         onChange={e => setPayRef(e.target.value)} placeholder={payMethod === 'OTHER' ? 'e.g. Cheque no. 1042' : ''} /></label>
                             )}
                             {Number(digits(deposit)) > 0 && (
-                                <label className={styles.field}><span className={styles.label}>Date it was paid (leave empty if not known)</span>
+                                <label className={styles.field}><span className={styles.label}>Date paid (if known)</span>
                                     <HardwareDatePicker block value={paidDate} max={localISO()} onChange={setPaidDate} ariaLabel="Date it was paid" /></label>
                             )}
+                            </div>
                             <div className={styles.actions}>
                                 <button type="button" className={styles.btn} disabled={busy} onClick={save}
                                     title={complete ? 'Saves and starts the project.' : 'Saves what is typed. The project stays Pending until all three are in.'}>

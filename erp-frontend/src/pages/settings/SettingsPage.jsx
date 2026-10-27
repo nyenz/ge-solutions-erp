@@ -9,7 +9,7 @@
 // brackets, same click-anywhere collapsible head, same button language.
 import { portalRoot } from '../../components/common/portalRoot';
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor, FiChevronDown, FiArchive, FiCopy } from 'react-icons/fi';
+import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor, FiChevronDown, FiArchive, FiCopy, FiHardDrive } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { flagId } from '../../utils/fieldError';   // fix224
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -22,6 +22,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './SettingsPage.module.css';
+import BackupPanel from './BackupPanel';   // fix268
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS, RANKS as RANK_INFO } from '../../utils/roles';
@@ -83,7 +84,7 @@ const SettingsPage = () => {
   const RANKS = manageableRanks(user);
   // fix181 (17.10, 21.9): links can open a tab (/settings?tab=staff, ?tab=appearance)
   const [settingsParams] = useSearchParams();
-  const TAB_ALIASES = { staff: 'governance', appearance: 'appearance', security: 'security', archive: 'deleted', danger: 'danger' };
+  const TAB_ALIASES = { staff: 'governance', appearance: 'appearance', security: 'security', archive: 'deleted', danger: 'danger', backup: 'backup' };
   const [tab, setTab] = useState(() => TAB_ALIASES[(settingsParams.get('tab') || '').toLowerCase()] || 'appearance');
   const [panelOpen, setPanelOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
@@ -227,6 +228,7 @@ const SettingsPage = () => {
       { key: 'appearance', label: 'APPEARANCE', icon: FiSliders, accent: 'orange', count: prefSections(flags).reduce((n, sec) => n + sec.items.length, 0) },
       { key: 'security', label: 'SECURITY', icon: FiKey, accent: 'cyan', count: null },
       ...(isOwner ? [{ key: 'governance', label: 'STAFF', icon: FiShield, accent: 'green', count: ops === null ? '...' : ops.length }] : []),
+      ...(user?.isRoot ? [{ key: 'backup', label: 'BACKUP', icon: FiHardDrive, accent: 'cyan', count: null }] : []),   // fix268: root only
       ...(flags.canWipe ? [{ key: 'danger', label: 'DANGER ZONE', icon: FiAlertTriangle, accent: 'red', count: null }] : []),
       ...(isOwner ? [{ key: 'deleted', label: 'ARCHIVE', icon: FiArchive, accent: 'yellow', count: deleted === null ? '...' : deleted.length }] : []),
     ];
@@ -238,7 +240,7 @@ const SettingsPage = () => {
   const selectTab = (key) => { setTab(key); setPanelOpen(true); };
   // fix181 (14.6d): the subtitle names only what this person can see
   const subtitle = locked ? 'Choose your own key to unlock the system'
-    : ['Appearance', 'security', ...(isOwner ? ['staff'] : []), ...(flags.canWipe ? ['the danger zone'] : []), ...(isOwner ? ['the archive'] : [])]
+    : ['Appearance', 'security', ...(isOwner ? ['staff'] : []), ...(user?.isRoot ? ['backup'] : []), ...(flags.canWipe ? ['the danger zone'] : []), ...(isOwner ? ['the archive'] : [])]
       .join(', ').replace(/, ([^,]*)$/, ' and $1');
 
   return (
@@ -432,6 +434,8 @@ const SettingsPage = () => {
                 </div>
               </div>
             )}
+
+            {activeTab.key === 'backup' && user?.isRoot && <BackupPanel />}
 
             {activeTab.key === 'danger' && flags.canWipe && (
               <div className={styles.prefGroupBox} data-tone="danger">

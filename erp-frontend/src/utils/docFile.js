@@ -57,3 +57,11 @@ export async function fetchDoc(filePath, fileName) {
     } catch { /* keep the portrait default */ }
     return { name, url: href, isPdf, ratio: Math.min(4, Math.max(0.25, ratio || 0.707)) };
 }
+
+/** fix268: the raw bytes of a stored file (for the backup). Throws when it cannot be reached. */
+export async function fetchDocBytes(filePath) {
+    const isHttp = String(filePath || '').startsWith('http');
+    const r = await fetch(docUrl(filePath), { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } });
+    if (!r.ok) throw new Error('not reachable');
+    return new Uint8Array(await r.arrayBuffer());
+}

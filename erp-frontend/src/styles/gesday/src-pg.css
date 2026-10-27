@@ -67,7 +67,7 @@
 [data-page="intake"] [class*="_finRow_"] *{color:inherit}
 [data-page="intake"] [class*="_total_"]{color:#0B2250!important;font-weight:900}
 [data-page="intake"] [class*="_noteDateChip_"]{background:#E4E3DD!important;color:#12347A!important;border:1px solid rgba(17,47,102,.16)!important}
-[data-page="intake"] [class*="_bottomBar_"]{background:linear-gradient(180deg,#FFFFFC,#FFFCF4)!important;border:1px solid rgba(17,47,102,.18)!important;box-shadow:0 -4px 16px rgba(17,47,102,.18)!important;color:#0B2250!important}
+[data-page="intake"] [class*="_bottomBar_"]{background:transparent!important;border:0!important;box-shadow:none!important;color:#0B2250!important}
 [data-page="intake"] [class*="_bottomBar_"] *{color:inherit}
 [data-page="intake"] [class*="_upBtn_"]{background:rgba(17,47,102,.08)!important;border:1px solid rgba(17,47,102,.2)!important;color:#0B2250!important;border-radius:6px!important}
 [data-page="intake"] [class*="_upBtn_"]:hover{background:#F26A0D!important;color:#fff!important;border-color:#C9550A!important}

@@ -44,6 +44,11 @@ const settingsService = {
     wipeAllData: (password, freshStart = false) =>
         api.post('/admin/system/wipe-all-data', { password, freshStart: !!freshStart }, { params: { confirm: 'WIPE-EVERYTHING' }, timeout: 180000 })
             .then(r => r.data).catch(fail),
+
+    /** fix268: root only -- the full copy for BACKUP TO MY COMPUTER, the "saved" note, and the last backup time. */
+    backupData: () => api.get('/admin/backup/data', { timeout: 300000 }).then(r => r.data).catch(fail),
+    backupDone: (info) => api.post('/admin/backup/done', info || {}).then(r => r.data).catch(fail),
+    backupStatus: () => api.get('/admin/backup/status').then(r => r.data).catch(fail),
 };
 
 export { fail as toPlainError };

@@ -66,3 +66,29 @@
 [class*="_notifChip_"],[class*="_notifChip_"][data-empty="true"]{color:#fff!important;opacity:1!important}
 [class*="_notifChip_"][data-empty="true"] [class*="_notifChipCount_"]{opacity:.7}
 [class*="_notifChip_"]:hover{background:rgba(255,255,255,.12)!important}
+/* fix268 (David): Pending page tidy-up.
+   Plot details look like the Folder's Plot details (orange group titles, orange line before each item, typewriter values). */
+[data-page="pending"] [class*="_groupHead_"]{color:#C9550A!important}
+[data-page="pending"] [class*="_groupHeadNext_"]{border-top-color:rgba(17,47,102,.12)!important}
+[data-page="pending"] [class*="_item_"]{border-left:2px solid #F26A0D!important;padding-left:12px!important}
+[data-page="pending"] [class*="_item_"] [class*="_value_"]{font-family:'Space Mono',monospace!important;font-weight:700!important;font-size:13px!important;color:#0B2250!important}
+/* Clients, Owners, Neighbors and Correct a National ID: the rows sit on one grey card (the third shade), with room
+   inside the card edge, like the client rows on New Project */
+[data-page="pending"] ul[class*="_list_"]{background:#E4E3DD!important;border:1px solid rgba(17,47,102,.14)!important;border-radius:8px!important;padding:4px 0!important;gap:0!important}
+[data-page="pending"] [class*="_person_"],[data-page="pending"] [class*="_person_"]:nth-child(even){background:transparent!important;border:0!important;border-bottom:1px solid rgba(17,47,102,.1)!important;border-radius:0!important;padding:12px 18px!important}
+[data-page="pending"] [class*="_ninRow_"]{background:transparent!important;border:0!important;border-bottom:1px solid rgba(17,47,102,.1)!important;border-radius:0!important;padding:10px 14px 10px 18px!important}
+[data-page="pending"] :is([class*="_person_"],[class*="_ninRow_"]):last-child{border-bottom:0!important}
+[data-page="pending"] [class*="_ninRow_"] [class*="_input_"]{height:40px}
+[data-page="pending"] [class*="_ninRow_"] [class*="_btn_"]{height:40px;justify-content:center;min-width:110px}
+/* Numbers and price: the boxes on the grey card */
+[data-page="pending"] [class*="_fieldCard_"]{background:#E4E3DD!important;border:1px solid rgba(17,47,102,.14)!important;border-radius:8px!important}
+[data-page="pending"] [class*="_fieldCard_"] [class*="_input_"]{height:42px;box-sizing:border-box}
+/* client page IDENTITY (reading mode): no icons, values in the Folder's typewriter letters, all one size */
+[data-page="client"] [class*="_specGrid_"]:not([data-editing]) [class*="_specLabel_"] svg{display:none!important}
+[data-page="client"] [class*="_specGrid_"]:not([data-editing]) :is([class*="_specValue_"],[class*="_specMono_"],[class*="_specPhone_"]){font-family:'Space Mono',monospace!important;font-weight:700!important;font-size:13px!important;letter-spacing:0!important;color:#0B2250!important}
+/* New Project: the buttons at the bottom stand alone on the page (no bar behind them); the plain one gets a solid face */
+[data-page="intake"] [class*="_bottomBar_"] button:not([class*="_primary_"]):not(:hover){background:#FFFFFC!important;border-color:rgba(17,47,102,.22)!important}
+/* the dropdown and the date box in that card are the same height as the other boxes */
+[data-page="pending"] [class*="_fieldCard_"] [class*="_root_"]{margin:0!important;min-height:0!important}
+[data-page="pending"] [class*="_fieldCard_"] [class*="_trigger_"]{height:42px!important;min-height:42px!important;margin-top:0!important;box-sizing:border-box}
+[data-page="pending"] [class*="_fieldCard_"] [class*="_wrap_"],[data-page="pending"] [class*="_fieldCard_"] [class*="_wrap_"] > input{height:42px!important;min-height:42px!important;box-sizing:border-box}

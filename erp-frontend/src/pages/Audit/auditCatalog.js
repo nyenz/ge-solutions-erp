@@ -160,6 +160,7 @@ export const ACTION_GROUPS = [
             { code: 'ROOT_RECOVERY_TRIGGERED',  label: 'Root recovery triggered (old)', severity: 'high' },
             { code: 'DATA_WIPED',               label: 'All business data wiped', severity: 'high' },
             { code: 'WIPE_REFUSED',             label: 'Wipe refused',         severity: 'high' },
+            { code: 'BACKUP_SAVED',             label: 'Backup saved to the computer', severity: 'med' },
             { code: 'TIMEZONE_CHANGED',         label: 'Server time zone changed', severity: 'med' },
             { code: 'NOTIFICATIONS_CLEANED',    label: 'Old alerts cleaned up', severity: 'low' },
             { code: 'AUDIT_REPAIRED',           label: 'Old audit lines repaired', severity: 'high' },

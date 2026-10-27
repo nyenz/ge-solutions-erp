@@ -23,6 +23,7 @@ import RetryButton from '../../components/common/RetryButton';
 import { friendlyAction } from '../Audit/auditCatalog';
 import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
+import BackupReminder from '../../components/common/BackupReminder';   // fix268
 import { cached, remember } from '../../utils/pageCache';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -220,6 +221,8 @@ const Dashboard = () => {
                     <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={busy} tip="Load the numbers again" onClick={load} />
                 </HeaderActions>
             </header>
+
+            <BackupReminder user={user} />
 
             <div className={styles.welcome}>
                 <div>
