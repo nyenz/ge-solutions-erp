@@ -166,7 +166,7 @@ const AuditPage = () => {
                 <div className={styles.searchPill}>
                     <input
                         type="search"
-                        placeholder="Investigate specific Plot Number, Name, or Keyword..."
+                        placeholder="Search a plot, name or word..."
                         className={`${styles.searchInput} ${(searchText || isSearchFocused) ? styles.searchInputActive : ''}`}
                         value={searchText}
                         maxLength={100}

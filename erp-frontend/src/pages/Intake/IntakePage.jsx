@@ -699,7 +699,7 @@ export default function IntakePage() {
                 <SuggestInput className={styles.input} value={o.phone} aria-label={'Phone of ' + what + ' ' + (idx + 1)} hint="Known clients" inputMode="tel"
                     suggestions={suggestForRow(people, 'phone', o)}
                     onChange={v => onChange(idx, 'phone', v)} onPick={pickPerson(idx, onFill)}
-                    onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX / 07XX XXX XXX" />
+                    onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX" title="One phone number, or two separated by /" />
                 <p className={styles.hint}>Multiple: separate with /</p>
             </div>
             <div className={styles.field}>
@@ -852,7 +852,7 @@ export default function IntakePage() {
                         {!isTitleSectionVisible && (
                         <div className={styles.field}>
                             <label className={styles.label}>Area (hectares)</label>
-                            <input className={styles.input} value={area} inputMode="decimal" placeholder="e.g. 0.405 (optional)"
+                            <input className={styles.input} value={area} inputMode="decimal" placeholder="e.g. 0.405"
                                 onChange={e => { setArea(e.target.value.replace(',', '.')); markDirty(); }} />
                             <p className={styles.hint}>The size of the land, in hectares (digits only). Optional until the project has a title.</p>
                         </div>

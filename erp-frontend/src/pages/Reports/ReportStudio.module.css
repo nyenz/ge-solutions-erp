@@ -417,6 +417,7 @@
 @media (max-width: 900px) {
   .scopeRow { flex-direction: column; align-items: stretch; }
   .pickBtn { min-width: 100%; }
+  .sortRow .pickBtn, .sortRow > *:first-child { min-width: 0; flex: 1 1 auto; }
   .pvBtns { margin-left: 0; }
   .searchBox { margin-left: 0; width: 100%; }
 }

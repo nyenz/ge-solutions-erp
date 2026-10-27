@@ -40,10 +40,15 @@ public class PaymentQueryService {
 
     // fix214: method = OFFICE / MOBILE_MONEY / BANK / OTHER, or NONE for lines saved before fix214; null = every method
     public record Filter(LocalDate from, LocalDate to, String tab, String projectType, String q,
-                         boolean includeDeleted, boolean missingReceipt, String sort, String dir, String method) {
+                         boolean includeDeleted, boolean missingReceipt, String sort, String dir, String method,
+                         String recordedBy) {
         public Filter(LocalDate from, LocalDate to, String tab, String projectType, String q,
                       boolean includeDeleted, boolean missingReceipt, String sort, String dir) {
-            this(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir, null);
+            this(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir, null, null);
+        }
+        public Filter(LocalDate from, LocalDate to, String tab, String projectType, String q,
+                      boolean includeDeleted, boolean missingReceipt, String sort, String dir, String method) {
+            this(from, to, tab, projectType, q, includeDeleted, missingReceipt, sort, dir, method, null);
         }
     }
 
@@ -79,6 +84,27 @@ public class PaymentQueryService {
         Map<String, PaymentRecord> byId = new HashMap<>();
         for (PaymentRecord r : all) byId.put(String.valueOf(r.getId()), r);
 
+        // fix259 (David): how much of the project's price is paid once this line is in (title money only, in the order the
+        // money came in). The Payments page shows it as a small progress bar; null when the project has no price yet.
+        Map<String, Integer> paidPctAfter = new HashMap<>();
+        Map<UUID, List<PaymentRecord>> perProject = new HashMap<>();
+        for (PaymentRecord r : all) if (r.getProjectId() != null) perProject.computeIfAbsent(r.getProjectId(), k -> new ArrayList<>()).add(r);
+        for (Map.Entry<UUID, List<PaymentRecord>> e : perProject.entrySet()) {
+            LandProject p = projects.get(e.getKey());
+            BigDecimal price = p == null ? null : p.getTotalCost();
+            if (price == null || price.signum() <= 0) continue;
+            List<PaymentRecord> lines = new ArrayList<>(e.getValue());
+            lines.sort(Comparator.comparing((PaymentRecord r) -> r.getPaidOn() != null ? r.getPaidOn() : r.getTimestamp(),
+                    Comparator.nullsFirst(Comparator.naturalOrder())).thenComparing(r -> String.valueOf(r.getId())));
+            BigDecimal run = BigDecimal.ZERO;
+            for (PaymentRecord r : lines) {
+                if ("STORAGE".equals(allocationOf(r))) continue;
+                run = run.add(r.getAmountPaid() == null ? BigDecimal.ZERO : r.getAmountPaid());
+                int pct = run.multiply(BigDecimal.valueOf(100)).divide(price, 0, java.math.RoundingMode.DOWN).intValue();
+                paidPctAfter.put(String.valueOf(r.getId()), Math.max(0, Math.min(100, pct)));
+            }
+        }
+
         List<Map<String, Object>> out = new ArrayList<>();
         for (PaymentRecord r : all) {
             LandProject p = projects.get(r.getProjectId());
@@ -97,6 +123,7 @@ public class PaymentQueryService {
             m.put("recordedBy", r.getRecordedBy());
             m.put("notes", r.getNotes());
             m.put("balanceAfter", r.getBalanceAfter());
+            m.put("paidPct", paidPctAfter.get(String.valueOf(r.getId())));
             m.put("paidOn", r.getPaidOn());
             m.put("timestamp", r.getPaidOn() != null ? r.getPaidOn() : r.getTimestamp());   // old pages read this
             m.put("enteredAt", r.getTimestamp());
@@ -145,6 +172,8 @@ public class PaymentQueryService {
             Object pm = m.get("paymentMethod");
             if ("NONE".equalsIgnoreCase(f.method()) ? pm != null : !f.method().equalsIgnoreCase(String.valueOf(pm))) return false;
         }
+        if (f.recordedBy() != null && !f.recordedBy().isBlank()
+                && !f.recordedBy().equalsIgnoreCase(String.valueOf(m.get("recordedBy")))) return false;   // fix259
         if (f.missingReceipt() && (Boolean.TRUE.equals(m.get("hasReceipt")) || "REVERSAL".equals(m.get("kind")))) return false;
         LocalDateTime paid = (LocalDateTime) m.get("paidOn");
         if ((f.from() != null || f.to() != null) && paid == null) return false;   // undated rows only without a date filter
@@ -198,6 +227,12 @@ public class PaymentQueryService {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("rows", all.subList(from, to));
         out.put("total", all.size());
+        // fix259: the people who recorded payments (for the RECORDED BY filter), from the same list without that filter
+        Filter anyone = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), f.includeDeleted(), f.missingReceipt(),
+                f.sort(), f.dir(), f.method(), null);
+        List<Map<String, Object>> base = f.recordedBy() == null || f.recordedBy().isBlank() ? all : rows(anyone);
+        out.put("recorders", base.stream().map(m -> m.get("recordedBy")).filter(Objects::nonNull).map(String::valueOf)
+                .filter(x -> !x.isBlank()).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList());
         out.put("page", pg);
         out.put("size", s);
         return out;
@@ -205,7 +240,7 @@ public class PaymentQueryService {
 
     /** The card numbers for the same filters: never a deleted project, reversals subtracted (net). */
     public Map<String, Object> totals(Filter f) {
-        Filter live = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir(), f.method());
+        Filter live = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir(), f.method(), f.recordedBy());
         // fix214: net money per method (Office, Mobile Money, Bank, Other, then "Not recorded" for old lines)
         Map<String, BigDecimal> byMethod = new LinkedHashMap<>();
         for (String code : PaymentMethods.LABELS.keySet()) byMethod.put(code, BigDecimal.ZERO);
@@ -220,7 +255,7 @@ public class PaymentQueryService {
             if ("REVERSAL".equals(m.get("kind"))) reversed = reversed.add(a.abs());
         }
         // the per-method amounts use every OTHER filter but not the method itself, so all the method buttons keep their numbers
-        Filter allMethods = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir(), null);
+        Filter allMethods = new Filter(f.from(), f.to(), f.tab(), f.projectType(), f.q(), false, f.missingReceipt(), f.sort(), f.dir(), null, f.recordedBy());
         for (Map<String, Object> m : rows(allMethods)) {
             BigDecimal a = m.get("amountPaid") instanceof BigDecimal b ? b : BigDecimal.ZERO;
             String code = m.get("paymentMethod") == null ? "NONE" : String.valueOf(m.get("paymentMethod"));

@@ -1,0 +1,40 @@
+/* ===== GES DAY: sweep fixes (fix258) =====
+   Many parts were first made for the dark panels and colour their words with --ink-rgb (white) or --tx-orange (light
+   orange). In GES DAY those parts now sit on the cream cards, so inside every cream card the two tokens switch to navy and
+   deep orange. That keeps every word readable without a rule per part. */
+[class*="_panelInner_"],[data-notes]{--ink-rgb:11,34,80;--tx-orange:#C9550A}
+
+/* Notes and history: the filter chips, numbers, hints and "load more" read on cream */
+[data-notes] [class*="_chip_"]{color:#3E4A63!important;background:transparent!important;border-color:transparent!important}
+[data-notes] [class*="_chip_"]:hover{color:#0B2250!important;background:rgba(17,47,102,.07)!important}
+[data-notes] [class*="_chipOn_"]{color:#B04A06!important;background:#FDEBD7!important;border-color:rgba(242,106,13,.6)!important}
+[data-notes] [class*="_chipOn_"] [class*="_n_"]{color:#B04A06!important;opacity:1}
+[data-notes] [class*="_sep_"]{background:rgba(17,47,102,.22)!important}
+[data-notes] [class*="_hint_"]{color:#5B6B8C!important}
+[data-notes] [class*="_dueText_"]{color:#C9550A!important}
+[data-notes] [class*="_loading_"],[data-notes] [class*="_empty_"]{color:#5B6B8C!important}
+[data-notes] [class*="_more_"]{color:#C9550A!important;border-color:rgba(242,106,13,.55)!important;background:#FFFFFC!important}
+[data-notes] [class*="_more_"]:hover{background:#F26A0D!important;color:#fff!important}
+[data-notes] [class*="_err_"]{background:#FDE2E2!important;border:0!important;border-left:6px solid #B91C1C!important;color:#7F1D1D!important}
+[data-notes] [class*="_err_"] button{background:#C81E1E!important;border:1px solid #8F1515!important;color:#fff!important}
+[data-notes] [class*="_err_"] button:hover{background:#A81919!important}
+[data-notes] [class*="_add_"]{color:#fff!important;background:#F26A0D!important;border-color:#C9550A!important}
+[data-notes] [class*="_add_"]:hover{background:#DA5A06!important}
+
+/* empty messages inside cream cards (e.g. "No number of subdivisions set") */
+[class*="_panelInner_"] [class*="_emptyState_"],[class*="_panelInner_"] [class*="_emptyState_"] *{color:#5B6B8C!important}
+[class*="_panelInner_"] [class*="_emptyIcon_"]{color:#F26A0D!important;opacity:.8}
+
+/* status badges on the Folder title: a touch deeper so the words read clearly */
+[data-page="folder"] [class*="_badgeActive_"]{color:#05603F!important}
+[data-page="folder"] [class*="_badgeTitled_"]{color:#05603F!important}
+[data-page="folder"] [class*="_badgeReleased_"]{color:#1E3A8A!important}
+[data-page="folder"] [class*="_badgePaused_"]{color:#7A4A03!important}
+[data-page="folder"] [class*="_numbersBtn_"]{color:#B04A06!important}
+
+/* red labels on the blue stat cards: a little lighter so they read as well as the green and yellow ones */
+[class*="_sumRed_"] label,[data-page="client"] [class*="_moneyStrip_"] [class*="_statRed_"] label,[class*="_countsHUD_"] [class*="_statRed_"] label{color:#FECACA!important}
+/* Expenses list: the quiet words a shade darker */
+[class*="_editedBadge_"],[class*="_noNote_"]{color:#4B5872!important}
+/* login: the name and "forgot your key" a touch brighter on the blue card */
+[class*="_lostBtn_"]{color:#FF9A57!important}
