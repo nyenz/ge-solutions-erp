@@ -163,7 +163,7 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
                 <div ref={popRef} className={styles.pop} style={{ top: pos.top, left: pos.left, width: POP_W }} role="dialog" aria-label="Choose a date">
                     <div className={styles.typeRow}>
                         <input type="text" inputMode="numeric" className={`${styles.typeBox} ${typedErr ? styles.typeBoxBad : ''}`}
-                            value={typed} placeholder="Type a date: dd/mm/yyyy" aria-label="Type the date (day/month/year)" maxLength={10}
+                            value={typed} placeholder="Type dd/mm/yyyy" aria-label="Type the date (day/month/year)" maxLength={10}
                             onChange={(e) => onTyped(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyTyped(); } }} />
                         <button type="button" className={styles.typeSet} onClick={applyTyped} disabled={!typed.trim()}>Set</button>

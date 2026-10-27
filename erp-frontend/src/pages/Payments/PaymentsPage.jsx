@@ -159,7 +159,7 @@ const PaymentsPage = () => {
         const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, recordedBy: recordedBy || undefined, page, size: PAGE };
         return Promise.all([
             api.get('/recovery/payments/list', { params: p }).then(r => setData(r.data)),
-            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined } }).then(r => setTotals(r.data)) : Promise.resolve(),
+            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined, recordedBy: recordedBy || undefined } }).then(r => setTotals(r.data)) : Promise.resolve(),
         ]).catch(e => setError(errorText(e))).finally(() => setBusy(false));
     }, [tab, sort, dir, q, from, to, includeDeleted, missingReceipt, method, recordedBy, page, fullView]);
 
@@ -168,7 +168,7 @@ const PaymentsPage = () => {
         const p = { tab, sort, dir, q: q || undefined, from: from || undefined, to: to || undefined, includeDeleted, missingReceipt, method: method || undefined, recordedBy: recordedBy || undefined, page, size: PAGE };
         Promise.all([
             api.get('/recovery/payments/list', { params: p }),
-            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined } }) : Promise.resolve({ data: null }),
+            fullView ? api.get('/recovery/payments/totals', { params: { tab, q: q || undefined, from: from || undefined, to: to || undefined, missingReceipt, method: method || undefined, recordedBy: recordedBy || undefined } }) : Promise.resolve({ data: null }),
         ]).then(([l, t]) => { if (alive) { setData(l.data); setTotals(t.data); setError(''); } })
           .catch(e => { if (alive) setError(errorText(e)); });
         return () => { alive = false; };
@@ -271,7 +271,7 @@ const PaymentsPage = () => {
                     <div className={styles.searchBlock}>
                         <div className={styles.searchWrap}>
                             <input type="search" className={styles.searchInput}
-                                placeholder="Search project, plot, client, phone, amount, reference, recorded by, notes..."
+                                placeholder="Search project, client, phone, amount..." title="Searches the project, plot, client, phone, amount, reference, who recorded it and the notes"
                                 aria-label="Search payment records" autoComplete="off"
                                 value={searchText} onChange={e => setSearchText(e.target.value)} />
                             <FiSearch className={styles.searchIcon} aria-hidden="true" />

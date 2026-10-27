@@ -24,11 +24,11 @@ const CHART_OPTS = ['NONE','BAR','COLUMN','LINE','AREA','DONUT'];
 const RECENT_KEY = 'gs.reports.recent.v1';
 const SAMPLE = 8;
 const SEARCH_HINT = {
-  PROJECTS: 'Project index, plot, owner name, NIN...',
+  PROJECTS: 'Index, plot, owner, NIN...',
   CLIENTS: 'Client name, NIN, phone...',
   PAYMENTS: 'Receipt no, project, client...',
   EXPENSES: 'Item, category, project...',
-  COMPANY: 'Any row across the company...',
+  COMPANY: 'Any row...',
 };
 
 const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {

@@ -152,7 +152,7 @@ const ClientLedgerPage = () => {
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
-                        <input type="search" placeholder="Search name, NIN, phone, email or index..." className={styles.searchInput}
+                        <input type="search" placeholder="Search name, NIN, phone..." title="Searches the name, NIN, phone, email or project index" className={styles.searchInput}
                             value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search clients" autoComplete="off" />
                         <FiSearch className={styles.searchIcon} aria-hidden="true" />
                         {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}

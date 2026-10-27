@@ -62,7 +62,7 @@
 /* fix210 (David): auto-FILL, not auto-fit. auto-fit drops the empty columns, so a box that is alone on its row
    (DATE LAST PAID) stretched across the whole panel. auto-fill keeps the columns, so every box keeps the same width. */
 .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--gap-lg); }
-.grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr)); gap: var(--gap-lg); }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: var(--gap-lg); }
 .dateLinks { display: flex; gap: 14px; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .label { font-family: var(--font-body, 'Inter'), sans-serif; font-size: var(--fs-label); font-weight: 900; color: rgba(var(--ink-rgb), 0.5); text-transform: uppercase; letter-spacing: 2px; }

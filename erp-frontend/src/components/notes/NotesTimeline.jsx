@@ -183,14 +183,14 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
     };
 
     if (loadErr && !data) {
-        return (<div className={styles.wrap}><div className={styles.err} role="alert">{loadErr}
+        return (<div className={styles.wrap} data-notes=""><div className={styles.err} role="alert">{loadErr}
             <button type="button" onClick={load} title="Load the notes again">TRY AGAIN</button></div></div>);
     }
-    if (!data) return <div className={styles.wrap}><p className={styles.loading}>Loading the notes...</p></div>;
+    if (!data) return <div className={styles.wrap} data-notes=""><p className={styles.loading}>Loading the notes...</p></div>;
 
     const list = rest.slice(0, shown);
     return (
-        <div className={styles.wrap}>
+        <div className={styles.wrap} data-notes="">
             <div className={styles.top}>
                 {/* fix225: the filters first -- small chips, their numbers follow the search and the project picked */}
                 <div className={styles.filters} role="group" aria-label="Show only">
@@ -211,7 +211,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
                 <div className={styles.tools}>
                     <label className={styles.search}>
                         <FiSearch aria-hidden="true" />
-                        <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search the notes, names, amounts..." aria-label="Search the notes" />
+                        <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search the notes..." title="Searches the notes, names and amounts" aria-label="Search the notes" />
                         {search && <button type="button" onClick={() => setSearch('')} aria-label="Clear the search" title="Clear the search"><FiX aria-hidden="true" /></button>}
                     </label>
                     {canWrite && <button type="button" className={styles.add} onClick={startAdd} title="Write a note: what happened, what was agreed, what comes next."><FiPlus aria-hidden="true" /> ADD NOTE</button>}
