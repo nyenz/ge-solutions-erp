@@ -144,15 +144,25 @@
 
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .person {
-    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 10px;
+    display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; gap: 6px 24px;
+    padding: 12px 18px;
     border-radius: var(--radius-sm); background: rgba(var(--well), 0.15); border-left: 2px solid rgba(var(--acc-rgb, 238, 140, 58), 0.35);
 }
-.ninRow { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(160px, 220px) auto; gap: 8px; align-items: center; }
+/* fix268 (David): the name sits away from the card edge, and the box and button keep a margin inside the card */
+.ninRow { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(160px, 240px) auto; gap: 12px; align-items: center; padding: 10px 12px 10px 18px; }
+
+/* fix268: Plot details laid out like the Folder (group titles + an orange line before each item) */
+.groupHead { font-family: var(--font-ui, 'DM Sans'), sans-serif; font-size: clamp(9px, 0.9vw, 11px); font-weight: 900; letter-spacing: 2px; color: var(--tx-orange, #ffb46b); margin-bottom: 4px; }
+.groupHeadNext { margin-top: 10px; padding-top: 14px; border-top: 1px solid rgba(var(--ink-rgb), 0.1); }
+.item { border-left: 2px solid var(--orange); padding-left: 12px; min-width: 0; }
+/* fix268: the boxes of a form sit on one card in columns (as on New Project) */
+.fieldCard { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px 16px; align-items: start; padding: 12px 14px 14px; border-radius: 8px; background: rgba(var(--well), 0.15); border: 1px solid rgba(var(--ink-rgb), 0.1); }
 .empty { text-align: center; padding: clamp(18px, 3vw, 30px); color: rgba(var(--ink-rgb), 0.65); font-weight: 700; }
 
 @media (max-width: 600px) {
     .grid { grid-template-columns: 1fr; }
     .ninRow { grid-template-columns: 1fr; }
+    .person { grid-template-columns: 1fr; gap: 2px; padding: 10px 14px; }
 }
 
 /* fix185: the quiet "WAITING FOR ..." line (same idea as the project folder's sub-header) */

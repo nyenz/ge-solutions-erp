@@ -1,0 +1,9 @@
+/* fix268: the monthly backup reminder (root only, Dashboard) -- the app's orange notice bar */
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 8px;
+    background: #FFF4E5; border-left: 6px solid var(--acc, #EE8C3A); color: #5A2A06; box-shadow: 0 4px 14px rgba(17, 47, 102, 0.12); }
+.icon { font-size: 18px; color: var(--acc-dk, #d57b31); flex-shrink: 0; }
+.text { flex: 1 1 240px; font-size: 13px; font-weight: 700; line-height: 1.5; }
+.btn { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 6px; background: var(--acc, #EE8C3A);
+    border: 1px solid var(--acc-dk, #d57b31); color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 1.3px; text-decoration: none; }
+.btn:hover { background: var(--acc-dk, #d57b31); color: #fff; }
+.btn:focus-visible { outline: 2px solid var(--acc, #EE8C3A); outline-offset: 2px; }
