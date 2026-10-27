@@ -95,6 +95,7 @@ public final class AuditActions {
     public static final String TITLE_RELEASE_UNDONE = "TITLE_RELEASE_UNDONE";
     public static final String TITLE_REVERTED = "TITLE_REVERTED";
     public static final String WIPE_REFUSED = "WIPE_REFUSED";
+    public static final String BACKUP_SAVED = "BACKUP_SAVED";   // fix268: root saved a backup to the computer
 
     /** Codes only old rows (before the Stage -> Status rename and the receivables rework) or the old demo data carry. */
     public static final Set<String> OLD = Set.of(
@@ -197,7 +198,8 @@ public final class AuditActions {
             TITLE_RELEASED,
             TITLE_RELEASE_UNDONE,
             TITLE_REVERTED,
-            WIPE_REFUSED);
+            WIPE_REFUSED,
+            BACKUP_SAVED);
 
     /** Sign-in noise: not staff work (Dashboard activity, 13.7d). */
     public static final java.util.List<String> NOT_STAFF_WORK = java.util.List.of(LOGIN_FAILED, LOGIN_BLOCKED, ACCESS_DENIED, LOGIN_SUCCESS);
