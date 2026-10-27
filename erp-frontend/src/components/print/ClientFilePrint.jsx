@@ -11,6 +11,8 @@ import s from './ProjectFilePrint.module.css';
 
 const money = (n) => 'UGX ' + Number(n || 0).toLocaleString();
 const num = (n) => Number(n || 0).toLocaleString();
+// fix266: "UGX 2000000.00" in a call text prints as "UGX 2,000,000"
+const tidyMoney = (t) => String(t || '').replace(/UGX\s*(-?\d+)(?:\.\d+)?/g, (m, n) => 'UGX ' + Number(n).toLocaleString('en-US'));
 const day = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 const dash = (v) => (v === null || v === undefined || v === '' ? '—' : v);
 const isJoint = (p) => String(p.ownershipType || 'SOLO').toUpperCase() === 'JOINT';
@@ -159,9 +161,13 @@ export default function ClientFilePrint({ client: d, plots = [], totals = {}, pr
             {calls.length > 0 && (
                 <Band tint={!showMoney}>
                     <H>Call log <small>{calls.length}</small></H>
-                    <ul className={s.notes}>{calls.map((n, i) => (
-                        <li key={i}><span className={s.noteMeta}>{day(n.createdAt)}{n.author ? ' · ' + n.author : ''}{n.tag ? ' · ' + n.tag : ''}</span>{n.text || ''}</li>
-                    ))}</ul>
+                    {/* fix266 (David): the call log as one compact table -- a line per call, no cards, no big gaps */}
+                    <table className={s.callTable}>
+                        <thead><tr><th>Date</th><th>Kind</th><th>By</th><th>What was said / done</th></tr></thead>
+                        <tbody>{calls.map((n, i) => (
+                            <tr key={i}><td className={s.mono}>{day(n.createdAt)}</td><td>{n.tag || 'Call'}</td><td>{n.author || ''}</td><td>{tidyMoney(n.text)}</td></tr>
+                        ))}</tbody>
+                    </table>
                 </Band>
             )}
 

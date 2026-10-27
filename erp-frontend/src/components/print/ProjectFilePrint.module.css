@@ -139,6 +139,16 @@
     .docMeta { font-size: 7.5pt; color: #6b7280; white-space: nowrap; }
     .notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2.2mm; }
     .notes li { padding: 2mm 3mm; background: #fff; border-left: 1mm solid var(--teal); border-radius: 1mm; break-inside: avoid; }
+    /* fix266: the Client File call log -- one compact zebra table */
+    .callTable { width: 100%; border-collapse: collapse; font-size: 7.6pt; line-height: 1.3; }
+    .callTable th { text-align: left; font-size: 6.6pt; font-weight: 800; letter-spacing: 0.5pt; text-transform: uppercase; color: var(--teal);
+        border-bottom: 0.4mm solid var(--teal); padding: 0.8mm 1.6mm; }
+    .callTable td { padding: 0.8mm 1.6mm; vertical-align: top; border-bottom: 0.2mm solid #e5e7eb; }
+    .callTable tbody tr:nth-child(even) td { background: #f6f3ec; }
+    .callTable td:nth-child(1) { white-space: nowrap; width: 18mm; }
+    .callTable td:nth-child(2) { white-space: nowrap; width: 28mm; font-weight: 700; }
+    .callTable td:nth-child(3) { white-space: nowrap; width: 24mm; color: #4b5563; }
+    .callTable tr { break-inside: avoid; }
     .noteMeta { display: block; font-size: 7pt; font-weight: 700; color: var(--teal); letter-spacing: 0.4pt; margin-bottom: 0.6mm; }
 
     /* sign-off and foot */

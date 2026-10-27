@@ -219,7 +219,7 @@ const ClientPortfolioPage = () => {
       <CollapsibleSection icon={<FiUsers aria-hidden="true" />} title="IDENTITY">
         <CornerDecor hideTop />
         {saveError && <div className={styles.errorBanner}>{saveError}</div>}
-        <div className={styles.specGrid}>
+        <div className={styles.specGrid} data-editing={isEditing ? 'IDENTITY DETAILS' : undefined}>
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiUser aria-hidden="true" /> FULL NAME</span>
             {isEditing && !phoneOnly
@@ -408,15 +408,25 @@ const ClientPortfolioPage = () => {
               <article key={p.projectId} className={styles.noteRow}>
                 <span className={styles.mono}>#{p.index}</span>
                 {isJoint(p) && <span className={styles.noteAuthor}>paid by this client: UGX {fmt(p.paidByThisClient)}</span>}
-                <ul className={styles.payList}>
+                {/* fix266 (David): one tidy row per payment -- date, amount, who paid, how; reversals marked, not shouted */}
+                <div className={styles.payTable} role="table" aria-label={'Payments of project #' + p.index}>
+                  <div className={styles.payHead} role="row">
+                    <span role="columnheader">DATE</span><span role="columnheader">AMOUNT (UGX)</span><span role="columnheader">PAID BY</span><span role="columnheader">HOW</span><span role="columnheader" />
+                  </div>
                   {p.payments.map(pay => (
-                    <li key={pay.id} data-strike={pay.reversed ? '' : undefined}>
-                      <span className={styles.mono}>UGX {fmt(pay.amount)}</span> {pay.allocation === 'STORAGE' ? '(storage fees)' : ''}
-                      {' - '}{pay.paidOn ? String(pay.paidOn).slice(0, 10) : 'date not recorded'}
-                      {' - '}{pay.payerName}{' - '}{methodLine(pay.paymentMethod, pay.paymentReference)}{pay.reversal ? ' - REVERSAL' : ''}{pay.reversed ? ' (reversed)' : ''}
-                    </li>
+                    <div key={pay.id} role="row" className={`${styles.payLine} ${pay.reversed ? styles.payLineGone : ''} ${pay.reversal ? styles.payLineRev : ''}`}>
+                      <span role="cell" className={styles.payDate}>{pay.paidOn ? String(pay.paidOn).slice(0, 10) : 'No date'}</span>
+                      <span role="cell" className={styles.payAmt}>{fmt(pay.amount)}</span>
+                      <span role="cell" className={styles.payWho}>{pay.payerName}</span>
+                      <span role="cell" className={styles.payHow}>{methodLine(pay.paymentMethod, pay.paymentReference)}</span>
+                      <span role="cell" className={styles.payTags}>
+                        {pay.allocation === 'STORAGE' && <em className={styles.payTag}>STORAGE FEES</em>}
+                        {pay.reversal && <em className={`${styles.payTag} ${styles.payTagRev}`}>REVERSAL</em>}
+                        {pay.reversed && <em className={styles.payTag}>REVERSED</em>}
+                      </span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </article>
             ))}
           </div>
