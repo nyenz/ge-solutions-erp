@@ -38,3 +38,9 @@
 [class*="_editedBadge_"],[class*="_noNote_"]{color:#4B5872!important}
 /* login: the name and "forgot your key" a touch brighter on the blue card */
 [class*="_lostBtn_"]{color:#FF9A57!important}
+/* fix265: notices that sat straight on the light page or a cream card with pale words */
+[class*="_coWarnBanner_"]{background:#FFF4E5!important;border:0!important;border-left:6px solid #F26A0D!important;color:#5A2A06!important;box-shadow:0 8px 22px rgba(17,47,102,.25)!important}
+[class*="_coWarnBanner_"] *{color:#5A2A06!important}
+[class*="_coWarnDismiss_"]{color:#9A4407!important}
+[class*="_wipeResult_"]{background:#E3F7EE!important;border:0!important;border-left:6px solid #10B981!important;color:#064E3B!important}
+[class*="_wipeResult_"] *{color:#064E3B!important}

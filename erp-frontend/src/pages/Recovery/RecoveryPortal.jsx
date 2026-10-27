@@ -5,7 +5,7 @@ import { roleFlags } from '../../utils/roles';
 import { useSearchParams } from 'react-router-dom';
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import ReactDOM from 'react-dom';
-import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
+import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw, FiInfo } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
@@ -193,7 +193,7 @@ export default function RecoveryPortal() {
       </div>
       </div>
       <div className={styles.dotLegend}><PaymentHealthLegend /></div>
-      {clientMsg && <div className={styles.dotLegend} role="status">{clientMsg}</div>}
+      {clientMsg && <div className={styles.clientNote} role="status"><FiInfo aria-hidden="true" /> {clientMsg}</div>}
       {(loading && rows.length === 0) || (syncing && rowsTab !== tab) ? (
         <LoadingState label="SYNCING RECOVERY QUEUE..." />
       ) : (
