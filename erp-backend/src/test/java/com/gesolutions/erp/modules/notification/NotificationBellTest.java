@@ -91,6 +91,24 @@ public class NotificationBellTest {
     }
 
     @Test
+    public void notesHaveTheirOwnGroupAndAllCountsReadOnesToo() {
+        // fix259 (David): pinned notes and follow-ups are NOTES (even old rows saved as PIPELINE); the ALL view counts every alert
+        User d = user(Role.ROLE_DIRECTOR, LocalDateTime.now().minusDays(1));
+        repo.save(Notification.builder().type("NOTE_PINNED").severity("INFO").message("x").entityType("PROJECT_NOTES")
+                .entityId(UUID.randomUUID()).targetRole("ROLE_DIRECTOR").category("PIPELINE").createdAt(LocalDateTime.now()).build());
+        Notification rec = repo.save(Notification.builder().type("LOCKED").severity("INFO").message("x").entityType("CLIENT")
+                .entityId(UUID.randomUUID()).targetRole("ROLE_DIRECTOR").category(null).createdAt(LocalDateTime.now()).build());
+        bell.read(rec.getId(), auth(d));
+        Map<String, Object> s = bell.summary(auth(d));
+        @SuppressWarnings("unchecked") Map<String, Long> unread = (Map<String, Long>) s.get("unreadByGroup");
+        @SuppressWarnings("unchecked") Map<String, Long> all = (Map<String, Long>) s.get("totalByGroup");
+        assertEquals(1L, unread.get("NOTES"));
+        assertNull(unread.get("RECOVERY"), "the read one is not unread");
+        assertEquals(1L, all.get("RECOVERY"), "a row without a group takes its type's group, and ALL counts it");
+        assertTrue(bell.list(auth(d), null, 200).stream().anyMatch(r -> "NOTES".equals(r.get("category"))));
+    }
+
+    @Test
     public void readRefusesAnUnknownOrForeignAlertAndToleratesDoubleClicks() {
         User sec = user(Role.ROLE_SECRETARY, LocalDateTime.now().minusDays(1));
         assertThrows(ResponseStatusException.class, () -> bell.read(UUID.randomUUID(), auth(sec)));

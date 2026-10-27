@@ -14,7 +14,7 @@
  * One registry now owns all three of those decisions per type:
  *
  *   label     what a human calls it, not the enum name
- *   group     MONEY / PIPELINE / RECOVERY / STAFF / SYSTEM -- for filtering
+ *   group     MONEY / PIPELINE / RECOVERY / NOTES / STAFF / SYSTEM -- for filtering
  *   icon      react-icons component, so the row is scannable without reading
  *   severity  the fallback when the server did not set one
  *
@@ -38,6 +38,7 @@ export const GROUPS = {
     MONEY:    'MONEY',
     PIPELINE: 'PIPELINE',
     RECOVERY: 'RECOVERY',
+    NOTES:    'NOTES',      // fix259 (David): pinned notes and follow-up reminders have their own group
     STAFF:    'STAFF',
     SYSTEM:   'SYSTEM',
 };
@@ -69,6 +70,7 @@ export const GROUP_COLOR = {
     MONEY:    '#22c55e',
     PIPELINE: '#38bdf8',
     RECOVERY: '#f97316',
+    NOTES:    '#eab308',
     STAFF:    '#a78bfa',
     SYSTEM:   '#f43f5e',
 };
@@ -77,6 +79,7 @@ export const GROUP_BG = {
     MONEY:    'rgba(34, 197, 94, 0.16)',
     PIPELINE: 'rgba(56, 189, 248, 0.16)',
     RECOVERY: 'rgba(249, 115, 22, 0.16)',
+    NOTES:    'rgba(234, 179, 8, 0.16)',
     STAFF:    'rgba(167, 139, 250, 0.16)',
     SYSTEM:   'rgba(244, 63, 94, 0.16)',
 };
@@ -103,8 +106,8 @@ export const CATALOG = {
     STAGE_ADVANCED:        { label: 'Stage advanced',       group: GROUPS.PIPELINE, icon: FiLayers,      severity: 'POSITIVE' },   // before fix180
     TITLE_COMPLETED:       { label: 'Title completed',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'POSITIVE' },
     NEGOTIATION_DEADLINE:  { label: 'Deadline approaching',  group: GROUPS.PIPELINE, icon: FiClock,       severity: 'WARN' },
-    FOLLOW_UP_DUE:         { label: 'Follow-up today',       group: GROUPS.PIPELINE, icon: FiClock,       severity: 'INFO' },   // fix215
-    NOTE_PINNED:           { label: 'Note pinned',           group: GROUPS.PIPELINE, icon: FiBookmark,    severity: 'INFO' },   // fix225
+    FOLLOW_UP_DUE:         { label: 'Follow-up today',       group: GROUPS.NOTES, icon: FiClock,       severity: 'INFO' },   // fix215
+    NOTE_PINNED:           { label: 'Note pinned',           group: GROUPS.NOTES, icon: FiBookmark,    severity: 'INFO' },   // fix225
     AUTO_RECEIVABLE_365:   { label: 'Auto-flagged receivable', group: GROUPS.PIPELINE, icon: FiAlertTriangle, severity: 'WARN' },
     PROBLEM_FLAGGED:       { label: 'Flagged as a problem',  group: GROUPS.PIPELINE, icon: FiFlag,        severity: 'CRITICAL' },
     DOC_UPLOADED:          { label: 'Document attached',     group: GROUPS.PIPELINE, icon: FiUploadCloud, severity: 'INFO' },

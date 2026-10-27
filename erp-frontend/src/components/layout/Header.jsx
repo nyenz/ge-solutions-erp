@@ -219,7 +219,7 @@ const Header = ({ onToggle }) => {
         const onScreen = shown.filter(n => !n.read).length;
         if (unreadInScope > onScreen && !(await confirm('MARK AS READ', 'Mark ' + unreadInScope + ' unread ' + (filter === 'ALL' ? '' : filter.toLowerCase() + ' ') + 'alerts as read? Only ' + onScreen + ' are shown here.'))) return;
         const upTo = (notifs[0] && notifs[0].createdAt) || (summary && summary.serverTime);
-        setKeep(k => [...k, ...shown.filter(n => !n.read).map(n => n.id)]);
+        setKeep([]);
         setNotifs(list => list.map(x => ((filter === 'ALL' || groupOf(x) === filter) && x.createdAt <= upTo ? { ...x, read: true } : x)));
         try { await recoveryService.markAllRead(filter === 'ALL' ? null : filter, upTo); } catch { /* the next tick shows the truth */ }
         sync();
@@ -233,6 +233,10 @@ const Header = ({ onToggle }) => {
 
     const groups = (summary && summary.groups && summary.groups.length) ? summary.groups.filter(g => GROUP_KEYS.includes(g)) : GROUP_KEYS;
     const byGroup = (summary && summary.unreadByGroup) || {};
+    // fix259 (David, D9): the ALL view counts every alert (read or not), the UNREAD view counts the unread ones -- the
+    // numbers on the chips and the big number always match the list underneath
+    const totalByGroup = (summary && summary.totalByGroup) || {};
+    const allTotal = summary ? Number(summary.total || 0) : 0;
     const dueRaw = summary && summary.dueNow != null ? Number(summary.dueNow) : 0;
     const todayKey = new Date().toISOString().slice(0, 10);
     const dueHidden = !!(dueSeen && dueSeen.day === todayKey && dueRaw <= Number(dueSeen.count || 0));
@@ -242,6 +246,8 @@ const Header = ({ onToggle }) => {
     const dots = groups.filter(g => (byGroup[g] || 0) > 0);
     const badge = unread;
     const scopeUnread = filter === 'ALL' ? unread : (byGroup[filter] || 0);
+    const countOf = (k) => (mode === 'ALL' ? (k === 'ALL' ? allTotal : (totalByGroup[k] || 0)) : (k === 'ALL' ? unread : (byGroup[k] || 0)));
+    const scopeCount = countOf(filter);
     const showDue = dueNow > 0 && (filter === 'ALL' || filter === 'RECOVERY');
     const accent = filter === 'ALL' ? 'var(--acc, #EE8C3A)' : GROUP_COLOR[filter];
 
@@ -313,11 +319,14 @@ const Header = ({ onToggle }) => {
                         <div id="notif-drawer" className={styles.notifDrop} role="dialog" aria-label="Notifications" aria-modal="false" style={{ '--a': accent }}>
                             <div className={styles.notifHero}>
                                 <div className={styles.notifHeroRow}>
-                                    <span className={styles.notifCount} tabIndex={-1} ref={titleRef} aria-live="polite">{scopeUnread}{critical > 0 && filter === 'ALL' ? ' (' + critical + ' critical)' : ''}</span>
+                                    <span className={styles.notifCount} tabIndex={-1} ref={titleRef} aria-live="polite"
+                                        title={mode === 'ALL' ? 'Alerts in this view, read or not' : 'Unread alerts in this view'}>
+                                        {scopeCount}<small className={styles.notifCountWord}>{mode === 'ALL' ? ' in all' : ' unread'}</small>
+                                        {critical > 0 && filter === 'ALL' && mode === 'UNREAD' ? ' (' + critical + ' critical)' : ''}</span>
                                     <div className={styles.notifMeter} aria-hidden="true">
-                                        {dots.map(g => (
+                                        {groups.filter(g => countOf(g) > 0).map(g => (
                                             <span key={g} className={styles.notifMeterSeg}
-                                                style={{ width: ((byGroup[g] || 0) / (unread || 1) * 100) + '%', background: GROUP_COLOR[g], opacity: filter === 'ALL' || filter === g ? 1 : 0.3 }} />
+                                                style={{ width: (countOf(g) / (countOf('ALL') || 1) * 100) + '%', background: GROUP_COLOR[g], opacity: filter === 'ALL' || filter === g ? 1 : 0.3 }} />
                                         ))}
                                     </div>
                                     <div className={styles.notifMode} role="group" aria-label="Show signals">
@@ -338,7 +347,7 @@ const Header = ({ onToggle }) => {
 
                                 <div className={styles.notifChips}>
                                     {['ALL', ...groups].map(k => {
-                                        const n = k === 'ALL' ? unread : (byGroup[k] || 0);
+                                        const n = countOf(k);
                                         const on = filter === k;
                                         return (
                                             <button key={k} type="button" data-empty={!on && n === 0 ? 'true' : undefined}
@@ -409,7 +418,7 @@ const Header = ({ onToggle }) => {
 
                                 {!loading && shownAll.length > 0 && (
                                     <div className={styles.notifEmpty}>
-                                        SHOWING {shown.length} OF {mode === 'UNREAD' ? scopeUnread : (filter === 'ALL' && summary ? summary.total : shownAll.length)}
+                                        SHOWING {shown.length} OF {Math.max(shownAll.length, mode === 'UNREAD' ? scopeUnread : scopeCount)}
                                         {shownAll.length > limit && (<button type="button" className={styles.notifLink} onClick={() => setLimit(l => l + STEP)}>SHOW MORE</button>)}
                                         {shownAll.length <= limit && notifs.length >= 200 && (<button type="button" className={styles.notifLink} onClick={moreFromServer}>LOAD OLDER</button>)}
                                     </div>

@@ -16,7 +16,7 @@ public final class NotificationTypes {
 
     private NotificationTypes() {}
 
-    public enum Group { MONEY, PIPELINE, RECOVERY, STAFF, SYSTEM }
+    public enum Group { MONEY, PIPELINE, RECOVERY, NOTES, STAFF, SYSTEM }
 
     /**
      * EVERY_TIME: written each time. ONCE_PER_ENTITY: never again for the same thing and role.
@@ -68,13 +68,14 @@ public final class NotificationTypes {
         add("PENDING_STALE",         Group.PIPELINE, "WARN",     Repeat.ONCE_PER_DAY, SEC, MGR, DIR);   // fix241: the Director too
         add("PROJECT_GRADUATED",     Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, MGR, DIR);   // 17.15a
         add("NEGOTIATION_DEADLINE",  Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, MGR);
-        add("FOLLOW_UP_DUE",         Group.PIPELINE, "INFO",     Repeat.ONCE_PER_EVENT_DATE, SEC, MGR, DIR);   // fix215: a note's follow-up day
-        add("NOTE_PINNED",           Group.PIPELINE, "INFO",     Repeat.EVERY_TIME, SEC, MGR, DIR);   // fix225: a note pinned to the top
         // RECOVERY
         add("LOCKED",                Group.RECOVERY, "INFO", Repeat.EVERY_TIME, SEC, MGR);
         add("UNLOCK",                Group.RECOVERY, "INFO", Repeat.ONCE_PER_EVENT_DATE, SEC, MGR);
         add("SITE_VISIT_AUTO",       Group.RECOVERY, "WARN", Repeat.EVERY_TIME, SEC, MGR, DIR);
         add("NIN_CONFLICT",          Group.RECOVERY, "WARN", Repeat.ONCE_PER_DAY, SEC, MGR);
+        // NOTES (fix259, David: their own group in the bell, next to Money, Pipeline, Recovery, Staff and System)
+        add("FOLLOW_UP_DUE",         Group.NOTES, "INFO",     Repeat.ONCE_PER_EVENT_DATE, SEC, MGR, DIR);   // fix215: a note's follow-up day
+        add("NOTE_PINNED",           Group.NOTES, "INFO",     Repeat.EVERY_TIME, SEC, MGR, DIR);   // fix225: a note pinned to the top
         // STAFF
         add("STAFF_PROVISIONED",     Group.STAFF, "INFO",     Repeat.EVERY_TIME, DIR, ADM);
         add("STAFF_ROLE_CHANGED",    Group.STAFF, "WARN",     Repeat.EVERY_TIME, DIR, ADM);
@@ -91,6 +92,19 @@ public final class NotificationTypes {
     public static final List<String> RETIRED = List.of("UNLOCK_M");
 
     public static Type of(String code) { return code == null ? null : TYPES.get(code); }
+
+    /**
+     * fix259: the group an alert row belongs to. The saved group wins; a row without one (written before rows carried a
+     * group) takes its type's group; and the two note alerts that moved to NOTES are counted there even on old rows.
+     */
+    public static String groupOf(String code, String saved) {
+        if ("NOTE_PINNED".equals(code) || "FOLLOW_UP_DUE".equals(code)) return Group.NOTES.name();
+        if (saved != null && !saved.isBlank()) return saved;
+        Type t = of(code);
+        if (t != null) return t.group().name();
+        if ("UNLOCK_M".equals(code)) return Group.RECOVERY.name();
+        return Group.SYSTEM.name();
+    }
 
     public static Map<String, Type> all() { return Collections.unmodifiableMap(TYPES); }
 }

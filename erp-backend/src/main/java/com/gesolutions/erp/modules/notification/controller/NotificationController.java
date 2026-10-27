@@ -117,7 +117,7 @@ public class NotificationController {
     private Map<String, Object> row(Notification n, User u, Set<UUID> read, LocalDateTime now) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", n.getId()); m.put("type", n.getType()); m.put("severity", n.getSeverity());
-        m.put("category", n.getCategory());
+        m.put("category", NotificationTypes.groupOf(n.getType(), n.getCategory()));   // fix259
         m.put("message", textFor(n, u)); m.put("entityType", n.getEntityType());
         m.put("entityId", n.getEntityId()); m.put("createdAt", n.getCreatedAt());
         m.put("ageSeconds", n.getCreatedAt() == null ? null : Math.max(0, ChronoUnit.SECONDS.between(n.getCreatedAt(), now)));
@@ -161,22 +161,26 @@ public class NotificationController {
         LocalDateTime now = LocalDateTime.now();
         m.put("serverTime", now);
         if (noBell(u)) {
-            m.put("unread", 0L); m.put("unreadByGroup", Map.of()); m.put("unreadCritical", 0L);
+            m.put("unread", 0L); m.put("unreadByGroup", Map.of()); m.put("totalByGroup", Map.of()); m.put("unreadCritical", 0L);
             m.put("groups", List.of()); m.put("total", 0L); m.put("dueNow", null);
             return m;
         }
         Set<UUID> read = readIds(u);
         Map<String, Long> byGroup = new LinkedHashMap<>();
+        Map<String, Long> totalByGroup = new LinkedHashMap<>();   // fix259: the ALL view counts every alert, read or not
         long total = 0, unread = 0, critical = 0;
         for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername())) {
             total++;
+            String g = NotificationTypes.groupOf(n.getType(), n.getCategory());
+            totalByGroup.merge(g, 1L, Long::sum);
             if (read.contains(n.getId())) continue;
             unread++;
             if ("CRITICAL".equals(n.getSeverity())) critical++;
-            byGroup.merge(n.getCategory() == null ? "SYSTEM" : n.getCategory(), 1L, Long::sum);
+            byGroup.merge(g, 1L, Long::sum);
         }
         m.put("unread", unread);
         m.put("unreadByGroup", byGroup);
+        m.put("totalByGroup", totalByGroup);
         m.put("unreadCritical", critical);
         m.put("groups", groupsFor(u.getRole()));
         m.put("total", total);
@@ -226,7 +230,7 @@ public class NotificationController {
         for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername())) {
             if (read.contains(n.getId()) || n.getCreatedAt().isAfter(limit)) continue;
             if (group != null && !group.isBlank() && !"ALL".equalsIgnoreCase(group)
-                    && !group.equalsIgnoreCase(n.getCategory() == null ? "SYSTEM" : n.getCategory())) continue;
+                    && !group.equalsIgnoreCase(NotificationTypes.groupOf(n.getType(), n.getCategory()))) continue;
             toMark.add(n.getId());
         }
         int marked = markRead(toMark, u);
