@@ -23,6 +23,7 @@ import { LoadingState } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
 import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
+import { fetchDoc } from '../../utils/docFile';   // fix261
 import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
 import { roleFlags } from '../../utils/roles';
@@ -131,7 +132,28 @@ const PaymentsPage = () => {
     const missingReceipt = params.get('noreceipt') === '1';
     const method = params.get('method') || '';   // fix214
     const recordedBy = params.get('by') || '';
-        const [receiptFor, setReceiptFor] = useState(null);
+    const [receiptFor, setReceiptFor] = useState(null);
+    // fix261 (David): the RECEIPT icon shows the receipt scan itself, right here (not the project folder)
+    const [receiptDoc, setReceiptDoc] = useState({ busy: false, err: '', doc: null });
+    const receiptUrl = useRef(null);
+    const receiptAsk = useRef(0);
+    const freeReceipt = () => { if (receiptUrl.current) { URL.revokeObjectURL(receiptUrl.current); receiptUrl.current = null; } };
+    const closeReceipt = () => { receiptAsk.current += 1; freeReceipt(); setReceiptDoc({ busy: false, err: '', doc: null }); setReceiptFor(null); };
+    const openReceipt = (pay) => {
+        const ask = ++receiptAsk.current;
+        freeReceipt();
+        setReceiptFor(pay);
+        if (!pay.receiptFilePath) { setReceiptDoc({ busy: false, err: '', doc: null }); return; }
+        setReceiptDoc({ busy: true, err: '', doc: null });
+        fetchDoc(pay.receiptFilePath, pay.receiptFileName)
+            .then(d => {
+                if (ask !== receiptAsk.current) { if (d) URL.revokeObjectURL(d.url); return; }
+                receiptUrl.current = d ? d.url : null;
+                setReceiptDoc({ busy: false, err: '', doc: d });
+            })
+            .catch(() => { if (ask === receiptAsk.current) setReceiptDoc({ busy: false, err: 'The receipt scan could not be opened. Check the connection and try again.', doc: null }); });
+    };
+    useEffect(() => () => { if (receiptUrl.current) URL.revokeObjectURL(receiptUrl.current); }, []);
     const page = Math.max(0, Number(params.get('page') || 0));
     const highlight = params.get('row') || '';
 
@@ -395,8 +417,8 @@ const PaymentsPage = () => {
                                                 </td>
                                                 <td>
                                                     {pay.kind === 'REVERSAL' ? null : pay.hasReceipt
-                                                        ? <button type="button" className={styles.receiptBtn} title="Open the receipt in the project folder" aria-label="Open the receipt"
-                                                            onClick={e => { e.stopPropagation(); setReceiptFor(pay); }}><FiFileText aria-hidden="true" /></button>
+                                                        ? <button type="button" className={styles.receiptBtn} title="Show the receipt scan" aria-label="Show the receipt"
+                                                            onClick={e => { e.stopPropagation(); openReceipt(pay); }}><FiFileText aria-hidden="true" /></button>
                                                         : <span className={`${styles.time} ${styles.bad}`}>No receipt</span>}
                                                 </td>
                                                 <td><span className={styles.recorder}><FiUser size={10} /> {pay.recordedBy}</span></td>
@@ -422,11 +444,20 @@ const PaymentsPage = () => {
                     </footer>
                 </div>
             )}
-            <HardwareModal isOpen={!!receiptFor} onClose={() => setReceiptFor(null)} title="RECEIPT">
+            <HardwareModal isOpen={!!receiptFor} onClose={closeReceipt} title="RECEIPT">
                 {receiptFor && (
                     <>
+                        {receiptFor.receiptFilePath && (
+                            <div className={styles.rcpScan} style={receiptDoc.doc ? { '--rcp-ratio': receiptDoc.doc.ratio } : undefined}>
+                                {receiptDoc.busy && <span className={styles.rcpScanNote}>Opening the receipt scan...</span>}
+                                {receiptDoc.err && <span className={styles.rcpScanNote} role="alert">{receiptDoc.err}</span>}
+                                {receiptDoc.doc && (receiptDoc.doc.isPdf
+                                    ? <iframe className={styles.rcpScanMedia} src={receiptDoc.doc.url} title={'Receipt of #' + receiptFor.projectIndex} />
+                                    : <img className={styles.rcpScanMedia} src={receiptDoc.doc.url} alt={'Receipt of #' + receiptFor.projectIndex} />)}
+                                {!receiptDoc.busy && !receiptDoc.err && !receiptDoc.doc && <span className={styles.rcpScanNote}>The receipt file was downloaded (it cannot be shown here).</span>}
+                            </div>
+                        )}
                         <div className={styles.rcpPaper}>
-                            <div className={styles.rcpHead}><strong>GE SOLUTIONS</strong><span>OFFICIAL RECEIPT</span></div>
                             <div className={styles.rcpRow}><span>Project</span><b>#{receiptFor.projectIndex}</b></div>
                             <div className={styles.rcpRow}><span>Received from</span><b>{receiptFor.clientName}</b></div>
                             <div className={styles.rcpRow}><span>Date</span><b>{fmtDay(receiptFor.paidOn)}</b></div>
@@ -434,7 +465,8 @@ const PaymentsPage = () => {
                             <div className={`${styles.rcpRow} ${styles.rcpTotal}`}><span>Amount</span><b>UGX {fmt(receiptFor.amountPaid)}</b></div>
                         </div>
                         <div className={styles.rcpBtns}>
-                            <button type="button" className={styles.rcpOpen} onClick={() => { const r = receiptFor; setReceiptFor(null); openRow(r); }}>OPEN PROJECT FOLDER</button>
+                            {receiptDoc.doc && <a className={styles.rcpOpen} href={receiptDoc.doc.url} target="_blank" rel="noreferrer">OPEN FULL SIZE</a>}
+                            <button type="button" className={styles.rcpOpen} onClick={() => { const r = receiptFor; closeReceipt(); openRow(r); }}>OPEN PROJECT FOLDER</button>
                         </div>
                     </>
                 )}

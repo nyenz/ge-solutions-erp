@@ -588,6 +588,12 @@
 .mOFFICE { color: #0B2250; } .mMOBILE_MONEY { color: #8A5A00; } .mBANK { color: #1E4A8C; } .mOTHER { color: #7C3AED; } .mNONE { color: #64748b; }
 .booksClose { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.16); border: 1.5px solid #fff; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .15s, color .15s; }
 .booksClose:hover { background: #fff; color: #0B2250; }
+.rcpScan { position: relative; width: min(100%, calc(52vh * var(--rcp-ratio, 0.707))); max-width: 100%; aspect-ratio: var(--rcp-ratio, 0.707);
+    max-height: 56vh; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid #fff;
+    border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1px rgba(17,47,102,.22), 0 8px 20px rgba(9,28,70,.25); }
+.rcpScanMedia { width: 100%; height: 100%; border: 0; object-fit: contain; display: block; background: #fff; }
+.rcpScanNote { padding: 18px; text-align: center; font-size: 12px; font-weight: 700; color: #3E4A63; }
+a.rcpOpen { display: inline-flex; align-items: center; text-decoration: none; }
 .rcpPaper { background: #fff; border: 2px solid #fff; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 0 1px rgba(17,47,102,.22), 0 6px 16px rgba(9,28,70,.25); }
 .rcpHead { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px dashed rgba(17,47,102,.3); padding-bottom: 8px; color: #0B2250; }
 .rcpHead span { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; color: #3E4A63; }

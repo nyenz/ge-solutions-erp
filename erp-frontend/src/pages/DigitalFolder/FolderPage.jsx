@@ -55,6 +55,7 @@ import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
 import { explainFor } from '../../utils/explainers';   // fix226
 import { useReasonPrompt, DELETE_PICKS } from '../../components/common/useReasonPrompt';
 import styles from './FolderPage.module.css';
+import { fetchDoc } from '../../utils/docFile';   // fix261
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
 import { flagId, flagField, flagServerError, errorCode } from '../../utils/fieldError';   // fix213
@@ -946,43 +947,13 @@ const FolderPage = () => {
     useEffect(() => () => { if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current); }, []);
     const handleOpenDoc = async (filePath, fileName) => {
         if (!filePath) return;
-        const url = getDocUrl(filePath);
-        const isHttp = filePath.startsWith('http');
-        const clean = filePath.split('?')[0];
-        const ext = fileExt(clean);
-        const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext];
-        let name = fileName;
-        if (!name) { try { name = decodeURIComponent(clean.split(/[\\/]/).pop() || 'Document'); } catch { name = 'Document'; } }
         try {
-            const r = await fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } });
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            const raw = await r.blob();
-            const blob = mime ? new Blob([raw], { type: mime }) : raw;
-            const isPdf = ext === 'pdf' || blob.type === 'application/pdf';
-            const isImg = !isPdf && String(blob.type || '').startsWith('image/');
-            // fix199 (note 16): a Word / Excel / other file cannot be shown here, so it is downloaded with its own name to open
-            if (!isPdf && !isImg) { const o = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = o; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(o), 60000); return; }
-            const href = URL.createObjectURL(blob);
-            let ratio = 0.707; // A4 portrait fallback
-            try {
-                if (isPdf) {
-                    const txt = new TextDecoder('latin1').decode(await blob.slice(0, 3000000).arrayBuffer());
-                    const mb = txt.match(/\/MediaBox\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/);
-                    if (mb) {
-                        let w = Math.abs(mb[3] - mb[1]); let h = Math.abs(mb[4] - mb[2]);
-                        const rot = txt.match(/\/Rotate\s+(-?\d+)/);
-                        if (rot && Math.abs(parseInt(rot[1], 10)) % 180 === 90) { const t = w; w = h; h = t; }
-                        if (w > 0 && h > 0) ratio = w / h;
-                    }
-                } else {
-                    ratio = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = rej; im.src = href; });
-                }
-            } catch { /* keep the portrait default */ }
-            ratio = Math.min(4, Math.max(0.25, ratio || 0.707));
+            const d = await fetchDoc(filePath, fileName);   // fix261: the shared opener (also used by the Payments receipt)
+            if (!d) return;   // a Word / Excel / other file was downloaded to open
             if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current);
-            docUrlRef.current = href;
-            setDocPreview({ name, url: href, isPdf, ratio });
-        } catch { window.open(url, '_blank'); }
+            docUrlRef.current = d.url;
+            setDocPreview(d);
+        } catch { window.open(getDocUrl(filePath), '_blank'); }
     };
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
     // fix188: location suggestions while editing (same memory as New Project: utils/entryMemory.js)
