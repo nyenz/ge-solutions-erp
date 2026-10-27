@@ -51,6 +51,13 @@ const METHOD_FILTERS = PAY_METHODS.map(m => ({ key: m.value, label: m.label })).
 const dayCount = (s) => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return null; return Math.max(0, Math.round((Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 864e5)); };
 
 // One small custom drop-down (never the browser's own). Closes on a click outside or Escape.
+// fix264: a filter menu near the right edge opens toward the left, so it never runs off a phone screen
+const fitPop = (el) => {
+    if (!el) return;
+    el.style.left = ''; el.style.right = '';
+    const r = el.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) { el.style.left = 'auto'; el.style.right = '0'; }
+};
 const useClose = (open, setOpen) => {
     const ref = useRef(null);
     useEffect(() => {
@@ -74,7 +81,7 @@ const FilterMenu = ({ label, value, options, onPick, allLabel = 'All', compact =
                 <FiChevronDown className={`${styles.fCaret} ${open ? styles.fCaretUp : ''}`} aria-hidden="true" />
             </button>
             {open && (
-                <div className={styles.fPop} role="listbox" aria-label={label}>
+                <div className={styles.fPop} ref={fitPop} role="listbox" aria-label={label}>
                     <button type="button" role="option" aria-selected={!value} className={`${styles.fItem} ${!value ? styles.fItemOn : ''}`} onClick={() => { onPick(''); setOpen(false); }}>
                         <span>{allLabel}</span>{!value && <FiCheck aria-hidden="true" />}
                     </button>
@@ -103,7 +110,7 @@ const ToggleMenu = ({ label, items }) => {
                 <FiChevronDown className={`${styles.fCaret} ${open ? styles.fCaretUp : ''}`} aria-hidden="true" />
             </button>
             {open && (
-                <div className={styles.fPop} role="group" aria-label={label}>
+                <div className={styles.fPop} ref={fitPop} role="group" aria-label={label}>
                     {items.map(i => (
                         <label key={i.key} className={`${styles.fItem} ${styles.fTick} ${i.on ? styles.fItemOn : ''}`}>
                             <input type="checkbox" checked={i.on} onChange={e => i.onToggle(e.target.checked)} />
