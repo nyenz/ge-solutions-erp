@@ -21,4 +21,15 @@ if [ -d /opt/ges/infra/ge_uploads ]; then
     mkdir -p "$DIR/files-latest"
     rsync -a /opt/ges/infra/ge_uploads/ "$DIR/files-latest/"
 fi
+# fix274: a locked copy to Google Drive (only when infra/setup-offsite.sh has been run). A failure here never stops the local copy.
+export RCLONE_CONFIG=/root/.config/rclone/rclone.conf
+if [ -f "$RCLONE_CONFIG" ] && grep -q '^\[gescrypt\]' "$RCLONE_CONFIG" && command -v rclone >/dev/null 2>&1; then
+    if rclone copy "$FILE" gescrypt:db/ --log-level ERROR \
+        && rclone delete gescrypt:db --min-age 30d --log-level ERROR \
+        && { [ ! -d "$DIR/files-latest" ] || rclone sync "$DIR/files-latest" gescrypt:files --log-level ERROR; }; then
+        echo "$(date) offsite copy ok"
+    else
+        echo "$(date) OFFSITE COPY FAILED" >&2
+    fi
+fi
 echo "$(date) backup ok: $FILE ($(du -h "$FILE" | cut -f1))"
