@@ -16,8 +16,8 @@
   itself on every merge; the Netcup server changes only when David runs `bash /opt/ges/infra/deploy.sh` (quiet hour, tell staff).
 - **I cannot reach the server from the cloud box** (port 22 is blocked). David pastes the one command each time; keep every
   server step to ONE paste and say what he should see afterwards. David types secrets only in the server terminal, never in chat.
-- **Shipping a change** is the same as section 2 below, except: the next number is **fix277** (fix269-fix276 were the Netcup
-  work and the safe update), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
+- **Shipping a change** is the same as section 2 below, except: the next number is **fix278** (fix269-fix277 were the Netcup
+  work, the safe update and the guide match), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
   merge David updates the server.
 - **David's rules for the next chat:** load the saved skill `nyenz-app-design` first (his design and working rules).
 - **Open, in this order:** (1) David tests uploads + the BACKUP button on the new site; (2) David runs `setup-offsite.sh` (Google
@@ -29,7 +29,7 @@
   (replaces GES NAVY, same rules as GES DAY), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
   emergency way back in for root (remove the line afterwards).
 - **PERMANENT RULE (David): no update may ever break the app or lose data** (guide section 13). `deploy.sh` now takes a safety copy first, checks health and rolls back by itself; `rollback.sh` is the one-line undo. Never weaken it. Data changes: additive only, David's yes + trial on a copy.
-- **To do next (David asked):** make LLM_CONTEXT_GUIDE.md match the app (old Render-only / Cloudinary / Hetzner text -> mark SUPERSEDED, add a CURRENT STATE box at the top).
+- **The guide was matched to the live app in fix277** (current-state box at the top, section 10 deploy steps, SUPERSEDED notes on fix.py / Cloudinary / Hetzner / go-live list). Keep it true: every fix updates it, code wins.
 # ===== END CURRENT STATE =====
 
 ## 1. Who you are working with
