@@ -27,6 +27,7 @@ import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS, RANKS as RANK_INFO } from '../../utils/roles';
 import { errorText } from '../../utils/errorText';
+import useAppMode from '../../hooks/useAppMode';   // fix278
 import useScrollEdges from '../../hooks/useScrollEdges';
 import { useTabThumb, useSwapMotion } from '../../hooks/useTabMotion';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
@@ -107,6 +108,7 @@ const SettingsPage = () => {
   const [resetFor, setResetFor] = useState(null);    // the person whose key is about to be reset (14.3d)
   const [wipeText, setWipeText] = useState('');
   const [wipeKey, setWipeKey] = useState('');
+  const appMode = useAppMode();   // fix278: FRESH START is offered on the DEMO copy only
   const [wipeFresh, setWipeFresh] = useState(false);   // fix198: FRESH START (also clears the audit trail)
   const [wiping, setWiping] = useState(false);
   const [wipeResult, setWipeResult] = useState(null);
@@ -189,7 +191,7 @@ const SettingsPage = () => {
   const wipe = async () => {
     setWiping(true);
     try {
-      const r = await settingsService.wipeAllData(wipeKey, wipeFresh);
+      const r = await settingsService.wipeAllData(wipeKey, appMode.demo && wipeFresh);
       setWipeResult(r);              // 14.4e: a result box with what was deleted
       setOps(null); setDeleted(null); // the local lists are stale now
     }
@@ -462,10 +464,12 @@ const SettingsPage = () => {
                   <HardwareInput id="wipe-key" name="current-password" autoComplete="current-password" label="YOUR KEY" type="password" value={wipeKey} onChange={e => setWipeKey(e.target.value)} />
                 </div>
                 {/* fix198: FRESH START -- for the time before real data goes in */}
+                {appMode.demo && (
                 <label className={styles.wipeFresh} htmlFor="wipe-fresh">
                   <input id="wipe-fresh" type="checkbox" checked={wipeFresh} onChange={e => setWipeFresh(e.target.checked)} disabled={wiping} />
                   <span><strong>FRESH START.</strong> Also clear the whole audit trail, remove the demo staff accounts and keep the demo data away for good. Only for the time before real data goes in.</span>
                 </label>
+                )}
                 <button type="button" className={styles.wipeBtn} disabled={wipeText !== 'WIPE-EVERYTHING' || !wipeKey || wiping} onClick={wipe}>
                   <FiTrash2 aria-hidden="true" /> {wiping ? 'WIPING...' : wipeFresh ? 'FRESH START: WIPE EVERYTHING' : 'WIPE ALL BUSINESS DATA'}
                 </button>

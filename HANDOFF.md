@@ -16,15 +16,13 @@
   itself on every merge; the Netcup server changes only when David runs `bash /opt/ges/infra/deploy.sh` (quiet hour, tell staff).
 - **I cannot reach the server from the cloud box** (port 22 is blocked). David pastes the one command each time; keep every
   server step to ONE paste and say what he should see afterwards. David types secrets only in the server terminal, never in chat.
-- **Shipping a change** is the same as section 2 below, except: the next number is **fix278** (fix269-fix277 were the Netcup
-  work, the safe update and the guide match), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
+- **Shipping a change** is the same as section 2 below, except: the next number is **fix279** (fix269-fix277 were the Netcup
+  work, the safe update, the guide match and the fix278 cleanup + DEMO setting), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
   merge David updates the server.
 - **David's rules for the next chat:** load the saved skill `nyenz-app-design` first (his design and working rules).
 - **Open, in this order:** (1) David tests uploads + the BACKUP button on the new site; (2) David runs `setup-offsite.sh` (Google
   Drive); (3) David's own safety jobs: Netcup passkey, Gmail backup codes, UptimeRobot alert, reminder for mid-April 2027
-  (the Netcup contract renews by itself, card saved); (4) when David says "go": repo cleanup (`.fix_backup*`, `fix.py`,
-  `guide-*.png`, `docs/design/*`), remove the FRESH START tick box, reset the Neon password, make the repo private, switch
-  off Render + Neon. ASK FIRST for each. (5) Only if he wants: email recovery for the root key (free: Gmail or a free mail
+  (the Netcup contract renews by itself, card saved); (4) repo cleanup DONE (fix278); FRESH START + DEMO strip only on the demo DONE (fix278); still open: make the repo private (David checks in Render that it can still read it). Render + Neon STAY as the demo. ASK FIRST for anything else. (5) Only if he wants: email recovery for the root key (free: Gmail or a free mail
   relay, after removing the "netcup Mail Block" policy in the Netcup panel), the "update tonight" banner, MIDNIGHT dark theme
   (replaces GES NAVY, same rules as GES DAY), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
   emergency way back in for root (remove the line afterwards).

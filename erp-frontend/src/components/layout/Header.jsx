@@ -46,6 +46,7 @@ import recoveryService from '../../services/recoveryService';
 import { describe, GROUP_COLOR, GROUPS } from '../common/notificationCatalog';
 import styles from './Header.module.css';
 import { IS_LOCAL_API } from '../../api/axios';
+import useAppMode from '../../hooks/useAppMode';   // fix278
 import { anyDirty, allowLeave } from '../../utils/dirtyRegistry';
 import HardwareModal from '../common/HardwareModal';
 import { ConfirmDialog } from '../common/Feedback';   // fix223: no browser confirm box
@@ -71,6 +72,7 @@ const ageText = (n) => {
 };
 
 const Header = ({ onToggle }) => {
+    const appMode = useAppMode();   // fix278: DEMO strip only on the practice copy
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const { user, logout } = useAuth();
     // fix181 (21.9): sign out asks first when a form on this page has unsaved changes
@@ -280,6 +282,7 @@ const Header = ({ onToggle }) => {
                 </button>
                 {/* fix181 (15.2j): never mistake a test copy for the live system */}
                 {IS_LOCAL_API && <span className={styles.localStrip} title="This page is not using the live server">LOCAL</span>}
+                {!IS_LOCAL_API && appMode.demo && <span className={styles.localStrip} title="This is the practice copy. Nothing here is real.">DEMO</span>}
             </div>
 
             <div className={styles.headerRight}>

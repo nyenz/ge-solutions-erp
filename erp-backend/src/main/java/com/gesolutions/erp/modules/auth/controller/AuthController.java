@@ -32,9 +32,14 @@ public class AuthController {
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     private static volatile boolean forwardedLogged = false;
 
+    /** fix278: true on the practice (DEMO) copy, false on the real server (GE_SOLUTIONS_SEED_DEMO_DATA=false). */
+    @org.springframework.beans.factory.annotation.Value("${ge.solutions.seed-demo-data:true}")
+    private boolean demoMode;
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of("status", "ENGINE_ONLINE"));
+        // fix278: "demo" tells the pages whether to show the DEMO strip and the FRESH START tick box.
+        return ResponseEntity.ok(Map.of("status", "ENGINE_ONLINE", "demo", String.valueOf(demoMode)));
     }
 
     /**
