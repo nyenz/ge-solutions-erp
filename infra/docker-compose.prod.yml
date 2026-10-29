@@ -38,6 +38,9 @@ services:
       GE_SOLUTIONS_JWT_SECRET: ${JWT_SECRET}
       ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD}
       GE_SOLUTIONS_SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      # emergency way back in for the root account (no email needed): put ADMIN_RESET_ONCE=true in infra/.env and run deploy.sh;
+      # the root key becomes ADMIN_DEFAULT_PASSWORD once and must be changed at sign-in. Remove the line afterwards.
+      ADMIN_RESET_ONCE: ${ADMIN_RESET_ONCE:-}
       GE_SOLUTIONS_CORS_ORIGINS: https://${GES_DOMAIN}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-test}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-test}
