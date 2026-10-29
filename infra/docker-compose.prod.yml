@@ -1,0 +1,74 @@
+# PATH: infra/docker-compose.prod.yml
+# fix270: the real (production) set-up for the Netcup server. Start it with infra/deploy.sh.
+# Only Caddy is open to the internet (ports 80 and 443). The database and the Java server are reachable only from
+# inside this compose network, so nobody can knock on the database from outside.
+name: ges
+
+services:
+  db:
+    image: postgres:17
+    restart: always
+    environment:
+      POSTGRES_DB: ges
+      POSTGRES_USER: ges
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: Africa/Kampala
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ges -d ges"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ..
+      dockerfile: erp-backend/Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      JAVA_OPTS: "-Xms256m -Xmx1024m -XX:+UseContainerSupport -Duser.timezone=Africa/Kampala"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/ges
+      SPRING_DATASOURCE_USERNAME: ges
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      GE_SOLUTIONS_JWT_SECRET: ${JWT_SECRET}
+      ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD}
+      GE_SOLUTIONS_SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      GE_SOLUTIONS_CORS_ORIGINS: https://${GES_DOMAIN}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-test}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-test}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-test}
+    volumes:
+      - ./ge_uploads:/ge_uploads
+
+  frontend:
+    build:
+      context: ../erp-frontend
+      args:
+        VITE_API_BASE_URL: https://${GES_DOMAIN}/api/v1
+    restart: always
+
+  caddy:
+    image: caddy:2
+    restart: always
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      GES_DOMAIN: ${GES_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

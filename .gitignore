@@ -71,3 +71,7 @@ htmlcov/
 *.tar.xz
 *.tar.zst
 ```
+# fix270: the Netcup server keeps these on the server only
+infra/.env
+infra/postgres_data/
+infra/ge_uploads/

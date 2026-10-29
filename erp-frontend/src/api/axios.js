@@ -8,7 +8,9 @@ import { errorText } from '../utils/errorText';   // fix205
 export const PROD_API = 'https://ge-solutions.onrender.com/api/v1';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080/api/v1' : PROD_API);
 /** true when this page is NOT using the live server (the header then shows a LOCAL strip) */
-export const IS_LOCAL_API = BASE_URL.replace(/\/+$/, '') !== PROD_API;
+// fix270: the LOCAL strip is only for a developer's own computer. Any real https address (Render, or the Netcup server)
+// is a live server, so the strip stays away.
+export const IS_LOCAL_API = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.)/.test(BASE_URL);
 
 const api = axios.create({
     baseURL: BASE_URL,

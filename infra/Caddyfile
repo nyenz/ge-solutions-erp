@@ -1,0 +1,28 @@
+# PATH: infra/Caddyfile
+# fix270: the front door of the Netcup server. Caddy gets and renews the HTTPS padlock by itself.
+# {$GES_DOMAIN} comes from infra/.env (for example ges-erp.duckdns.org).
+{$GES_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# the server (Java) answers everything under /api
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			flush_interval -1
+			transport http {
+				response_header_timeout 300s
+			}
+		}
+	}
+
+	# everything else is the website itself
+	handle {
+		reverse_proxy frontend:80
+	}
+}
