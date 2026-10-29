@@ -16,4 +16,9 @@ if [ "$(stat -c %s "$FILE.part")" -lt 20000 ]; then
 fi
 mv "$FILE.part" "$FILE"
 find "$DIR" -name 'ges-*.dump' -mtime +14 -delete
+# fix273: the uploaded documents live on this disk too: keep a second copy of them next to the database copies
+if [ -d /opt/ges/infra/ge_uploads ]; then
+    mkdir -p "$DIR/files-latest"
+    rsync -a /opt/ges/infra/ge_uploads/ "$DIR/files-latest/"
+fi
 echo "$(date) backup ok: $FILE ($(du -h "$FILE" | cut -f1))"

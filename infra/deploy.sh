@@ -15,11 +15,6 @@ cd "$APP/infra"
 if [ ! -f .env ]; then
     DOMAIN="${1:-}"
     [ -n "$DOMAIN" ] || read -rp "Web address (for example ges-erp.duckdns.org): " DOMAIN </dev/tty
-    echo "Cloudinary keeps the uploaded documents. Copy the 3 values from your Cloudinary dashboard (or Render > Environment)."
-    echo "Leave empty to skip for now (uploads then will not work)."
-    read -rp  "Cloudinary cloud name: " CL_NAME </dev/tty
-    read -rsp "Cloudinary API key (hidden): " CL_KEY </dev/tty; echo
-    read -rsp "Cloudinary API secret (hidden): " CL_SECRET </dev/tty; echo
     umask 077
     {
         echo "GES_DOMAIN=$DOMAIN"
@@ -27,9 +22,6 @@ if [ ! -f .env ]; then
         echo "JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')"
         echo "ADMIN_DEFAULT_PASSWORD=$(openssl rand -hex 16)"
         echo "SEED_DEMO_DATA=false"
-        [ -z "$CL_NAME" ]   || echo "CLOUDINARY_CLOUD_NAME=$CL_NAME"
-        [ -z "$CL_KEY" ]    || echo "CLOUDINARY_API_KEY=$CL_KEY"
-        [ -z "$CL_SECRET" ] || echo "CLOUDINARY_API_SECRET=$CL_SECRET"
     } > .env
     chmod 600 .env
     echo "Settings saved on this server."
