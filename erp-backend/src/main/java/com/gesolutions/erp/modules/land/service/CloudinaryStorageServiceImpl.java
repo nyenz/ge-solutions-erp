@@ -4,6 +4,7 @@ package com.gesolutions.erp.modules.land.service;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,7 +13,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 
+// fix273: used unless GE_SOLUTIONS_STORAGE=local (then LocalStorageServiceImpl keeps the files on the server's own disk)
 @Service
+@ConditionalOnProperty(name = "ge.solutions.storage", havingValue = "cloudinary", matchIfMissing = true)
 public class CloudinaryStorageServiceImpl implements FileStorageService {
 
     private final String cloudName;
