@@ -1,8 +1,11 @@
 # PATH: erp-frontend/Dockerfile
 
 # STAGE 1: THE BUILDER
-FROM node:18-slim AS build
+FROM node:22-slim AS build
 WORKDIR /app
+# fix270: the address of the server the pages talk to is baked in at build time (docker compose passes it)
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 COPY package*.json ./
 RUN npm install
 COPY . .

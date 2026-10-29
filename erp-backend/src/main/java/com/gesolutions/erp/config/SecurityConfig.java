@@ -2,6 +2,7 @@
 package com.gesolutions.erp.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -19,6 +20,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -67,7 +69,7 @@ public class SecurityConfig {
      */
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    public CorsFilter corsFilter() {
+    public CorsFilter corsFilter(@Value("${ge.solutions.cors.origins:}") String extraOrigins) {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
 
@@ -77,7 +79,9 @@ public class SecurityConfig {
         // VITAL FIX: 'golden-seed.onrender.com' was MISSING from this list.
         // That single omission caused every browser login to fail with a
         // "Network Error" even though Postman (which ignores CORS) worked fine.
-        config.setAllowedOrigins(List.of(
+        // fix270: more addresses can be trusted without a code change: set GE_SOLUTIONS_CORS_ORIGINS (comma separated),
+        // for example https://ges-erp.duckdns.org on the Netcup server.
+        List<String> origins = new ArrayList<>(List.of(
             "http://localhost",
             "http://localhost:5173",
             "http://localhost:80",
@@ -85,6 +89,11 @@ public class SecurityConfig {
             "https://golden-seed.onrender.com",       // ← YOUR ACTUAL FRONTEND URL
             "https://ge-solutions-ui.onrender.com"    // ← kept as backup
         ));
+        for (String o : extraOrigins.split(",")) {
+            String t = o.trim();
+            if (!t.isEmpty() && !t.equals("*")) origins.add(t);
+        }
+        config.setAllowedOrigins(origins);
 
         config.setAllowedHeaders(Arrays.asList(
             "Authorization",
