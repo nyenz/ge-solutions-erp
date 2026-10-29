@@ -3,8 +3,9 @@
 # fix271: one copy of the whole database every night, kept for 14 days, in /opt/ges-backups on this server.
 # It is started by cron (see infra/setup-backups.sh). You can also run it by hand: bash /opt/ges/infra/nightly-backup.sh
 set -euo pipefail
-cd /opt/ges/infra
-DIR=/opt/ges-backups
+APP="${GES_APP:-/opt/ges}"
+cd "$APP/infra"
+DIR="${GES_BACKUPS:-/opt/ges-backups}"
 mkdir -p "$DIR"; chmod 700 "$DIR"
 FILE="$DIR/ges-$(date +%Y-%m-%d_%H%M).dump"
 docker compose -f docker-compose.prod.yml --env-file .env exec -T db pg_dump -U ges -d ges --format=custom --no-owner > "$FILE.part"
@@ -17,9 +18,9 @@ fi
 mv "$FILE.part" "$FILE"
 find "$DIR" -name 'ges-*.dump' -mtime +14 -delete
 # fix273: the uploaded documents live on this disk too: keep a second copy of them next to the database copies
-if [ -d /opt/ges/infra/ge_uploads ]; then
+if [ -d "$APP/infra/ge_uploads" ]; then
     mkdir -p "$DIR/files-latest"
-    rsync -a /opt/ges/infra/ge_uploads/ "$DIR/files-latest/"
+    rsync -a "$APP/infra/ge_uploads/" "$DIR/files-latest/"
 fi
 # fix274: a locked copy to Google Drive (only when infra/setup-offsite.sh has been run). A failure here never stops the local copy.
 export RCLONE_CONFIG=/root/.config/rclone/rclone.conf
