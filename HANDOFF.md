@@ -2,6 +2,35 @@
 # Written 19 Oct 2026, at the end of a long chat, so a NEW chat can carry on with no gaps.
 # Read this file first, then LLM_CONTEXT_GUIDE.md (the full guide, kept up to date with every fix).
 
+# ===== CURRENT STATE, 30 Oct 2026 (newer than everything below: read this first) =====
+- **The app now runs on David's own Netcup VPS** (Debian 13, 4 GB, 80 GB) at **https://ges-erp.duckdns.org** (IP 62.83.77.55).
+  Everything lives in `infra/` and the guide's section 18: `server-setup.sh` (one time), `deploy.sh` (clone/update + build +
+  start), `docker-compose.prod.yml` (db, backend, frontend, Caddy = HTTPS; only ports 80 and 443 open), `nightly-backup.sh`
+  + `setup-backups.sh` (02:00 copy, 14 days, plus the documents), `setup-offsite.sh` (locked nightly copy to Google Drive via
+  rclone crypt, David runs it once), `restore-test.sh` (proves a copy restores), `restore-backup.sh` (EMERGENCY restore).
+- **The new database is FRESH and EMPTY** (David's choice: no copy from Neon). Root login = `admin_root`; its first key was made on
+  the server (`infra/.env`) and David changed it at first sign-in. Secrets live only in `/opt/ges/infra/.env` on the server.
+- **Documents are saved on the server's own disk** (`GE_SOLUTIONS_STORAGE=local`, `LocalStorageServiceImpl`, `VaultController`,
+  login needed to open). Render keeps Cloudinary (the default when the setting is absent).
+- **Render + Neon still run as the PRACTICE copy** with the old test data. They are switched off at go-live. Render rebuilds by
+  itself on every merge; the Netcup server changes only when David runs `bash /opt/ges/infra/deploy.sh` (quiet hour, tell staff).
+- **I cannot reach the server from the cloud box** (port 22 is blocked). David pastes the one command each time; keep every
+  server step to ONE paste and say what he should see afterwards. David types secrets only in the server terminal, never in chat.
+- **Shipping a change** is the same as section 2 below, except: the next number is **fix276** (fix269-fix275 were the Netcup
+  work), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
+  merge David updates the server.
+- **David's rules for the next chat:** load the saved skill `nyenz-app-design` first (his design and working rules).
+- **Open, in this order:** (1) David tests uploads + the BACKUP button on the new site; (2) David runs `setup-offsite.sh` (Google
+  Drive); (3) David's own safety jobs: Netcup passkey, Gmail backup codes, UptimeRobot alert, reminder for mid-April 2027
+  (the Netcup contract renews by itself, card saved); (4) when David says "go": repo cleanup (`.fix_backup*`, `fix.py`,
+  `guide-*.png`, `docs/design/*`), remove the FRESH START tick box, reset the Neon password, make the repo private, switch
+  off Render + Neon. ASK FIRST for each. (5) Only if he wants: email recovery for the root key (free: Gmail or a free mail
+  relay, after removing the "netcup Mail Block" policy in the Netcup panel), the "update tonight" banner, MIDNIGHT dark theme
+  (replaces GES NAVY, same rules as GES DAY), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
+  emergency way back in for root (remove the line afterwards).
+- Ideas not yet asked: take a database copy automatically before every `deploy.sh` (David has not answered).
+# ===== END CURRENT STATE =====
+
 ## 1. Who you are working with
 - **David (Nyenz)**, the owner of the repo `nyenz/ge-solutions-erp`. He calls himself a beginner, not a professional.
 - The app is the ERP of **GE Solutions**, a Ugandan land-surveying and title-processing company (Busoga region:
@@ -84,7 +113,7 @@
   Client File will then use the website colours too. Comparison page (all 9 pages x A/B/C/D, scroll + zoom + Pick):
   https://claude.ai/artifact/TZgKyTqCtANzT4pFDG6ScY (source: `docs/design/erp-design-comparison.html`).
   D (the first, lighter Daylight) is dropped. Later David wants a second theme study based on today's Settings page.
-- **HOSTING MOVE -- DECIDED, ON HOLD.** The whole app (Render + Neon + Cloudinary) moves onto ONE rented server:
+- **HOSTING MOVE -- DONE (30 Oct 2026), see CURRENT STATE at the top. (Old text, kept for history:)** The whole app (Render + Neon + Cloudinary) moves onto ONE rented server:
   **Netcup VPS Lite 1 G12.5s** -- 2 vCore, 4 GB RAM, 80 GB SSD, IPv4 included, **EUR 4.92 a month on a 6-month
   contract (EUR 29.52 paid at once, about EUR 59 a year)**, no setup fee, Ubuntu 24.04, free DuckDNS address first.
   Hetzner's cheap servers could not be ordered (14 Oct 2026). Move only BEFORE real client data goes in, and only when
