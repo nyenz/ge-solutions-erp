@@ -50,4 +50,30 @@ public class MailService {
         // fix181: a recovery code is NEVER printed to the server log (anyone with log access could read it).
         System.out.println(">>> [MAIL] Mail is off; no recovery email sent to " + recipientEmail + ".");
     }
+
+    /**
+     * fix279: OWNER RECOVERY CODE. Returns true only when the mail was really handed to the mail server.
+     * The code is never written to the server log.
+     */
+    public boolean sendOwnerCode(String recipientEmail, String code, int minutesValid) {
+        if (!mailEnabled || recipientEmail == null || recipientEmail.isBlank()) {
+            System.out.println(">>> [MAIL] Mail is off or the root has no email; no recovery code sent.");
+            return false;
+        }
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(mailFrom);
+            message.setTo(recipientEmail);
+            message.setSubject("Golden Seed - your recovery code");
+            message.setText("Your Golden Seed recovery code is: " + code + "\n\n"
+                    + "It works once and runs out in " + minutesValid + " minutes.\n"
+                    + "If you did not ask for it, ignore this email: nothing was changed.");
+            mailSender.send(message);
+            System.out.println(">>> [MAIL] Recovery code sent.");
+            return true;
+        } catch (Exception e) {
+            System.err.println(">>> [MAIL] The recovery code could not be sent: " + e.getClass().getSimpleName());
+            return false;
+        }
+    }
 }

@@ -16,7 +16,7 @@
   itself on every merge; the Netcup server changes only when David runs `bash /opt/ges/infra/deploy.sh` (quiet hour, tell staff).
 - **I cannot reach the server from the cloud box** (port 22 is blocked). David pastes the one command each time; keep every
   server step to ONE paste and say what he should see afterwards. David types secrets only in the server terminal, never in chat.
-- **Shipping a change** is the same as section 2 below, except: the next number is **fix279** (fix269-fix277 were the Netcup
+- **Shipping a change** is the same as section 2 below, except: the next number is **fix280** (fix269-fix277 were the Netcup
   work, the safe update, the guide match and the fix278 cleanup + DEMO setting), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
   merge David updates the server.
 - **David's rules for the next chat:** load the saved skill `nyenz-app-design` first (his design and working rules).
@@ -27,6 +27,7 @@
   (replaces GES NAVY, same rules as GES DAY), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
   emergency way back in for root (remove the line afterwards).
 - **PERMANENT RULE (David): no update may ever break the app or lose data** (guide section 13). `deploy.sh` now takes a safety copy first, checks health and rolls back by itself; `rollback.sh` is the one-line undo. Never weaken it. Data changes: additive only, David's yes + trial on a copy.
+- **Owner email recovery was built in fix279** (code in the guide section 5 'Key recovery'). It is OFF until David (1) removes the 'netcup Mail Block' policy in the Netcup panel, (2) runs `cd /opt/ges && git pull && bash infra/deploy.sh` then `bash infra/setup-mail.sh` (types a Gmail address + app password in the server terminal), (3) signs in as admin_root and sets Settings > Security > Recovery email. The backend code was verified only by GitHub CI (no Maven offline).
 - **The guide was matched to the live app in fix277** (current-state box at the top, section 10 deploy steps, SUPERSEDED notes on fix.py / Cloudinary / Hetzner / go-live list). Keep it true: every fix updates it, code wins.
 # ===== END CURRENT STATE =====
 

@@ -42,6 +42,11 @@ services:
       # the root key becomes ADMIN_DEFAULT_PASSWORD once and must be changed at sign-in. Remove the line afterwards.
       ADMIN_RESET_ONCE: ${ADMIN_RESET_ONCE:-}
       GE_SOLUTIONS_CORS_ORIGINS: https://${GES_DOMAIN}
+      # fix279: owner recovery by email (Gmail). Set up with infra/setup-mail.sh; off until then.
+      GE_SOLUTIONS_MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      GE_SOLUTIONS_MAIL_FROM: ${MAIL_FROM:-no-reply@gesolutions.com}
+      MAIL_USERNAME: ${MAIL_USERNAME:-test@gesolutions.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-testpassword}
       # fix273: documents are saved on this server's own disk (./ge_uploads below), not on Cloudinary
       GE_SOLUTIONS_STORAGE: local
       GE_SOLUTIONS_UPLOAD_DIR: /ge_uploads

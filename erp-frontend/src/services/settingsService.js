@@ -22,6 +22,11 @@ const settingsService = {
     changePersonalPassword: (oldPassword, newPassword) =>
         api.put('/profile/change-password', { oldPassword, newPassword }).then(r => r.data).catch(fail),
 
+    /** fix279: the owner's recovery email (where the emailed code goes). */
+    getMyProfile: () => api.get('/profile/me').then(r => r.data).catch(fail),
+    setRecoveryEmail: (password, email) =>
+        api.put('/profile/recovery-email', { password, email }).then(r => r.data).catch(fail),
+
     getAllOperators: () => api.get('/staff/all').then(r => r.data).catch(fail),
 
     registerManager: (staffData) =>

@@ -57,21 +57,7 @@ public class ProfileController {
         }
 
         String np = request.getNewPassword();
-        if (np == null || np.length() < 8) {
-            throw new BusinessException("PASSWORD_POLICY: The new key needs at least 8 characters.");
-        }
-        if (np.getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new BusinessException("PASSWORD_POLICY: The new key is too long (at most 72 characters).");
-        }
-        if (np.chars().noneMatch(Character::isUpperCase) || np.chars().noneMatch(Character::isDigit)) {
-            throw new BusinessException("PASSWORD_POLICY: The new key needs at least one capital letter and one number.");
-        }
-        if (np.toLowerCase(Locale.ROOT).contains(username.toLowerCase(Locale.ROOT))) {
-            throw new BusinessException("PASSWORD_POLICY: The new key must not contain your username.");
-        }
-        if (np.toUpperCase(Locale.ROOT).startsWith("NY-")) {
-            throw new BusinessException("PASSWORD_POLICY: Choose your own key, not one that looks like a temporary key.");
-        }
+        com.gesolutions.erp.modules.auth.service.PasswordPolicy.check(np, username);   // fix279: shared rules
         if (passwordEncoder.matches(np, user.getPassword())) {
             throw new BusinessException("PASSWORD_POLICY: The new key must be different from the current one.");
         }
@@ -85,6 +71,40 @@ public class ProfileController {
 
         auditService.logActionAfterCommit("SECURITY_KEY_UPDATE", "Operator " + username + " changed their own key. Other devices were signed out.");
         return ResponseEntity.ok(authService.buildResponse(user));
+    }
+
+    /**
+     * fix279: the OWNER sets the real email that receives the recovery code. Only the root account, and only with its
+     * current key. The email is also checked to look like an address and not the old placeholder.
+     */
+    @Transactional
+    @PutMapping("/recovery-email")
+    public ResponseEntity<Map<String, String>> setRecoveryEmail(@RequestBody Map<String, String> request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BusinessException("SECURITY_FAULT: Your session is not valid. Sign in again."));
+        if (!user.isRoot()) {
+            throw new BusinessException("RANK_DENIED: Only the owner account can set the recovery email.");
+        }
+        String limitKey = "oldkey|" + username.toLowerCase(Locale.ROOT);
+        if (rateLimiter.isOverLimit(limitKey, 5)) {
+            throw new BusinessException("TOO_MANY_ATTEMPTS: Too many wrong current keys. Wait 15 minutes and try again.");
+        }
+        String pw = request == null ? null : request.get("password");
+        if (pw == null || !passwordEncoder.matches(pw, user.getPassword())) {
+            rateLimiter.recordOther(limitKey);
+            throw new BusinessException("OLD_PASSWORD_INCORRECT: The current key is not right.");
+        }
+        rateLimiter.clearOther(limitKey);
+        String email = request.get("email") == null ? "" : request.get("email").trim();
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") || email.length() > 120 || email.toLowerCase(Locale.ROOT).endsWith("@gesolutions.com")) {
+            throw new BusinessException("EMAIL_NOT_VALID: Type a real email address that you can open.");
+        }
+        user.setEmail(email);
+        user.setResetToken(null);
+        userRepository.save(user);
+        auditService.logActionAfterCommit("RECOVERY_EMAIL_CHANGED", "Operator " + username + " changed the owner recovery email.");
+        return ResponseEntity.ok(Map.of("message", "Saved. Recovery codes will go to " + email + "."));
     }
 
     /** WHO AM I. fix181: a small answer (it used to send the whole account row, password hash included). */

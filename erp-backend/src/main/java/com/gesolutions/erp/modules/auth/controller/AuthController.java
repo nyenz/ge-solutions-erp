@@ -102,21 +102,90 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("status", "SIGNED_OUT"));
     }
 
-    /**
-     * fix181: email recovery is switched off (Render's free plan blocks mail, and the old code reset the Admin's key the
-     * moment anyone typed the Admin's email). The answer is the same whatever is typed, and nothing is changed.
-     * The Admin recovers through the ADMIN_RESET_ONCE setting (see LLM_CONTEXT_GUIDE.md Section 5).
-     */
+    // ---- fix279: OWNER (ROOT) RECOVERY BY EMAIL -------------------------------------------------------------
+    // Only the ONE root account can recover this way. The answer to the first call is always the same, so nobody can
+    // learn whether mail is on or what the email is. A code works once, for 15 minutes, 5 tries. Staff keep asking the
+    // Director; the emergency way in without email stays (ADMIN_RESET_ONCE).
+    private static final int CODE_MINUTES = 15;
+    private static final int CODE_TRIES = 5;
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
+    private final com.gesolutions.erp.modules.auth.repository.UserRepository userRepository;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.gesolutions.erp.modules.auth.service.MailService mailService;
+
+    private static final String SENT_MESSAGE =
+            "If the owner account has a working email, a 6-digit code was sent to it. It works once and runs out in "
+                    + CODE_MINUTES + " minutes.";
+
     @PostMapping("/recover-owner")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Map<String, String>> recoverOwner(@RequestBody(required = false) Map<String, String> request,
                                                             HttpServletRequest httpRequest) {
         String ip = clientIp(httpRequest);
-        if (!rateLimiter.isOverLimit("recover|" + ip, 5)) {
+        boolean tooMany = rateLimiter.isOverLimit("recover|" + ip, 5) || rateLimiter.isOverLimit("recover|root", 5);
+        if (!tooMany) {
             rateLimiter.recordOther("recover|" + ip);
-            auditService.logActionAs("(unknown)", "RECOVERY_REQUESTED", "Owner recovery was requested from IP " + ip + ". Email recovery is off; nothing was changed.");
+            rateLimiter.recordOther("recover|root");
+            auditService.logActionAs("(unknown)", "RECOVERY_REQUESTED", "Owner recovery by email was requested from IP " + ip + ".");
+            userRepository.findFirstByIsRootTrue().ifPresent(root -> {
+                String email = root.getEmail();
+                if (root.isActive() && email != null && email.contains("@") && !email.endsWith("@gesolutions.com")) {
+                    String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+                    long expires = java.time.Instant.now().getEpochSecond() + CODE_MINUTES * 60L;
+                    if (mailService.sendOwnerCode(email, code, CODE_MINUTES)) {
+                        root.setResetToken(expires + "|0|" + passwordEncoder.encode(code));
+                        userRepository.save(root);
+                    }
+                }
+            });
         }
-        return ResponseEntity.ok(Map.of(
-            "message", "Staff: ask the Director to reset your key. Director: ask the Admin. Admin: use the owner recovery setting."
-        ));
+        return ResponseEntity.ok(Map.of("message", SENT_MESSAGE));
+    }
+
+    @PostMapping("/recover-owner/confirm")
+    // noRollbackFor: a wrong try must still be COUNTED (and a dead code cleared) even though the answer is an error.
+    @org.springframework.transaction.annotation.Transactional(noRollbackFor = BusinessException.class)
+    public ResponseEntity<Map<String, String>> confirmOwnerRecovery(@RequestBody(required = false) Map<String, String> request,
+                                                                    HttpServletRequest httpRequest) {
+        String ip = clientIp(httpRequest);
+        String code = request == null ? null : request.get("code");
+        String newKey = request == null ? null : request.get("newPassword");
+        String limitKey = "recoverconfirm|" + ip;
+        if (rateLimiter.isOverLimit(limitKey, 10)) {
+            throw new BusinessException("TOO_MANY_ATTEMPTS: Too many tries. Wait 15 minutes and ask for a new code.");
+        }
+        String wrong = "CODE_NOT_RIGHT: That code is not right, or it has run out. Ask for a new code.";
+        com.gesolutions.erp.modules.auth.model.User root = userRepository.findFirstByIsRootTrue().orElse(null);
+        String token = root == null ? null : root.getResetToken();
+        if (code == null || !code.matches("\\d{6}") || token == null) {
+            rateLimiter.recordOther(limitKey);
+            throw new BusinessException(wrong);
+        }
+        String[] parts = token.split("\\|", 3);
+        long expires; int tries;
+        try { expires = Long.parseLong(parts[0]); tries = Integer.parseInt(parts[1]); }
+        catch (Exception e) { root.setResetToken(null); userRepository.save(root); throw new BusinessException(wrong); }
+        if (parts.length < 3 || java.time.Instant.now().getEpochSecond() > expires || tries >= CODE_TRIES) {
+            root.setResetToken(null); userRepository.save(root);
+            throw new BusinessException(wrong);
+        }
+        if (!passwordEncoder.matches(code, parts[2])) {
+            root.setResetToken(expires + "|" + (tries + 1) + "|" + parts[2]);
+            userRepository.save(root);
+            rateLimiter.recordOther(limitKey);
+            throw new BusinessException(wrong);
+        }
+        com.gesolutions.erp.modules.auth.service.PasswordPolicy.check(newKey, root.getUsername());
+        root.setPassword(passwordEncoder.encode(newKey));
+        root.setMustChangePassword(false);
+        root.setTempKeyExpiresAt(null);
+        root.setResetToken(null);
+        root.bumpSessionVersion();
+        userRepository.save(root);
+        rateLimiter.clearOther(limitKey);
+        rateLimiter.clearRecord(root.getUsername(), ip);
+        auditService.logActionAs(root.getUsername(), "RECOVERY_USED", "The owner key was reset with an emailed code from IP " + ip + ". All devices were signed out.");
+        return ResponseEntity.ok(Map.of("message", "Your new key is saved. Sign in with it."));
     }
 }

@@ -73,6 +73,7 @@ public final class AuditActions {
     public static final String RECORD_DELETED = "RECORD_DELETED";
     public static final String RECORD_RESTORED = "RECORD_RESTORED";
     public static final String RECORD_UPDATED = "RECORD_UPDATED";
+    public static final String RECOVERY_EMAIL_CHANGED = "RECOVERY_EMAIL_CHANGED";
     public static final String RECOVERY_NOTE = "RECOVERY_NOTE";
     public static final String RECOVERY_NOTE_DELETED = "RECOVERY_NOTE_DELETED";
     public static final String RECOVERY_REQUESTED = "RECOVERY_REQUESTED";
@@ -177,6 +178,7 @@ public final class AuditActions {
             RECORD_DELETED,
             RECORD_RESTORED,
             RECORD_UPDATED,
+            RECOVERY_EMAIL_CHANGED,
             RECOVERY_NOTE,
             RECOVERY_NOTE_DELETED,
             RECOVERY_REQUESTED,
