@@ -22,11 +22,11 @@
   MIDNIGHT_HUE/SAT/BASE and the gesnavy block in index.css), fix281 payment words readable in CLASSIC/SLATE/MIDNIGHT + this list.
 - **Working with David:** load the skill `nyenz-app-design` first. One server step = ONE paste, say what he should see. He types
   secrets only in the server terminal. I cannot reach the server from the cloud box (port 22 blocked).
-- **Shipping a change:** section 2 below; next number **fix282**; commit trailers = the session's attribution reminder.
+- **Shipping a change:** section 2 below; next number **fix283**; commit trailers = the session's attribution reminder.
 
 ## THE FINISH LINE (everything left, in order). When all of A and B are ticked, the app is DONE and live.
 ### A. David's own steps (no code; each one is short)
-1. Update the server once: `cd /opt/ges && git pull && bash infra/deploy.sh` (brings fix276-281; later just `bash /opt/ges/infra/deploy.sh`).
+1. Update the server: `cd /opt/ges && git pull && bash infra/deploy.sh` (brings fix276-282; later just `bash /opt/ges/infra/deploy.sh`). fix282: deploy.sh now knows what is really RUNNING (`infra/.deployed-commit`), so a plain `git pull` first can no longer make it say "nothing new" (it did on 30 Oct and skipped the build).
 2. Test on the real site: make a client + project, upload a PDF and a photo, open them, delete one.
 3. Settings > BACKUP: save one ZIP to the computer and open START HERE.html.
 4. Google Drive copy: Part A on the PC (`rclone authorize "drive"`), Part B on the server `bash /opt/ges/infra/setup-offsite.sh`.

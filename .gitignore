@@ -77,3 +77,4 @@ infra/postgres_data/
 infra/ge_uploads/
 infra/.previous-commit
 infra/.rolled-back-from
+infra/.deployed-commit
