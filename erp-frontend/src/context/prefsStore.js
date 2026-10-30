@@ -60,4 +60,4 @@ export const writePrefsFor = (username, prefs) => {
     } catch { /* private mode */ }
 };
 
-export const THEME_COLOR = { light: '#1a2e30', classic: '#0c3a41', dark: '#16292b', bright: '#f8f5f0', ges: '#112F66', gesnavy: '#071a33' };
+export const THEME_COLOR = { light: '#1a2e30', classic: '#0c3a41', dark: '#16292b', bright: '#f8f5f0', ges: '#112F66', gesnavy: '#0A1428' };
