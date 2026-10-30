@@ -108,10 +108,11 @@ const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
             } catch { /* ignore */ }
         }, [director.token, JSON.stringify({ ...director.user, showGuide: false })]);
         const page = await ctx.newPage();
-        for (const p of ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'land/new', 'payments', 'settings'].filter(Boolean)) {
+        for (const p of ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'land/new', 'payments', 'recovery', 'clients', 'reports', 'settings'].filter(Boolean)) {
             try {
                 await page.goto(WEB + '/' + p, { waitUntil: 'networkidle', timeout: 45000 });
                 await page.addStyleTag({ content: css });
+                if (name !== 'A') await page.addStyleTag({ content: fs.readFileSync('e2e/midnight' + name + '.css', 'utf8') });
                 await page.waitForTimeout(1200);
                 await page.screenshot({ path: OUT + '/midnight' + name + '-' + p.replace(/[/#]/g, '_').replace(/_[0-9a-f-]{36}/, '') + '.png' });
             } catch (e) { note('[midnight ' + name + ' ' + p + '] FAILED ' + e.message); }
