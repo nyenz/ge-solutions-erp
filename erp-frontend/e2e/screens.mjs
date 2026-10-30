@@ -92,6 +92,30 @@ const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
             await ctx.close();
         }
     }
+    // TEMP (midnight-pictures branch only): MIDNIGHT options B and C painted over option A, for David to pick
+    const OPTS = {
+        B: ':root{--bg-base:#0B0F17;--bg-rgb:11,15,23;--sf-dock:#252E3E;--brand-1:#161C28;--brand-2:#1B2230;--brand-2-rgb:27,34,48;--brand-head:#11161F;--brand-deep:#11161F;--brand-raise-1:#3A4558;--brand-raise-2:#2B3445;--sf-1:#161C28;--sf-2:#1B2230;--sf-head:#11161F;--sf-deep:#11161F;--sf-navy:#1B2230;--sf-raise-1:#3A4558;--sf-raise-2:#2B3445;--sf-readout:#1D2533;--sf-navy-rgb:27,34,48;--scroll-track:#161C28}',
+        C: ':root{--bg-base:#0F1722;--bg-rgb:15,23,34;--sf-dock:#2C3B4E;--brand-1:#1C2838;--brand-2:#22303F;--brand-2-rgb:34,48,63;--brand-head:#16202D;--brand-deep:#16202D;--brand-raise-1:#44586F;--brand-raise-2:#34465C;--sf-1:#1C2838;--sf-2:#22303F;--sf-head:#16202D;--sf-deep:#16202D;--sf-navy:#22303F;--sf-raise-1:#44586F;--sf-raise-2:#34465C;--sf-readout:#243344;--sf-navy-rgb:34,48,63;--scroll-track:#1C2838}',
+    };
+    for (const [name, css] of Object.entries(OPTS)) {
+        const ctx = await browser.newContext({ viewport: SIZES.pc });
+        await ctx.addInitScript(([t, u]) => {
+            try {
+                localStorage.setItem('gs_token', t); localStorage.setItem('gs_user', u);
+                localStorage.setItem('goldenseed.prefs.v1.' + JSON.parse(u).username.toLowerCase(), JSON.stringify({ theme: 'gesnavy' }));
+            } catch { /* ignore */ }
+        }, [director.token, JSON.stringify(director.user)]);
+        const page = await ctx.newPage();
+        for (const p of ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'land/new', 'settings'].filter(Boolean)) {
+            try {
+                await page.goto(WEB + '/' + p, { waitUntil: 'networkidle', timeout: 45000 });
+                await page.addStyleTag({ content: css });
+                await page.waitForTimeout(1200);
+                await page.screenshot({ path: OUT + '/midnight' + name + '-' + p.replace(/[/#]/g, '_').replace(/_[0-9a-f-]{36}/, '') + '.png' });
+            } catch (e) { note('[midnight ' + name + ' ' + p + '] FAILED ' + e.message); }
+        }
+        await ctx.close();
+    }
     // fix233: the Director's computer pages once more in each of the other looks (the main pass uses the default, GES DAY)
     for (const theme of ['gesnavy', 'classic']) {
         const ctx = await browser.newContext({ viewport: SIZES.pc });
