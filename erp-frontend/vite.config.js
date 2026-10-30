@@ -11,6 +11,9 @@ export default defineConfig(({ command, mode }) => {
   }
   return {
   plugins: [react()],
+  // fix280: a page class ".x" in Name.module.css is named "_x_Name-module_<hash>". The "_x_" part is what the GES DAY
+  // skin looks for; the file name lets the MIDNIGHT sheet (scripts/build-gesday.mjs) find exactly one page's class.
+  css: { modules: { generateScopedName: '_[local]_[name]_[hash:base64:5]' } },
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
