@@ -23,6 +23,7 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './SettingsPage.module.css';
 import BackupPanel from './BackupPanel';   // fix268
+import RecoveryEmailPanel from './RecoveryEmailPanel';   // fix279
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS, RANKS as RANK_INFO } from '../../utils/roles';
@@ -380,6 +381,8 @@ const SettingsPage = () => {
                 </div>
               </form>
             )}
+
+            {activeTab.key === 'security' && user?.isRoot && !locked && <RecoveryEmailPanel toast={toast} />}
 
             {activeTab.key === 'governance' && isOwner && (
               <div className={styles.prefGroupBox}>

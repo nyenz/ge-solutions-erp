@@ -28,6 +28,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     long countByIsRootTrue();
 
+    /** fix279: the one root account (owner recovery by email). */
+    Optional<User> findFirstByIsRootTrue();
+
     /**
      * ROOT RECOVERY LOOKUP
      * Used to verify identity via Email for the "Panic Button" protocol.

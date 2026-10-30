@@ -34,6 +34,28 @@ const LoginPage = () => {
         return '';
     });
     const [isRecovering, setIsRecovering] = useState(false);
+    // fix279: owner recovery by email. step 'info' -> 'code' -> 'done'
+    const [recStep, setRecStep] = useState('info');
+    const [recCode, setRecCode] = useState('');
+    const [recKey, setRecKey] = useState('');
+    const [recKey2, setRecKey2] = useState('');
+    const [recBusy, setRecBusy] = useState(false);
+    const [recMsg, setRecMsg] = useState('');
+    const closeRecovery = () => { setIsRecovering(false); setRecStep('info'); setRecCode(''); setRecKey(''); setRecKey2(''); setRecMsg(''); };
+    const sendRecoveryCode = async () => {
+        setRecBusy(true); setRecMsg('');
+        try { const r = await api.post('/auth/recover-owner', {}); setRecMsg(r?.data?.message || ''); setRecStep('code'); }
+        catch (e) { setRecMsg(errorText(e)); }
+        finally { setRecBusy(false); }
+    };
+    const saveRecoveredKey = async () => {
+        if (!/^\d{6}$/.test(recCode)) { setRecMsg('Type the 6 digits from the email.'); return; }
+        if (recKey !== recKey2) { setRecMsg('The two keys are not the same.'); return; }
+        setRecBusy(true); setRecMsg('');
+        try { const r = await api.post('/auth/recover-owner/confirm', { code: recCode, newPassword: recKey }); setRecMsg(r?.data?.message || ''); setRecStep('done'); }
+        catch (e) { setRecMsg(errorText(e)); }
+        finally { setRecBusy(false); }
+    };
     const { login } = useAuth();
 
     // fix181 (15.2l): no fixed 900 ms wait. Ask the server if it is awake; the "waking up" screen shows only while that
@@ -131,20 +153,60 @@ const LoginPage = () => {
                 </div>
             </div>
 
-            {/* fix181 (15.3, owner choice B): email recovery is off; nobody's key can be reset from this page */}
-            <HardwareModal isOpen={isRecovering} onClose={() => setIsRecovering(false)} title="FORGOT YOUR KEY?">
+            {/* fix279: the owner can get back in with a code sent to the owner email; staff still ask the Director */}
+            <HardwareModal isOpen={isRecovering} onClose={closeRecovery} title="FORGOT YOUR KEY?">
                 <div className={styles.modalBody}>
-                    <div className={styles.successScreen}>
-                        <div className={styles.successIconWrap}><FiInfo size={28} color="#38bdf8" /></div>
-                        <p className={styles.successMsg}>
-                            Staff: ask the Director to reset your key.<br />
-                            Director: ask the Admin.<br />
-                            Admin: use the owner recovery.
-                        </p>
-                        <div className={styles.btnWrap} style={{ marginTop: '10px' }}>
-                            <HardwareButton onClick={() => setIsRecovering(false)}>Back to sign in</HardwareButton>
+                    {recStep === 'info' && (
+                        <div className={styles.successScreen}>
+                            <div className={styles.successIconWrap}><FiInfo size={28} color="#38bdf8" /></div>
+                            <p className={styles.successMsg}>
+                                Staff: ask the Director to reset your key.<br />
+                                Director: ask the owner.<br />
+                                Owner: we can email a 6-digit code to the owner email.
+                            </p>
+                            {recMsg && <div className={styles.errorAlert}>{recMsg}</div>}
+                            <div className={styles.btnWrap} style={{ marginTop: '10px' }}>
+                                <HardwareButton onClick={sendRecoveryCode} disabled={recBusy}>{recBusy ? 'SENDING...' : 'EMAIL ME A CODE (OWNER)'}</HardwareButton>
+                            </div>
+                            <div className={styles.btnWrap} style={{ marginTop: '6px' }}>
+                                <button type="button" className={styles.lostBtn} onClick={closeRecovery}>Back to sign in</button>
+                            </div>
                         </div>
-                    </div>
+                    )}
+                    {recStep === 'code' && (
+                        <div>
+                            {recMsg && <div className={styles.errorAlert}>{recMsg}</div>}
+                            <div className={styles.field}>
+                                <label htmlFor="rec-code">CODE FROM THE EMAIL</label>
+                                <input id="rec-code" name="one-time-code" className={styles.input} inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                                    value={recCode} onChange={e => setRecCode(e.target.value.replace(/\D/g, ''))} />
+                            </div>
+                            <div className={styles.field}>
+                                <label htmlFor="rec-key">NEW KEY</label>
+                                <input id="rec-key" name="new-password" type="password" className={styles.input} autoComplete="new-password" value={recKey} onChange={e => setRecKey(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label htmlFor="rec-key2">NEW KEY AGAIN</label>
+                                <input id="rec-key2" name="new-password-again" type="password" className={styles.input} autoComplete="new-password" value={recKey2} onChange={e => setRecKey2(e.target.value)} />
+                            </div>
+                            <p className={styles.successMsg}>At least 8 characters, one capital letter and one number.</p>
+                            <div className={styles.btnWrap} style={{ marginTop: '10px' }}>
+                                <HardwareButton onClick={saveRecoveredKey} disabled={recBusy}>{recBusy ? 'SAVING...' : 'SAVE NEW KEY'}</HardwareButton>
+                            </div>
+                            <div className={styles.btnWrap} style={{ marginTop: '6px' }}>
+                                <button type="button" className={styles.lostBtn} onClick={sendRecoveryCode} disabled={recBusy}>Send a new code</button>
+                            </div>
+                        </div>
+                    )}
+                    {recStep === 'done' && (
+                        <div className={styles.successScreen}>
+                            <div className={styles.successIconWrap}><FiInfo size={28} color="#38bdf8" /></div>
+                            <p className={styles.successMsg}>{recMsg}</p>
+                            <div className={styles.btnWrap} style={{ marginTop: '10px' }}>
+                                <HardwareButton onClick={closeRecovery}>Back to sign in</HardwareButton>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </HardwareModal>
         </div>
