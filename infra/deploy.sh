@@ -73,7 +73,10 @@ if [ -n "$MYIP" ] && [ "$MYIP" != "$DNSIP" ]; then
     echo "WARNING: $DOMAIN points to '${DNSIP:-nothing}' but this server is $MYIP. The padlock cannot be made until they match."
 fi
 
-if [ "$OLD" = "$NEW" ] && [ "$FORCE" = 0 ] && [ -n "$($DC ps -q backend 2>/dev/null || true)" ]; then
+# fix282: "newest" means the version that is really RUNNING (infra/.deployed-commit, written only after every check passed),
+# not just the code on disk. Someone running a plain "git pull" first used to make this script think nothing was new.
+DEPLOYED=""; [ -f "$APP/infra/.deployed-commit" ] && DEPLOYED=$(cat "$APP/infra/.deployed-commit")
+if [ "$OLD" = "$NEW" ] && [ "$DEPLOYED" = "$NEW" ] && [ "$FORCE" = 0 ] && [ -n "$($DC ps -q backend 2>/dev/null || true)" ]; then
     echo "Nothing new to install: this server already has the newest version ($NEW). (Use --force to rebuild anyway.)"
     exit 0
 fi
@@ -85,7 +88,8 @@ for svc in backend frontend; do
         docker tag "ges-$svc:latest" "ges-$svc:previous"; HAD_PREVIOUS=1
     fi
 done
-if [ "$OLD" = "$NEW" ]; then rm -f "$APP/infra/.previous-commit"; else echo "$OLD" > "$APP/infra/.previous-commit"; fi
+PREV="$OLD"; [ -n "$DEPLOYED" ] && PREV="$DEPLOYED"
+if [ "$PREV" = "$NEW" ]; then rm -f "$APP/infra/.previous-commit"; else echo "$PREV" > "$APP/infra/.previous-commit"; fi
 
 go_back() {
     echo
@@ -127,6 +131,7 @@ curl -fsSk --max-time 20 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" >/
 curl -fsSk --max-time 20 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/v1/auth/health" >/dev/null 2>&1 || go_back "the server did not answer through the front door"
 
 rm -f "$APP/infra/.rolled-back-from"
+echo "$NEW" > "$APP/infra/.deployed-commit"
 docker image prune -f >/dev/null 2>&1 || true
 $DC ps
 LASTCOPY=$(ls -1t "${GES_BACKUPS:-/opt/ges-backups}"/ges-*.dump 2>/dev/null | head -1 || true)

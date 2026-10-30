@@ -34,6 +34,7 @@ done
 if [ -f "$APP/infra/.previous-commit" ]; then
     echo "$BROKEN" > "$APP/infra/.rolled-back-from"
     ( cd "$APP" && git reset --hard "$(cat "$APP/infra/.previous-commit")" >/dev/null 2>&1 ) || true
+    cp "$APP/infra/.previous-commit" "$APP/infra/.deployed-commit"
 fi
 $DC ps
 echo "=== DONE === The previous version is running again. Do not run deploy.sh until Claude says a fix is ready."
