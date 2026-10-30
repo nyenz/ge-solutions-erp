@@ -364,3 +364,11 @@
 .retry svg { color: #fff; }
 .retry:hover { background: #A81919; border-color: #7A1111; color: #fff; }
 .retry:active { background: #8C1313; transform: translateY(1px); }
+
+/* fix280: MIDNIGHT -- this title bar follows the night page-title bar of every other page (index.css --night-*) */
+:global(:root[data-theme="gesnavy"]) .header {
+    background: var(--night-head-bg); border: 1px solid var(--night-head-line); border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+:global(:root[data-theme="gesnavy"]) .header h1 { color: var(--night-title); }
+:global(:root[data-theme="gesnavy"]) .header p { color: var(--night-sub); }

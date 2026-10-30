@@ -32,7 +32,7 @@
           r.setAttribute('data-contrast', v.contrast);
           r.style.setProperty('--ui-scale', String(Number(v.uiScale) / 100));
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', ({ classic: '#0c3a41', dark: '#16292b', bright: '#f8f5f0', ges: '#112F66', gesnavy: '#071a33' })[v.theme] || '#1a2e30');
+          if (m) m.setAttribute('content', ({ classic: '#0c3a41', dark: '#16292b', bright: '#f8f5f0', ges: '#112F66', gesnavy: '#0A1428' })[v.theme] || '#1a2e30');
         } catch (e) { /* storage blocked: the defaults in index.css apply */ }
       })();
     </script>

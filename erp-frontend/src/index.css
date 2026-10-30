@@ -458,7 +458,8 @@ input[type="search"]::-webkit-search-results-decoration {
    (scripts/tokenize-brand.mjs) whose fallback is the original teal look.
      classic = KINGFISHER teal + orange (picked 24 Oct 2026 in docs/design/classic-colour-picker.html)
      ges     = GES DAY: the same look in the GES website colours -- Prussian navy #0b2545, orange #ea580c
-     gesnavy = GES NAVY: GES DAY with a dark page (as SLATE is to CLASSIC); it also takes the SLATE rules
+     gesnavy = MIDNIGHT (fix280, was GES NAVY): GES DAY at night -- deep midnight page and panels, same accent and rules;
+               it also takes the SLATE rules
    ================================================================== */
 :root[data-theme="classic"] {   /* CLASSIC = Kingfisher */
     --sf-dock: #446d75;   /* the grey tab bar, tinted to the theme */
@@ -524,10 +525,58 @@ input[type="search"]::-webkit-search-results-decoration {
     --scroll-track: #1E4A8C;
     --text-on-light: #112F66;
 }
-:root[data-theme="gesnavy"] {   /* GES NAVY: the page goes dark; panels, fonts and spacing stay */
-    --bg-base: #071a33;
-    --bg-rgb: 7, 26, 51;
+:root[data-theme="gesnavy"] {   /* fix280: MIDNIGHT (was GES NAVY; the saved value stays "gesnavy").
+       GES DAY at night: the same fonts, spacing, layout, tangerine accent and status colours. Only the page and the
+       panels go deep cobalt-midnight; the panels stay one shade lighter than the page so every card still stands off it. */
+    --bg-base: #0A1428;
+    --bg-rgb: 10, 20, 40;
     --text-on-light: #F4F2EF;
+    --sf-dock: #1F3D73;
+    --brand-1: #13254A;
+    --brand-2: #172C57;
+    --brand-2-rgb: 23, 44, 87;
+    --brand-head: #0E1D3B;
+    --brand-deep: #0E1D3B;
+    --brand-raise-1: #3D63A6;
+    --brand-raise-2: #2A4A82;
+    --sf-1: #13254A;
+    --sf-2: #172C57;
+    --sf-head: #0E1D3B;
+    --sf-deep: #0E1D3B;
+    --sf-navy: #172C57;
+    --sf-raise-1: #3D63A6;
+    --sf-raise-2: #2A4A82;
+    --sf-readout: #182F5C;
+    --sf-navy-rgb: 23, 44, 87;
+    --scroll-track: #13254A;
+    /* fix280: the page-title bar at night (the same values the generated skin gives _pageHeader_ in midnight.css) */
+    --night-head-bg: linear-gradient(180deg, #1A263F, #1B2842);
+    --night-head-line: rgba(174, 190, 224, 0.28);
+    --night-title: #DCE4F2;
+    --night-sub: #A6B1C8;
+    /* fix280: at night the "ink" that was written on light paper (navy text, navy hairlines) turns light, because the
+       paper itself turns dark (src/styles/midnight.css). The few places that PAINT with navy are set back below. */
+    --navy: #DCE4F2;
+    --brand-ink: #DCE4F2;
+    --brand-ink-rgb: 220, 228, 242;
+    --cream: #223253;
+}
+:root[data-theme="gesnavy"] [class*="_dark_HardwarePanel-module_"] {
+    background: linear-gradient(135deg, var(--sf-raise-1) 0%, var(--sf-raise-2) 50%, var(--sf-navy) 100%);
+}
+:root[data-theme="gesnavy"] [class*="_card_LoginPage-module_"] {
+    background: linear-gradient(165deg, var(--sf-raise-1) 0%, var(--sf-raise-2) 30%, var(--sf-navy) 70%);
+}
+:root[data-theme="gesnavy"] [class*="_logoInner_LoginPage-module_"],
+:root[data-theme="gesnavy"] [class*="_diagItem_AuditPage-module_"] { background: var(--sf-navy); }
+:root[data-theme="gesnavy"] [class*="_trendBarNow_Dashboard-module_"] {
+    background: linear-gradient(180deg, #4F8FE0 0%, var(--sf-raise-2) 100%);
+}
+:root[data-theme="gesnavy"] input[type="checkbox"] { background: var(--cream); }
+:root[data-theme="gesnavy"] input[type="checkbox"]::before { background: #0A1428; }   /* the tick stays dark on orange */
+/* paper is always printed in the day colours */
+@media print {
+    :root[data-theme="gesnavy"] { --navy: #1E4A8C; --brand-ink: #112F66; --brand-ink-rgb: 17, 47, 102; --cream: #F8EBD0; }
 }
 
 /* fix192: THE SLIDING PILL of a tab / filter bar (hooks/useTabMotion.js). The pill is one small box that moves behind

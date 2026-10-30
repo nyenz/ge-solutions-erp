@@ -18,6 +18,16 @@
     overflow: hidden;
 }
 
+/* fix280: MIDNIGHT keeps the GES DAY idea (the page glows softly with the accent) but at night: deep midnight with a
+   faint tangerine light at the top, instead of the day's bright orange wash (which turned brown on a dark page). */
+:global(:root[data-theme="gesnavy"]) .wrapper {
+    background:
+      radial-gradient(ellipse 70% 45% at 50% 0%, rgba(var(--acc-rgb, 242, 106, 13), 0.10), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, var(--night-page-glow, rgba(42, 74, 130, 0.35)), transparent 70%),
+      linear-gradient(180deg, var(--night-page-top, #0D1A33) 0%, var(--bg-base, #0A1428) 100%);
+}
+:global(:root[data-theme="gesnavy"]) .lineBase { stroke: var(--sf-raise-2, #2A4A82); }
+
 .bgSvg {
     position: fixed;
     inset: 0;

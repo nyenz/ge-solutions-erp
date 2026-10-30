@@ -16,15 +16,14 @@
   itself on every merge; the Netcup server changes only when David runs `bash /opt/ges/infra/deploy.sh` (quiet hour, tell staff).
 - **I cannot reach the server from the cloud box** (port 22 is blocked). David pastes the one command each time; keep every
   server step to ONE paste and say what he should see afterwards. David types secrets only in the server terminal, never in chat.
-- **Shipping a change** is the same as section 2 below, except: the next number is **fix280** (fix269-fix277 were the Netcup
+- **Shipping a change** is the same as section 2 below, except: the next number is **fix281** (fix269-fix277 were the Netcup
   work, the safe update, the guide match and the fix278 cleanup + DEMO setting), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
   merge David updates the server.
 - **David's rules for the next chat:** load the saved skill `nyenz-app-design` first (his design and working rules).
 - **Open, in this order:** (1) David tests uploads + the BACKUP button on the new site; (2) David runs `setup-offsite.sh` (Google
   Drive); (3) David's own safety jobs: Netcup passkey, Gmail backup codes, UptimeRobot alert, reminder for mid-April 2027
   (the Netcup contract renews by itself, card saved); (4) repo cleanup DONE (fix278); FRESH START + DEMO strip only on the demo DONE (fix278); still open: make the repo private (David checks in Render that it can still read it). Render + Neon STAY as the demo. ASK FIRST for anything else. (5) Only if he wants: email recovery for the root key (free: Gmail or a free mail
-  relay, after removing the "netcup Mail Block" policy in the Netcup panel), the "update tonight" banner, MIDNIGHT dark theme
-  (replaces GES NAVY, same rules as GES DAY), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
+  relay, after removing the "netcup Mail Block" policy in the Netcup panel), the "update tonight" banner, MIDNIGHT dark theme (DONE, fix280; if David picks option B or C, change only the colour values in the index.css gesnavy block), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
   emergency way back in for root (remove the line afterwards).
 - **PERMANENT RULE (David): no update may ever break the app or lose data** (guide section 13). `deploy.sh` now takes a safety copy first, checks health and rolls back by itself; `rollback.sh` is the one-line undo. Never weaken it. Data changes: additive only, David's yes + trial on a copy.
 - **Owner email recovery was built in fix279** (code in the guide section 5 'Key recovery'). It is OFF until David (1) removes the 'netcup Mail Block' policy in the Netcup panel, (2) runs `cd /opt/ges && git pull && bash infra/deploy.sh` then `bash infra/setup-mail.sh` (types a Gmail address + app password in the server terminal), (3) signs in as admin_root and sets Settings > Security > Recovery email. The backend code was verified only by GitHub CI (no Maven offline).

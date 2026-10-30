@@ -1973,3 +1973,11 @@
     .ctrlGroup > button { flex: 1 1 150px !important; width: auto !important; height: 42px !important; min-height: 42px; justify-content: center !important; font-size: 10.5px !important; padding: 0 10px !important; align-self: auto !important; }
     .ctrlGroup > button.printBtn { flex: 0 0 42px !important; width: 42px !important; padding: 0 !important; }
 }
+
+/* fix280: MIDNIGHT -- this title bar follows the night page-title bar of every other page (index.css --night-*) */
+:global(:root[data-theme="gesnavy"]) .terminalHeader {
+    background: var(--night-head-bg); border: 1px solid var(--night-head-line); border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+:global(:root[data-theme="gesnavy"]) .terminalHeader h1 { color: var(--night-title); }
+:global(:root[data-theme="gesnavy"]) .terminalHeader p { color: var(--night-sub); }
