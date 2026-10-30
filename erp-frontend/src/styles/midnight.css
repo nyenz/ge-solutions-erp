@@ -1078,23 +1078,7 @@
 }
 :root[data-theme="gesnavy"] [class*="_payFillDone_PaymentsPage-module_"] { background: #16A34A
 }
-:root[data-theme="gesnavy"] [class*="_payPct_PaymentsPage-module_"] { color: #A6B1C8
-}
-:root[data-theme="gesnavy"] [class*="_forTitle_PaymentsPage-module_"] { color: #A2EBBD
-}
-:root[data-theme="gesnavy"] [class*="_forStor_PaymentsPage-module_"] { color: #F2CF8E
-}
-:root[data-theme="gesnavy"] [class*="_forOpen_PaymentsPage-module_"] { color: #87DDF2
-}
-:root[data-theme="gesnavy"] [class*="_forRev_PaymentsPage-module_"] { color: #E75E5E
-}
-:root[data-theme="gesnavy"] [class*="_mOFFICE_PaymentsPage-module_"] { color: #C6CFE0
-}
-:root[data-theme="gesnavy"] [class*="_mMOBILE_MONEY_PaymentsPage-module_"] { color: #F2CF8E
-}
-:root[data-theme="gesnavy"] [class*="_mBANK_PaymentsPage-module_"] { color: #9DAFCA
-}
-:root[data-theme="gesnavy"] [class*="_mNONE_PaymentsPage-module_"] { color: #8795A9
+:root[data-theme="gesnavy"] [class*="_mOTHER_PaymentsPage-module_"] { color: #A78BFA
 }
 :root[data-theme="gesnavy"] [class*="_booksClose_PaymentsPage-module_"] { background: rgba(255,255,255,0.16); border: 1.5px solid #FFFFFF; color: #FFFFFF
 }

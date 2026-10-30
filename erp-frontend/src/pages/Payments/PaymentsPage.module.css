@@ -583,9 +583,17 @@
 .payBar { flex: 1; height: 6px; border-radius: 3px; background: rgba(17,47,102,.14); overflow: hidden; }
 .payFill { height: 100%; border-radius: 3px; background: #F26A0D; }
 .payFillDone { background: #16a34a; }
-.payPct { font-size: 10px; font-weight: 800; color: #3E4A63; white-space: nowrap; }
-.forTitle { color: #166534; } .forStor { color: #8A5A00; } .forOpen { color: #0E6F86; } .forRev { color: #B91C1C; }
-.mOFFICE { color: #0B2250; } .mMOBILE_MONEY { color: #8A5A00; } .mBANK { color: #1E4A8C; } .mOTHER { color: #7C3AED; } .mNONE { color: #64748b; }
+.payPct { font-size: 10px; font-weight: 800; color: rgba(var(--ink-rgb), 0.7); white-space: nowrap; }
+:global(:root[data-theme="ges"]) .payPct { color: #3E4A63; }   /* fix281: deep grey only on GES DAY's light rows */
+/* fix281: the row words take the theme's own readable colours (light on the dark rows of CLASSIC, SLATE and MIDNIGHT,
+   dark on LIGHT). GES DAY has light rows, so it keeps its deep colours below. */
+.forTitle { color: var(--tx-green); } .forStor { color: var(--tx-amber); } .forOpen { color: var(--tx-cyan); } .forRev { color: var(--tx-red); }
+.mOFFICE { color: var(--ink-solid); } .mMOBILE_MONEY { color: var(--tx-amber); } .mBANK { color: var(--tx-cyan); } .mOTHER { color: #a78bfa; } .mNONE { color: rgba(var(--ink-rgb), 0.6); }
+:global(:root[data-theme="ges"]) .forTitle { color: #166534; } :global(:root[data-theme="ges"]) .forStor { color: #8A5A00; }
+:global(:root[data-theme="ges"]) .forOpen { color: #0E6F86; } :global(:root[data-theme="ges"]) .forRev { color: #B91C1C; }
+:global(:root[data-theme="ges"]) .mOFFICE { color: #0B2250; } :global(:root[data-theme="ges"]) .mMOBILE_MONEY { color: #8A5A00; }
+:global(:root[data-theme="ges"]) .mBANK { color: #1E4A8C; } :global(:root[data-theme="ges"]) .mOTHER { color: #7C3AED; } :global(:root[data-theme="ges"]) .mNONE { color: #64748b; }
+:global(:root[data-theme="bright"]) .mOTHER { color: #7C3AED; }
 .booksClose { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.16); border: 1.5px solid #fff; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .15s, color .15s; }
 .booksClose:hover { background: #fff; color: #0B2250; }
 .rcpScan { position: relative; width: min(100%, calc(52vh * var(--rcp-ratio, 0.707))); max-width: 100%; aspect-ratio: var(--rcp-ratio, 0.707);
