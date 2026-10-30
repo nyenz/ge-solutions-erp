@@ -55,7 +55,7 @@ function out([r, g, b], a) {
 }
 
 /** an accent: a strong colour that is neither very light nor very dark (tangerine, green, red, yellow, cyan, blue) */
-const isAccent = ([h, s, l]) => s > 0.5 && l > 0.3 && l < 0.72;
+const isAccent = ([h, s, l]) => s > 0.5 && l > 0.3 && l < 0.72 && !(h >= 200 && h <= 240 && l < 0.45);
 /** the GES navy family (head bands, navy text, navy hairlines) */
 const isNavy = ([h, s, l]) => h >= 200 && h <= 240 && l < 0.45;
 
@@ -99,7 +99,7 @@ export function makeMapper(opts = {}) {
 
     // selectors that sit on a solid accent (an orange tab, a green button): their text keeps its day colour
     const onAccent = new Set();
-    const key = (sel) => sel.trim().replace(/:(hover|focus|focus-visible|active)\b/g, '').replace(/\s+/g, ' ');
+    const key = (sel) => sel.trim().replace(/\s+/g, ' ');   // exact selector: a hover colour does not count
     const learn = (rule) => {
         rule.walkDecls(/^background/, (d) => {
             const cs = d.value.match(COLOR) || [];

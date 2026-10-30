@@ -549,6 +549,34 @@ input[type="search"]::-webkit-search-results-decoration {
     --sf-readout: #182F5C;
     --sf-navy-rgb: 23, 44, 87;
     --scroll-track: #13254A;
+    /* fix280: the page-title bar at night (the same values the generated skin gives _pageHeader_ in midnight.css) */
+    --night-head-bg: linear-gradient(180deg, #1A263F, #1B2842);
+    --night-head-line: rgba(174, 190, 224, 0.28);
+    --night-title: #DCE4F2;
+    --night-sub: #A6B1C8;
+    /* fix280: at night the "ink" that was written on light paper (navy text, navy hairlines) turns light, because the
+       paper itself turns dark (src/styles/midnight.css). The few places that PAINT with navy are set back below. */
+    --navy: #DCE4F2;
+    --brand-ink: #DCE4F2;
+    --brand-ink-rgb: 220, 228, 242;
+    --cream: #223253;
+}
+:root[data-theme="gesnavy"] [class*="_dark_HardwarePanel-module_"] {
+    background: linear-gradient(135deg, var(--sf-raise-1) 0%, var(--sf-raise-2) 50%, var(--sf-navy) 100%);
+}
+:root[data-theme="gesnavy"] [class*="_card_LoginPage-module_"] {
+    background: linear-gradient(165deg, var(--sf-raise-1) 0%, var(--sf-raise-2) 30%, var(--sf-navy) 70%);
+}
+:root[data-theme="gesnavy"] [class*="_logoInner_LoginPage-module_"],
+:root[data-theme="gesnavy"] [class*="_diagItem_AuditPage-module_"] { background: var(--sf-navy); }
+:root[data-theme="gesnavy"] [class*="_trendBarNow_Dashboard-module_"] {
+    background: linear-gradient(180deg, #4F8FE0 0%, var(--sf-raise-2) 100%);
+}
+:root[data-theme="gesnavy"] input[type="checkbox"] { background: var(--cream); }
+:root[data-theme="gesnavy"] input[type="checkbox"]::before { background: #0A1428; }   /* the tick stays dark on orange */
+/* paper is always printed in the day colours */
+@media print {
+    :root[data-theme="gesnavy"] { --navy: #1E4A8C; --brand-ink: #112F66; --brand-ink-rgb: 17, 47, 102; --cream: #F8EBD0; }
 }
 
 /* fix192: THE SLIDING PILL of a tab / filter bar (hooks/useTabMotion.js). The pill is one small box that moves behind
