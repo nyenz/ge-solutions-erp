@@ -22,10 +22,15 @@
   MIDNIGHT_HUE/SAT/BASE and the gesnavy block in index.css), fix281 payment words readable in CLASSIC/SLATE/MIDNIGHT + this list.
 - **Working with David:** load the skill `nyenz-app-design` first. One server step = ONE paste, say what he should see. He types
   secrets only in the server terminal. I cannot reach the server from the cloud box (port 22 blocked).
-- **Shipping a change:** section 2 below; next number **fix283**; commit trailers = the session's attribution reminder.
+- **Shipping a change:** section 2 below; next number **fix284**; commit trailers = the session's attribution reminder.
 
 ## THE FINISH LINE (everything left, in order). When all of A and B are ticked, the app is DONE and live.
-### A. David's own steps (no code; each one is short)
+### A. David's own steps -- STATUS 30 Oct 2026 (afternoon): DONE = 1 server updated (deploy.sh --force path found a bug, fixed in fix282), 2 upload test, 3 BACKUP ZIP saved,
+### 4 Google Drive locked copy working (scope drive.file, passphrase in his password manager), 5 restore test passed (copy = live: 1 user, 1 project, 22 tables),
+### 6 Netcup server panel passkey + phone code, Netcup customer panel phone code, phone app backup on (Gmail backup codes SKIPPED by David),
+### 7 UptimeRobot monitor Up, 10 MIDNIGHT A kept. SKIPPED BY DAVID: 8 April reminder, 9 optional extras, Part 3 test-data clean-up.
+### LEFT: 11 staff accounts and use the live app. David will go live now and report problems at the first real entry; do NOT ask him to repeat tests.
+### The original list (kept for reference):
 1. Update the server: `cd /opt/ges && git pull && bash infra/deploy.sh` (brings fix276-282; later just `bash /opt/ges/infra/deploy.sh`). fix282: deploy.sh now knows what is really RUNNING (`infra/.deployed-commit`), so a plain `git pull` first can no longer make it say "nothing new" (it did on 30 Oct and skipped the build).
 2. Test on the real site: make a client + project, upload a PDF and a photo, open them, delete one.
 3. Settings > BACKUP: save one ZIP to the computer and open START HERE.html.
