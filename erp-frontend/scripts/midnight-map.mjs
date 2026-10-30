@@ -68,12 +68,13 @@ export function makeMapper(opts = {}) {
         const hsl = toHsl(rgb);
         const [h, s, l] = hsl;
         if (l >= 0.6 && a < 0.6 && s < 0.3) return out(rgb, a);   // a see-through white wash (hover, glass) stays a wash
+        if (l >= 0.6 && l < 0.82 && s > 0.6) return out(rgb, a);   // a light accent (the top of an orange bar) stays
         if (l >= 0.6) {
             const nl = base + (1 - l) * 0.55;   // darker by day = lighter by night
             const warmOrGrey = s < 0.55 || (h >= 25 && h <= 65);
             return warmOrGrey ? out(fromHsl(hue, sat, nl), a) : out(fromHsl(h, Math.min(s, 0.5), nl), a);
         }
-        if (isNavy(hsl)) return out(fromHsl(hue, Math.max(sat, Math.min(s, 0.7)), l * 0.62), a);   // head bands: deeper
+        if (isNavy(hsl)) return out(fromHsl(hue, sat >= 0.42 ? Math.max(sat, Math.min(s, 0.7)) : sat + 0.08, l * 0.62), a);   // head bands: deeper
         return out(rgb, a);   // accents and mid colours stay
     };
     const text = (rgb, a) => {
