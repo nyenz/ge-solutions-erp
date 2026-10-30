@@ -108,7 +108,7 @@ const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
             } catch { /* ignore */ }
         }, [director.token, JSON.stringify({ ...director.user, showGuide: false })]);
         const page = await ctx.newPage();
-        for (const p of ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'land/new', 'payments', 'recovery', 'clients', 'reports', 'settings'].filter(Boolean)) {
+        for (const p of ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'land/new', 'payments', 'recovery', 'clients', 'financials', 'audit', 'reports', 'settings', clientId && 'client/' + clientId].filter(Boolean)) {
             try {
                 await page.goto(WEB + '/' + p, { waitUntil: 'networkidle', timeout: 45000 });
                 await page.addStyleTag({ content: css });
@@ -116,6 +116,24 @@ const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
                 await page.waitForTimeout(1200);
                 await page.screenshot({ path: OUT + '/midnight' + name + '-' + p.replace(/[/#]/g, '_').replace(/_[0-9a-f-]{36}/, '') + '.png' });
             } catch (e) { note('[midnight ' + name + ' ' + p + '] FAILED ' + e.message); }
+        }
+        await ctx.close();
+    }
+    {   // MIDNIGHT A on a phone
+        const ctx = await browser.newContext({ viewport: SIZES.phone || { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+        await ctx.addInitScript(([t, u]) => {
+            try {
+                localStorage.setItem('gs_token', t); localStorage.setItem('gs_user', u);
+                localStorage.setItem('goldenseed.prefs.v1.' + JSON.parse(u).username.toLowerCase(), JSON.stringify({ theme: 'gesnavy' }));
+            } catch { /* ignore */ }
+        }, [director.token, JSON.stringify({ ...director.user, showGuide: false })]);
+        const page = await ctx.newPage();
+        for (const p of ['dashboard', 'land/projects', projectId && 'folder/' + projectId, 'payments'].filter(Boolean)) {
+            try {
+                await page.goto(WEB + '/' + p, { waitUntil: 'networkidle', timeout: 45000 });
+                await page.waitForTimeout(1200);
+                await page.screenshot({ path: OUT + '/midnightA-phone-' + p.replace(/[/#]/g, '_').replace(/_[0-9a-f-]{36}/, '') + '.png' });
+            } catch (e) { note('[midnight phone ' + p + '] FAILED ' + e.message); }
         }
         await ctx.close();
     }
