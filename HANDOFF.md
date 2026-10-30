@@ -1,34 +1,65 @@
 # HANDOFF -- GE SOLUTIONS ERP ("Golden Seed")
-# Written 19 Oct 2026, at the end of a long chat, so a NEW chat can carry on with no gaps.
+# Written 19 Oct 2026; final state and finish line added 30 Oct 2026 (fix281). A NEW chat can carry on with no gaps.
 # Read this file first, then LLM_CONTEXT_GUIDE.md (the full guide, kept up to date with every fix).
 
-# ===== CURRENT STATE, 30 Oct 2026 (newer than everything below: read this first) =====
-- **The app now runs on David's own Netcup VPS** (Debian 13, 4 GB, 80 GB) at **https://ges-erp.duckdns.org** (IP 62.83.77.55).
-  Everything lives in `infra/` and the guide's section 18: `server-setup.sh` (one time), `deploy.sh` (clone/update + build +
-  start), `docker-compose.prod.yml` (db, backend, frontend, Caddy = HTTPS; only ports 80 and 443 open), `nightly-backup.sh`
-  + `setup-backups.sh` (02:00 copy, 14 days, plus the documents), `setup-offsite.sh` (locked nightly copy to Google Drive via
-  rclone crypt, David runs it once), `restore-test.sh` (proves a copy restores), `restore-backup.sh` (EMERGENCY restore).
-- **The new database is FRESH and EMPTY** (David's choice: no copy from Neon). Root login = `admin_root`; its first key was made on
-  the server (`infra/.env`) and David changed it at first sign-in. Secrets live only in `/opt/ges/infra/.env` on the server.
-- **Documents are saved on the server's own disk** (`GE_SOLUTIONS_STORAGE=local`, `LocalStorageServiceImpl`, `VaultController`,
-  login needed to open). Render keeps Cloudinary (the default when the setting is absent).
-- **Render + Neon still run as the PRACTICE copy** with the old test data. They are switched off at go-live. Render rebuilds by
-  itself on every merge; the Netcup server changes only when David runs `bash /opt/ges/infra/deploy.sh` (quiet hour, tell staff).
-- **I cannot reach the server from the cloud box** (port 22 is blocked). David pastes the one command each time; keep every
-  server step to ONE paste and say what he should see afterwards. David types secrets only in the server terminal, never in chat.
-- **Shipping a change** is the same as section 2 below, except: the next number is **fix281** (fix269-fix277 were the Netcup
-  work, the safe update, the guide match and the fix278 cleanup + DEMO setting), commit trailers are whatever the session's attribution reminder says (not the Opus line in section 2), and after
-  merge David updates the server.
-- **David's rules for the next chat:** load the saved skill `nyenz-app-design` first (his design and working rules).
-- **Open, in this order:** (1) David tests uploads + the BACKUP button on the new site; (2) David runs `setup-offsite.sh` (Google
-  Drive); (3) David's own safety jobs: Netcup passkey, Gmail backup codes, UptimeRobot alert, reminder for mid-April 2027
-  (the Netcup contract renews by itself, card saved); (4) repo cleanup DONE (fix278); FRESH START + DEMO strip only on the demo DONE (fix278); still open: make the repo private (David checks in Render that it can still read it). Render + Neon STAY as the demo. ASK FIRST for anything else. (5) Only if he wants: email recovery for the root key (free: Gmail or a free mail
-  relay, after removing the "netcup Mail Block" policy in the Netcup panel), the "update tonight" banner, MIDNIGHT dark theme (DONE, fix280; if David picks option B or C, change only the colour values in the index.css gesnavy block), his own domain. ADMIN_RESET_ONCE=true in `infra/.env` + `deploy.sh` is the
-  emergency way back in for root (remove the line afterwards).
-- **PERMANENT RULE (David): no update may ever break the app or lose data** (guide section 13). `deploy.sh` now takes a safety copy first, checks health and rolls back by itself; `rollback.sh` is the one-line undo. Never weaken it. Data changes: additive only, David's yes + trial on a copy.
-- **Owner email recovery was built in fix279** (code in the guide section 5 'Key recovery'). It is OFF until David (1) removes the 'netcup Mail Block' policy in the Netcup panel, (2) runs `cd /opt/ges && git pull && bash infra/deploy.sh` then `bash infra/setup-mail.sh` (types a Gmail address + app password in the server terminal), (3) signs in as admin_root and sets Settings > Security > Recovery email. The backend code was verified only by GitHub CI (no Maven offline).
-- **The guide was matched to the live app in fix277** (current-state box at the top, section 10 deploy steps, SUPERSEDED notes on fix.py / Cloudinary / Hetzner / go-live list). Keep it true: every fix updates it, code wins.
-# ===== END CURRENT STATE =====
+# ===== FINAL STATE AND FINISH LINE, 30 Oct 2026 (newer than everything below: read this first) =====
+## Where things stand
+- **REAL app:** David's own Netcup VPS (Debian 13, 4 GB, 80 GB) at **https://ges-erp.duckdns.org** (IP 62.83.77.55). Docker:
+  db + backend + frontend + Caddy (HTTPS). Everything is in `infra/` and guide section 18. Fresh, empty database (David's
+  choice). Root login `admin_root` (David changed its key). Secrets only in `/opt/ges/infra/.env` on the server.
+- **DEMO app:** Render + Neon + Cloudinary with the old test data; shows a DEMO strip; FRESH START exists only there. It
+  rebuilds by itself on every merge. It stays as the practice copy.
+- **Documents** on the server disk (`GE_SOLUTIONS_STORAGE=local`, `VaultController`, login needed).
+- **Backups:** nightly 02:00 on the server (14 days + documents); locked Google Drive copy once David runs `setup-offsite.sh`;
+  root-only BACKUP button (ZIP or folder) in Settings; `restore-test.sh` / `restore-backup.sh`.
+- **Updates (SAFE UPDATE, fix276):** merge to main (checks green), then on the server `bash /opt/ges/infra/deploy.sh`: safety copy
+  first, build, health checks, automatic rollback. Undo: `bash /opt/ges/infra/rollback.sh`.
+- **PERMANENT RULE (David): no update may ever break the app or lose data** (guide section 13). Never weaken deploy.sh.
+  Data changes additive only; anything else needs David's yes and a trial on a copy.
+- **Built this week:** fix269-275 server move, fix276 safe update, fix277 guide matches the app, fix278 cleanup + DEMO strip,
+  fix279 owner key recovery by email (off until set up), fix280 MIDNIGHT theme (replaces GES NAVY; version A in the app,
+  David may still pick B or C on the comparison page -- then only the colour values change: `scripts/build-gesday.mjs` with
+  MIDNIGHT_HUE/SAT/BASE and the gesnavy block in index.css), fix281 payment words readable in CLASSIC/SLATE/MIDNIGHT + this list.
+- **Working with David:** load the skill `nyenz-app-design` first. One server step = ONE paste, say what he should see. He types
+  secrets only in the server terminal. I cannot reach the server from the cloud box (port 22 blocked).
+- **Shipping a change:** section 2 below; next number **fix282**; commit trailers = the session's attribution reminder.
+
+## THE FINISH LINE (everything left, in order). When all of A and B are ticked, the app is DONE and live.
+### A. David's own steps (no code; each one is short)
+1. Update the server once: `cd /opt/ges && git pull && bash infra/deploy.sh` (brings fix276-281; later just `bash /opt/ges/infra/deploy.sh`).
+2. Test on the real site: make a client + project, upload a PDF and a photo, open them, delete one.
+3. Settings > BACKUP: save one ZIP to the computer and open START HERE.html.
+4. Google Drive copy: Part A on the PC (`rclone authorize "drive"`), Part B on the server `bash /opt/ges/infra/setup-offsite.sh`.
+5. Once some real data is in: `bash /opt/ges/infra/restore-test.sh` (proves the backup really restores).
+6. Phone safety: Netcup passkey or second login, Gmail backup codes, authenticator backup.
+7. UptimeRobot (free) alert on https://ges-erp.duckdns.org.
+8. Reminder for mid-April 2027: Netcup contract renews by itself unless cancelled 31+ days before the end.
+9. Optional: owner email recovery (remove "netcup Mail Block" in the Netcup panel, `bash infra/setup-mail.sh`, then
+   Settings > Security > Recovery email). Optional: make the GitHub repo private (then check Render still deploys).
+10. Pick MIDNIGHT A, B or C (A is already in).
+11. Staff accounts on the real app, then a last walk-through by David before real data goes in.
+
+### B. Build work still open from the old review (docs/APP_REVIEW.md section 4, checked against the code on 30 Oct)
+Must do before real client data (small, safe, additive):
+- B1 **Archive for deleted documents, notes and expenses, 90 days, a Director can restore** (Q5 = A; today only whole
+  projects go to the Archive). medium.
+- B2 **Ask before SUSPEND** on Settings > Staff (today one tap suspends; P10). small.
+- B3 **One date style and one money style** everywhere (P23/P24: Expenses still shows the device style "10/30/2026, 7:18 AM"). medium.
+- B4 **Invoice and contract numbers on Payments rows and the client page project table** (16b). small.
+- B5 **Server refuses to start with the public fallback secrets** when demo data is off (S04/S05). The real server already has
+  strong secrets, so this is a guard for the future. small.
+Can wait until after go-live (only if David wants them):
+- B6 Special Projects with their own goals and CLOSE PROJECT (Q4, section 5.1) -- only when the first special job comes. big.
+- B7 Place-name suggestions for the Employee (P33). small.
+- B8 A screen for the master stage lists (P32). medium.
+- B9 The remaining server tidy-ups S06-S28 (stage chart movement, double-send guards, extra checks and audit lines) -- re-check
+  each in the final walk-through; most were covered by fix190-fix241, fix only what still shows.
+Dropped (recommend NOT doing): the deep Stage/Status rename in the database (users never see it, and renaming tables risks the
+data -- against the permanent rule). Already done, removed from the list: hosting move, private files, Employee edits own
+Pending entry, Secretary rights, date typing in the calendar, error sentences, field errors, popups with one X, explainers.
+
+### C. Ideas only (not promised): "update tonight" banner for staff, his own domain name, SSH key login to the server.
+# ===== END FINAL STATE =====
 
 ## 1. Who you are working with
 - **David (Nyenz)**, the owner of the repo `nyenz/ge-solutions-erp`. He calls himself a beginner, not a professional.

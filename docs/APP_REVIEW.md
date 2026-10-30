@@ -198,6 +198,8 @@ this matters before real client data goes in.
 
 ## 4. CORRECTIONS STILL TO DO
 
+> **fix281 (30 Oct 2026): this list was checked against the code. What is left is now the FINISH LINE list in HANDOFF.md (part B). Read that one; the tables below are kept as history.**
+
 Ranked: most important first. Size: **small** = under an hour, **medium** = a few hours, **big** = a day or more.
 
 ### A. Answered by David on 6 Oct 2026 -- now ordinary work (needs the server, checked by GitHub)
