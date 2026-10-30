@@ -1,0 +1,124 @@
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+2026-10-30T09:06:45.258+03:00  INFO 2554 --- [ge-solutions-erp] [           main] c.gesolutions.erp.ErpBackendApplication  : Starting ErpBackendApplication v1.0.0-PROD using Java 17.0.21 with PID 2554 (/home/runner/work/ge-solutions-erp/ge-solutions-erp/erp-backend/target/erp-backend-1.0.0-PROD.jar started by runner in /home/runner/work/ge-solutions-erp/ge-solutions-erp/erp-backend)
+2026-10-30T09:06:45.263+03:00  INFO 2554 --- [ge-solutions-erp] [           main] c.gesolutions.erp.ErpBackendApplication  : The following 1 profile is active: "test"
+2026-10-30T09:06:46.538+03:00  INFO 2554 --- [ge-solutions-erp] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-30T09:06:46.650+03:00  INFO 2554 --- [ge-solutions-erp] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 104 ms. Found 18 JPA repository interfaces.
+2026-10-30T09:06:47.335+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-10-30T09:06:47.365+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-30T09:06:47.365+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-10-30T09:06:47.402+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-10-30T09:06:47.404+03:00  INFO 2554 --- [ge-solutions-erp] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2027 ms
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+2026-10-30T09:06:47.481+03:00  INFO 2554 --- [ge-solutions-erp] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-30T09:06:47.668+03:00  INFO 2554 --- [ge-solutions-erp] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:playwrightdb user=SA
+2026-10-30T09:06:47.669+03:00  INFO 2554 --- [ge-solutions-erp] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-30T09:06:47.763+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-10-30T09:06:47.806+03:00  INFO 2554 --- [ge-solutions-erp] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-10-30T09:06:47.833+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-10-30T09:06:48.035+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-30T09:06:48.060+03:00  WARN 2554 --- [ge-solutions-erp] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-10-30T09:06:49.398+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-30T09:06:49.484+03:00  INFO 2554 --- [ge-solutions-erp] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-30T09:06:49.936+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-30T09:06:52.000+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@1acfd193, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@1e43d40b, org.springframework.security.web.context.SecurityContextHolderFilter@58e28efd, org.springframework.security.web.header.HeaderWriterFilter@eee041a, org.springframework.web.filter.CorsFilter@8ba7408, org.springframework.security.web.authentication.logout.LogoutFilter@3d9cbe5d, com.gesolutions.erp.config.JwtAuthenticationFilter@1ae69abe, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@6a0ce603, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@361c3c1, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@444379eb, org.springframework.security.web.session.SessionManagementFilter@6b20a25, org.springframework.security.web.access.ExceptionTranslationFilter@61a309fe, org.springframework.security.web.access.intercept.AuthorizationFilter@57ba665f]
+2026-10-30T09:06:52.266+03:00  INFO 2554 --- [ge-solutions-erp] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-10-30T09:06:52.369+03:00  INFO 2554 --- [ge-solutions-erp] [           main] c.gesolutions.erp.ErpBackendApplication  : Started ErpBackendApplication in 7.659 seconds (process running for 8.408)
+>>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...
+>>> [DB_SCHEMA] Skipped: Syntax error in SQL statement "[*]DO $$ DECLARE c record; BEGIN FOR c IN SELECT con.conname FROM pg_constraint con JOIN pg_class t ON t.oid = con.conrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(con.conkey) WHERE t.relname = 'land_titles' AND con.contype = 'u' AND a.attname = 'plot_number' AND array_length(con.conkey, 1) = 1 LOOP EXECUTE 'ALTER TABLE land_titles DROP CONSTRAINT ' || quote_ident(c.conname); END LOOP; END $$"; expected "DELETE, DROP"; SQL statement:
+DO $$ DECLARE c record; BEGIN FOR c IN SELECT con.conname FROM pg_constraint con JOIN pg_class t ON t.oid = con.conrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(con.conkey) WHERE t.relname = 'land_titles' AND con.contype = 'u' AND a.attname = 'plot_number' AND array_length(con.conkey, 1) = 1 LOOP EXECUTE 'ALTER TABLE land_titles DROP CONSTRAINT ' || quote_ident(c.conname); END LOOP; END $$ [42001-224]
+>>> [DB_SCHEMA] Skipped: Syntax error in SQL statement "[*]DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$"; expected "DELETE, DROP"; SQL statement:
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$ [42001-224]
+>>> [STATUS_TEMPLATE] Seeded 11 default statuses for Fresh Survey.
+>>> [STATUS_TEMPLATE] Seeded 8 default statuses for Subdivision.
+>>> [STATUS_TEMPLATE] Seeded 2 default statuses for Legacy Titles.
+>>> [STATUS_TEMPLATE] Seeded 4 default statuses for Transfer of Title.
+>>> [STATUS_TEMPLATE] Seeded 3 default statuses for Boundary Opening.
+>>> [STATUS_TEMPLATE] Seeded 3 default statuses for Topographic Survey.
+>>> [STATUS_TEMPLATE] Seeded 9 default statuses for Resurvey.
+>>> [STATUS_TEMPLATE] Seeded 6 default statuses for Special Projects.
+>>> [SCENARIO] Old seed rows removed (0 seed people, 0 seed projects).
+2026-10-30T09:06:54.168+03:00  INFO 2554 --- [ge-solutions-erp] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-30T09:06:54.168+03:00  INFO 2554 --- [ge-solutions-erp] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-30T09:06:54.170+03:00  INFO 2554 --- [ge-solutions-erp] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+>>> [LOGIC_FAULT]: IDENTIFICATION_FAILED: Wrong username or key.
+>>> [SCENARIO] Dataset v7 seeded (154 projects, 200 people, 151 expenses).
+>>> [SEED] demo invoice / contract numbers added to 148 project(s)
+>>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.
+2026-10-30T09:06:55.468+03:00  INFO 2554 --- [ge-solutions-erp] [           main] c.g.e.modules.land.service.TimelineJobs  : [TIMELINE] back-fill done: 248 line(s) copied from the audit trail
+2026-10-30T09:07:30.826+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-6] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:07:35.729+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-4] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:07:39.060+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-8] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:07:42.756+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-1] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:05.286+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-4] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:18.583+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-7] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:21.699+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-6] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:24.962+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:46.627+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-1] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:56.609+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:08:59.575+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-8] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:09:15.588+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-6] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:09:25.498+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:09:28.636+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:09:44.490+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:09:54.154+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:09:57.282+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:10:00.652+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:10:20.119+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:10:23.343+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:10:26.427+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:17.405+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:20.056+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:22.861+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-1] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:39.225+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:51.218+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-1] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:54.116+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-4] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:11:56.842+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:12:13.959+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:12:26.108+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-8] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:12:29.152+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:12:32.020+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:12:50.230+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:01.570+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-7] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:03.787+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-1] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:11.973+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-6] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:14.967+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:17.570+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:36.710+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-8] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:45.835+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:48.602+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:13:51.201+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:11.270+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:17.350+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:31.520+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:35.023+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-6] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:38.525+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:41.884+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:45.350+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-4] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:48.601+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-6] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:51.985+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:55.752+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:14:59.121+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-7] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:02.473+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:05.787+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-5] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:09.171+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-7] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:12.841+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:16.545+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:19.821+03:00  WARN 2554 --- [ge-solutions-erp] [io-8080-exec-10] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:23.500+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-8] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:15:58.110+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-8] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:16:05.858+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:16:17.043+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:16:45.970+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-2] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:16:49.449+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-1] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:16:52.676+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-9] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:17:00.318+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-3] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory
+2026-10-30T09:17:05.058+03:00  WARN 2554 --- [ge-solutions-erp] [nio-8080-exec-7] org.hibernate.orm.query                  : HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory

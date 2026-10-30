@@ -1,0 +1,10 @@
+notes step 3: could not press "ADD NOTE"
+notes step 3: nothing to highlight for "FOLLOW UP ON (OPTIONAL)"
+call step 3: could not press {"css":"button:has-text(\"CALL LOG\")"}
+call step 3: nothing to highlight for {"css":"label:has-text(\"HISTORY\")"}
+payment step 1: could not press "FINANCIALS"
+payment step 2: could not press "FINANCIALS"
+payment step 2: could not press "RECORD PAYMENT"
+payment step 3: could not press "FINANCIALS"
+payment step 3: nothing to highlight for "PAYMENT HISTORY"
+report step 3: could not press {"css":"button:has-text(\"Use This Report\")"}
