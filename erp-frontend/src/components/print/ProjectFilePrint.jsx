@@ -13,9 +13,10 @@ import GesMark from './GesMark';   // fix233: the real GES globe logo
 import { statusOf, moneyWordsOf, stagesOf, waitingFor } from '../../utils/projectStatus';
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';
+import { fmtDay, fmtMoney, fmtUgx } from '../../utils/format';   // fix284 (B3)
 
-const money = (n) => 'UGX ' + Number(n || 0).toLocaleString();
-const day = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+const money = fmtUgx;
+const day = fmtDay;
 const dash = (v) => (v === null || v === undefined || v === '' ? '—' : v);
 const PAY_WORD = { STANDARD: 'Payment', INITIAL_DEPOSIT: 'Deposit at intake', RECEIVABLE_PARTIAL: 'Payment (receivables)', REVERSAL: 'Reversal' };
 
@@ -189,7 +190,7 @@ export default function ProjectFilePrint({ project: p, stages, payments = [], do
                             <tbody>{payments.map((x, i) => (
                                 <tr key={x.id || i}><td>{dash(day(x.paidOn || x.timestamp))}</td><td>{PAY_WORD[x.paymentType] || x.paymentType}</td>
                                     <td>{x.allocation === 'STORAGE' ? 'Storage fees' : 'Title work'}</td><td>{dash(x.payerName)}</td><td>{methodLine(x.paymentMethod, x.paymentReference)}</td><td>{dash(x.recordedBy)}</td>
-                                    <td className={`${s.right} ${s.mono}`}>{Number(x.amountPaid || 0).toLocaleString()}</td></tr>
+                                    <td className={`${s.right} ${s.mono}`}>{fmtMoney(x.amountPaid)}</td></tr>
                             ))}</tbody>
                         </table>
                     ) : null /* fix227: no payments = no empty line; the totals below say Paid UGX 0 */}

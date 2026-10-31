@@ -11,15 +11,16 @@
 */
 import { projectTypeOf } from '../../constants/projectTypes.js';
 import { methodLabel } from '../../utils/paymentMethods.js';   // fix214
+import { fmtDay, fmtUgx } from '../../utils/format.js';   // fix284 (B3)
 
 /* ── value helpers ───────────────────────────────────────────────── */
 export const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
-export const fmtMoney = (v) => 'UGX ' + num(v).toLocaleString();
-export const fmtNum = (v) => num(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
-export const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '---');
+export const fmtMoney = (v) => fmtUgx(num(v));
+export const fmtNum = (v) => num(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+export const fmtDate = (v) => (v ? fmtDay(v) || '---' : '---');
 const daysSince = (v) => {
   if (!v) return null;
   const t = new Date(v).getTime();

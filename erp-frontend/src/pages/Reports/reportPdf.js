@@ -1,3 +1,4 @@
+import { fmtDayTime } from '../../utils/format.js';   // fix284 (B3)
 // PATH: erp-frontend/src/pages/Reports/reportPdf.js
 // fix217 (David: "a significant blunder on the PDF downloads of the Reports page"). The old export drew the table from
 // the TOP of the first page, so its dark heading band and rows landed on top of the cover and the chart; the chart was
@@ -227,7 +228,7 @@ export async function writeReportPdf(opts) {
             doc.setTextColor(255, 255, 255); doc.setFontSize(9);
             doc.text(plain(opts.scopeLine), tx, 58);
             doc.setTextColor(203, 213, 225); doc.setFontSize(8);
-            doc.text('Generated ' + plain(new Date().toLocaleString()), tx, 70);
+            doc.text('Generated ' + plain(fmtDayTime(new Date())), tx, 70);
         }
     };
     band(false);

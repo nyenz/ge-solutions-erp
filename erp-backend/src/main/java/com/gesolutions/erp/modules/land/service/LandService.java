@@ -47,6 +47,7 @@ public class LandService {
     private final ProjectNeighborRepository neighborRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
+    private final com.gesolutions.erp.modules.archive.service.ArchiveService archiveService;   // fix284 (B1)
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -1603,7 +1604,8 @@ public class LandService {
         if (docProject != null && docProject.getLandTitle() != null && docProject.getLandTitle().isReleased()) {
             throw new BusinessException("DOCUMENT_LOCKED: The title has been handed over, so its documents cannot be deleted. A director must UNDO the hand-over first.");
         }
-        fileStorageService.deleteFile(doc.getFilePath());
+        // fix284 (B1): the document goes to the Archive for 90 days and its FILE is kept until then (no deleteFile here)
+        archiveService.keepDocument(doc, docProject == null ? null : plotLabel(docProject), reason);
         documentRepository.delete(doc);
         auditService.logActionAfterCommit("DOCUMENT_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName()

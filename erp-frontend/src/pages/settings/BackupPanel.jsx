@@ -12,6 +12,7 @@ import settingsService from '../../services/settingsService';
 import { buildBackup, backupFolderName, daysSince, BACKUP_DUE_DAYS } from '../../utils/backup';
 import { fetchDocBytes } from '../../utils/docFile';
 import styles from './BackupPanel.module.css';
+import { fmtDay } from '../../utils/format';   // fix284 (B3)
 
 const canPickFolder = () => typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
 
@@ -118,7 +119,7 @@ export default function BackupPanel() {
             <div className={`${styles.lastLine} ${due ? styles.lastDue : ''}`} role="status">
                 {due ? <FiAlertTriangle aria-hidden="true" /> : <FiCheckCircle aria-hidden="true" />}
                 <span>{last === undefined ? 'Checking the last backup...' : last === null ? 'No backup has been made yet.'
-                    : `Last backup: ${new Date(last).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + ' days ago'}).`}</span>
+                    : `Last backup: ${fmtDay(new Date(last))} (${ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + ' days ago'}).`}</span>
             </div>
 
             <div className={styles.choices} role="radiogroup" aria-label="How to save the backup">

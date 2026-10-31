@@ -120,14 +120,14 @@ const AuditPage = () => {
                 const data = await auditService.searchForensics(serverFilters, pg, 200);
                 total = data.totalElements || 0;
                 all.push(...(data.content || []));
-                setExporting(`Preparing ${all.length.toLocaleString()} of ${total.toLocaleString()}...`);
+                setExporting(`Preparing ${all.length.toLocaleString('en-US')} of ${total.toLocaleString('en-US')}...`);
                 if (data.last !== false || (data.content || []).length === 0) break;
             }
             const rows = all.map(l => [plainStamp(l.timestamp), l.performedBy, l.action, friendlyAction(l.action), l.details || '']);
             downloadCSV('GOLDEN_SEED_AUDIT_' + new Date().toISOString().slice(0, 10) + '.csv',
                 toCSV(['TIME', 'OPERATOR', 'CODE', 'ACTION', 'DETAILS'], rows));
             auditService.logExport({ ...serverFilters, group: filters.group || ALL_ACTIONS, action: filters.action || '' }, all.length);
-            setExporting(total > all.length ? `Exported the newest ${all.length.toLocaleString()} of ${total.toLocaleString()} rows (the limit).` : '');
+            setExporting(total > all.length ? `Exported the newest ${all.length.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} rows (the limit).` : '');
         } catch (e) {
             setExporting('Export failed: ' + cleanMessage(e.message));   // fix205
         }
@@ -153,7 +153,7 @@ const AuditPage = () => {
                 <div className={styles.diagHUD}>
                     <div className={styles.diagItem}>
                         <FiDatabase aria-hidden="true" />
-                        <span>{meta.total === 0 ? 'NO MATCHES' : <>SHOWING <strong>{firstShown.toLocaleString()} to {lastShown.toLocaleString()}</strong> OF <strong>{meta.total.toLocaleString()}</strong></>}</span>
+                        <span>{meta.total === 0 ? 'NO MATCHES' : <>SHOWING <strong>{firstShown.toLocaleString('en-US')} to {lastShown.toLocaleString('en-US')}</strong> OF <strong>{meta.total.toLocaleString('en-US')}</strong></>}</span>
                     </div>
                 </div>
                 <HeaderActions>
@@ -221,7 +221,7 @@ const AuditPage = () => {
                         <FiFilter aria-hidden="true" /> RESET FILTERS
                     </button>
                     <button className={styles.resetBtn} onClick={exportAll} disabled={meta.total === 0 || (exporting && exporting.startsWith('Preparing'))} aria-label="Export every matching row to CSV">
-                        <FiDownloadCloud aria-hidden="true" /> EXPORT CSV ({meta.total.toLocaleString()})
+                        <FiDownloadCloud aria-hidden="true" /> EXPORT CSV ({meta.total.toLocaleString('en-US')})
                     </button>
                 </div>
             </div>
@@ -304,7 +304,7 @@ const AuditPage = () => {
                     <button className={styles.pgBtn} disabled={page === 0 || loading} onClick={() => setPage(p => Math.max(0, p - 1))} aria-label="Newer lines">
                         <FiChevronLeft aria-hidden="true" /> NEWER
                     </button>
-                    <span className={styles.pageLabel} aria-current="page">PAGE {meta.totalPages === 0 ? 0 : page + 1} OF {meta.totalPages.toLocaleString()}</span>
+                    <span className={styles.pageLabel} aria-current="page">PAGE {meta.totalPages === 0 ? 0 : page + 1} OF {meta.totalPages.toLocaleString('en-US')}</span>
                     <button className={styles.pgBtn} onClick={() => setPage(p => p + 1)} disabled={meta.last || loading} aria-label="Older lines">
                         OLDER <FiChevronRight aria-hidden="true" />
                     </button>

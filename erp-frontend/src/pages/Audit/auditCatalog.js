@@ -143,6 +143,8 @@ export const ACTION_GROUPS = [
         actions: [
             { code: 'DOCUMENT_UPLOADED', label: 'Document uploaded', severity: 'low'  },
             { code: 'DOCUMENT_DELETED',  label: 'Document deleted',  severity: 'high' },
+            { code: 'ARCHIVE_RESTORED',  label: 'Deleted item restored', severity: 'high' },   // fix284 (B1)
+            { code: 'ARCHIVE_PURGED',    label: 'Archive cleaned (90 days)', severity: 'low' },   // fix284 (B1)
             { code: 'DOCUMENT_CATEGORY_ADDED', label: 'Document category added', severity: 'low' },
             { code: 'REPORT_EXPORT',     label: 'Report exported',   severity: 'low'  },
             { code: 'AUDIT_EXPORT',      label: 'Audit trail exported', severity: 'med' },
@@ -203,7 +205,7 @@ export const codesOfGroup = (group) => (ACTION_GROUPS.find(g => g.group === grou
 /* fix181 (10.8, 13.0f): the explicit code lists of the COMPANY reports (one source of truth). */
 export const REPORT_CODES = {
     DELETIONS_RESTORES: ['RECORD_DELETED', 'RECORD_RESTORED', 'DOCUMENT_DELETED', 'NOTE_DELETED', 'EXPENSE_DELETED',
-        'RECOVERY_NOTE_DELETED', 'PAYMENT_REVERSED', 'PROJECT_PENDING_REJECTED'],
+        'RECOVERY_NOTE_DELETED', 'PAYMENT_REVERSED', 'PROJECT_PENDING_REJECTED', 'ARCHIVE_RESTORED'],
     STORAGE_OVERRIDES: ['RECEIVABLE_SETTINGS', 'FEES_REDUCED', 'FEES_WAIVED', 'FEES_CAPITALIZED', 'STORAGE_FEE_RESUMED',
         'RECEIVABLE_SET_ASIDE', 'STORAGE_FEES_ADJUSTED', 'STORAGE_RATE_CHANGED', 'RECEIVABLE_START_OVERRIDDEN'],
     STATUS_MOVES: ['STATUS_OVERRIDE', 'PROJECT_STATUS_CHANGED', 'PROJECT_STATUS_COST_UPDATED', 'PROJECT_STATUS_REMOVED',

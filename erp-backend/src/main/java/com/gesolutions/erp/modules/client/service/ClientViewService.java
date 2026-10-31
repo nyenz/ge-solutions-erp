@@ -58,6 +58,8 @@ public class ClientViewService {
         row.put("projectId", p.getId());
         row.put("index", p.getProjectIndex());
         row.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
+        row.put("invoiceNumber", p.getInvoiceNumber());     // fix284 (B4)
+        row.put("contractNumber", p.getContractNumber());   // fix284 (B4)
         row.put("district", p.getDistrict());
         row.put("subCounty", p.getSubCounty());
         row.put("projectType", ProjectType.of(p).name());

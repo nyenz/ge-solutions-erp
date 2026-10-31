@@ -19,6 +19,7 @@ import RetryButton from '../../components/common/RetryButton';
 import TabDock, { accentOf } from '../../components/common/TabDock';
 import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
+import { fmtDay, fmtMoney } from '../../utils/format';   // fix284 (B3)
 
 const matchesSearch = (c, term) => {
     if (!term) return true;
@@ -277,7 +278,7 @@ const ClientLedgerPage = () => {
                                         </td>
                                         <td>
                                             <div className={styles.stack}>
-                                                <span className={styles.ownerName}>{c.lastContact ? String(c.lastContact).slice(0, 10) : 'NEVER'}</span>
+                                                <span className={styles.ownerName}>{c.lastContact ? fmtDay(c.lastContact) : 'NEVER'}</span>
                                                 {(c.lastTone === 'POSITIVE' || c.lastTone === 'NEGATIVE') && (
                                                     <span className={`${styles.stackSub} ${c.lastTone === 'NEGATIVE' ? styles.toneTextNeg : styles.toneTextPos}`}>
                                                         {c.lastTag}
@@ -290,10 +291,10 @@ const ClientLedgerPage = () => {
                                             <td className={styles.moneyCell}>
                                                 <div className={styles.moneyRow}>
                                                     <span className={styles.debtLabel}>DEBT:</span>
-                                                    <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {owed.toLocaleString()}</span>
+                                                    <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {fmtMoney(owed)}</span>
                                                 </div>
                                                 {storageFees > 0 && (
-                                                    <div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees{storagePaid > 0 ? ' (UGX ' + storagePaid.toLocaleString() + ' paid)' : ''}</div>
+                                                    <div className={styles.feesLine}>+UGX {fmtMoney(storageFees)} storage fees{storagePaid > 0 ? ' (UGX ' + fmtMoney(storagePaid) + ' paid)' : ''}</div>
                                                 )}
                                                 <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
                                                     <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />

@@ -76,7 +76,8 @@ public class SystemAdminController {
         "expenses",
         "expense_presets",
         "status_templates",
-        "scenario_seed_flag"
+        "scenario_seed_flag",
+        "archived_items"          // fix284 (B1): deleted documents, notes, expenses (their files go with deleteAllFiles)
     );
 
     /** Tables the wipe never empties (see the class note). project_index_counter is reset to 000/A separately. */

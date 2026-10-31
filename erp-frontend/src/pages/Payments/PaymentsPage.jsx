@@ -28,12 +28,14 @@ import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
 import { roleFlags } from '../../utils/roles';
 import { PAY_METHODS, methodLabel } from '../../utils/paymentMethods';   // fix214
+import { invoiceText, contractText } from '../../utils/projectNumbers';   // fix284 (B4)
+import { fmtMoney, fmtDay as fmtDayShared, fmtTime as fmtTimeShared } from '../../utils/format';   // fix284 (B3)
 
-const fmt = (n) => Number(n || 0).toLocaleString();
+const fmt = fmtMoney;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 // one fixed format, read from the server's own text (no time-zone guessing): "05 Oct 2026"
-const fmtDay = (s) => { if (!s) return null; const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + ' ' + MONTHS[Number(m[2]) - 1] + ' ' + m[1] : null; };
-const fmtTime = (s) => { const m = String(s || '').match(/T(\d{2}):(\d{2})/); return m ? m[1] + ':' + m[2] : ''; };
+const fmtDay = (s) => fmtDayShared(s) || null;
+const fmtTime = fmtTimeShared;
 
 const TABS = [
     { key: 'ALL', label: 'ALL' },
@@ -396,6 +398,8 @@ const PaymentsPage = () => {
                                                 <td className="gsStickyCol">
                                                     <strong className={styles.plotNum}>#{pay.projectIndex || '---'}</strong>
                                                     <div className={styles.time}>{pay.projectTypeLabel || ''}{pay.plotNumber ? ' - plot ' + pay.plotNumber : ''}</div>
+                                                    {pay.invoiceNumber && <div className={styles.time} title="Invoice number">{invoiceText(pay.invoiceNumber)}</div>}
+                                                    {pay.contractNumber && <div className={styles.time} title="Contract number">{contractText(pay.contractNumber)}</div>}
                                                     {pay.deleted && <div className={`${styles.time} ${styles.bad}`}>Deleted project</div>}
                                                 </td>
                                                 <td className={styles.ownerCell}>{pay.clientName}{pay.payerPhone && <div className={styles.time}>{pay.payerPhone}</div>}</td>

@@ -104,7 +104,7 @@ export const EXPLAIN = {
     'APPEARANCE': 'How the app looks for you: theme, size, explainers, animation.',
     'SECURITY': 'Change your own key (password).',
     'STAFF': 'Staff accounts: add people, change ranks, suspend, new temporary keys.',
-    'ARCHIVE': 'Deleted projects. A Director can restore them.',
+    'ARCHIVE': 'Deleted projects, and documents, notes and expenses deleted in the last 90 days. A Director can restore them.',
     'DANGER ZONE': 'Wipe the app data. Admin only.',
     // ── table headings
     '#': 'Row number.',

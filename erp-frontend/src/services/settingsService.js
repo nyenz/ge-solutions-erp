@@ -18,6 +18,13 @@ const fail = (error) => {
 };
 
 const settingsService = {
+    // fix284 (B1): deleted documents, notes and expenses, kept 90 days (Director and Admin)
+    getArchivedItems: async () => {
+        try { return (await api.get('/archive/items')).data; } catch (e) { return fail(e); }
+    },
+    restoreArchivedItem: async (id) => {
+        try { return (await api.post(`/archive/items/${encodeURIComponent(id)}/restore`)).data; } catch (e) { return fail(e); }
+    },
     /** Own key change. Answers a fresh token and user (other devices are signed out). */
     changePersonalPassword: (oldPassword, newPassword) =>
         api.put('/profile/change-password', { oldPassword, newPassword }).then(r => r.data).catch(fail),

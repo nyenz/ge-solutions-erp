@@ -1,3 +1,4 @@
+import { fmtDay } from '../../utils/format';   // fix284 (B3)
 // PATH: erp-frontend/src/components/common/notificationCatalog.js
 /**
  * GOLDEN SEED -- NOTIFICATION CATALOG
@@ -200,7 +201,7 @@ export const relativeTime = (iso) => {
     if (secs < 3600)  return Math.floor(secs / 60) + ' min ago';
     if (secs < 86400) return Math.floor(secs / 3600) + ' hr ago';
     if (secs < 172800) return 'yesterday';
-    return new Date(iso).toLocaleDateString();
+    return fmtDay(new Date(iso));
 };
 
 // fix181 (21.9): the old FILTERS list was removed; the bell builds its own group chips from GROUPS.

@@ -52,6 +52,7 @@ public class ExpenseService {
        forensic record you go looking for; a notification is how a director
        finds out money left the office without being told in person. */
     private final NotificationService notificationService;
+    private final com.gesolutions.erp.modules.archive.service.ArchiveService archiveService;   // fix284 (B1)
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -205,6 +206,7 @@ public class ExpenseService {
     public void deleteExpense(UUID id, String reason) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));
+        archiveService.keepExpense(expense, reason);   // fix284 (B1): kept 90 days, a Director can restore it
         expenseRepository.delete(expense);
 
         auditService.logActionAfterCommit("EXPENSE_DELETED",

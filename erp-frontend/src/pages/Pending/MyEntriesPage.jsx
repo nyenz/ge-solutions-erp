@@ -10,10 +10,11 @@ import { waitingFor } from '../../utils/projectStatus';
 import styles from './Pending.module.css';
 import RetryButton from '../../components/common/RetryButton';
 import { FiAlertTriangle } from 'react-icons/fi';
+import { fmtDay } from '../../utils/format';   // fix284 (B3)
 
 const WAITING = waitingFor({ pending: true });   // fix185: one wording for every Pending entry
 
-const day = (v) => (v ? String(v).slice(0, 10) : '');
+const day = fmtDay;
 
 export default function MyEntriesPage() {
     const navigate = useNavigate();

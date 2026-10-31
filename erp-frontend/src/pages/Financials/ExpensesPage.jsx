@@ -32,8 +32,9 @@ import styles from './ExpensesPage.module.css';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText } from '../../utils/errorText';   // fix205
+import { fmtDayTime, fmtMoney } from '../../utils/format';   // fix284 (B3)
 
-const fmt = (n) => Number(n || 0).toLocaleString();
+const fmt = fmtMoney;
 const EDIT_WINDOW_HOURS = 24;
 
 const isStillEditable = (createdAt) => {
@@ -223,7 +224,7 @@ const ExpensesPage = () => {
         if (deletingId) return;
         askReason({
             title: 'DELETE EXPENSE', okLabel: 'DELETE', picks: DELETE_PICKS.EXPENSE,
-            message: `Delete the ${expense.category} entry of UGX ${fmt(expense.amount)}? This cannot be undone.`,
+            message: `Delete the ${expense.category} entry of UGX ${fmt(expense.amount)}? It goes to the Archive (Settings) for 90 days, where a Director can restore it.`,
             run: async (reason) => {
                 setDeletingId(expense.id);
                 try { await expenseService.remove(expense.id, reason); await loadAll(); toast('Entry deleted.', 'warn'); }
@@ -338,7 +339,7 @@ const ExpensesPage = () => {
                                 return (
                                     <tr key={e.id} className={`${styles.row} ${deletingId === e.id ? styles.rowBusy : ''}`}>
                                         <td className={styles.dateCell}>
-                                            {new Date(e.createdAt).toLocaleString()}
+                                            {fmtDayTime(e.createdAt)}
                                         </td>
                                         <td>
                                             <Tooltip label={GLOSSARY.CATEGORY}>
@@ -380,7 +381,7 @@ const ExpensesPage = () => {
                                                 )}
                                                 {isDirector && (
                                                     <IconButton
-                                                        tip="Delete this entry permanently (Directors only)"
+                                                        tip="Delete this entry (kept 90 days in the Archive; Directors only)"
                                                         icon={FiTrash2}
                                                         className={styles.deleteIconBtn}
                                                         onClick={() => handleDelete(e)}

@@ -207,7 +207,7 @@ export default function IntakePage() {
     const fixFeeBox = () => {
         if (monthlyStorageFee === '' || monthlyStorageFee === null || Number(monthlyStorageFee) > 0) return;
         setMonthlyStorageFee(systemFee > 0 ? String(systemFee) : '');
-        toast('Monthly Storage Fee must be more than 0, so the system default' + (systemFee > 0 ? ' (UGX ' + systemFee.toLocaleString() + ')' : '') + ' is used instead.', 'info');
+        toast('Monthly Storage Fee must be more than 0, so the system default' + (systemFee > 0 ? ' (UGX ' + systemFee.toLocaleString('en-US') + ')' : '') + ' is used instead.', 'info');
     };
 
     // fix180: each project type has its own status list. Legacy Titles arrive with every status done (the title exists);
@@ -1046,7 +1046,7 @@ export default function IntakePage() {
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
                                     <input type="number" className={styles.input} value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} onBlur={fixFeeBox} />
-                                    <p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it. 0 or less is not allowed and turns into the default.</p>
+                                    <p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString('en-US') : '...'}. Leave blank to use it. 0 or less is not allowed and turns into the default.</p>
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Storage Fees Already Paid</label>
@@ -1066,7 +1066,7 @@ export default function IntakePage() {
                                     <p className={styles.hint}>
                                         Optional. If this project was already unpaid before today, pick the day it went into receivables.{' '}
                                         {backlogMonths > 0
-                                            ? `${backlogMonths} month(s) x UGX ${backlogRate.toLocaleString()} = UGX ${backlogFees.toLocaleString()} backlog fees are added now. If you already typed those months into Initial Storage Fee, lower it so they are not counted twice.`
+                                            ? `${backlogMonths} month(s) x UGX ${backlogRate.toLocaleString('en-US')} = UGX ${backlogFees.toLocaleString('en-US')} backlog fees are added now. If you already typed those months into Initial Storage Fee, lower it so they are not counted twice.`
                                             : 'Fees are counted from that date. Empty = counted from today.'}
                                     </p>
                                 </div>
