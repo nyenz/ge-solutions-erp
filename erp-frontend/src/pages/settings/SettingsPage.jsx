@@ -74,6 +74,7 @@ const KEY_RULES = [
 // fix181 (15.4d): the same username rule as the server
 const USERNAME_RULE = /^[A-Za-z0-9._-]{3,30}$/;
 const fmtDateTime = fmtDayTime;
+const ITEM_WORD = { DOCUMENT: 'Document', NOTE: 'Note', EXPENSE: 'Expense' };   // fix284 (B1)
 const daysLeft = (d) => (d ? Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) : null);
 
 const SettingsPage = () => {
@@ -117,6 +118,7 @@ const SettingsPage = () => {
   const [wipeResult, setWipeResult] = useState(null);
   const [deleted, setDeleted] = useState(null); const [delLoading, setDelLoading] = useState(false); const [delError, setDelError] = useState('');
   const [delSearch, setDelSearch] = useState('');
+  const [items, setItems] = useState(null);   // fix284 (B1): deleted documents, notes and expenses
   const [restoreAsk, setRestoreAsk] = useState(null);   // { project, message } -- clash confirmation (14.7c)
 
   const loadOps = useCallback(async () => {
@@ -128,7 +130,10 @@ const SettingsPage = () => {
   const loadDeleted = useCallback(async () => {
     if (!isOwner) return;
     setDelLoading(true); setDelError('');
-    try { setDeleted(await landService.getDeletedProjects()); }
+    try {
+      const [projects, kept] = await Promise.all([landService.getDeletedProjects(), settingsService.getArchivedItems()]);
+      setItems(kept || []); setDeleted(projects);
+    }
     catch (e) { setDelError(errorText(e)); }   // fix181 (14.7b): a failed load is an error with Retry, not "nothing deleted"
     finally { setDelLoading(false); }
   }, [isOwner]);
@@ -215,6 +220,14 @@ const SettingsPage = () => {
       else { setRestoreAsk(null); toast(msg, 'error'); }
     }
   };
+  // fix284 (B1): put a deleted document, note or expense back
+  const restoreItem = async (it) => {
+    try {
+      await settingsService.restoreArchivedItem(it.id);
+      toast(`${ITEM_WORD[it.kind] || 'Item'} restored: ${it.label}`, 'success');
+      loadDeleted();
+    } catch (e) { toast(e.message, 'error'); }
+  };
   const rankClass = (r) => r === 'ROLE_ADMIN' ? styles.rankAdmin : r === 'ROLE_DIRECTOR' ? styles.rankDirector : r === 'ROLE_MANAGER' ? styles.rankManager : r === 'ROLE_SECRETARY' ? styles.rankSecretary : styles.rankEmployee;
   // a person can be managed here only when they rank below the one signed in (the server checks this too)
   const canManageOp = (op) => !op.root && rankOf(op.role) < flags.rank && op.username !== user?.username;
@@ -224,6 +237,12 @@ const SettingsPage = () => {
     if (!q) return true;
     return [p.projectIndex, p.plotLabel, p.district, p.projectType, p.reason, p.deletedBy, ...(p.clientNames || [])]
       .some(v => v && String(v).toLowerCase().includes(q));
+  });
+
+  const itemRows = (items || []).filter(it => {
+    const q = delSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [it.label, it.detail, it.reason, it.deletedBy, ITEM_WORD[it.kind]].some(v => v && String(v).toLowerCase().includes(q));
   });
 
   /* The dock: one tab on screen at a time. fix181 (15.6a): while the temporary key must be changed, ONLY Security.
@@ -236,7 +255,7 @@ const SettingsPage = () => {
       ...(isOwner ? [{ key: 'governance', label: 'STAFF', icon: FiShield, accent: 'green', count: ops === null ? '...' : ops.length }] : []),
       ...(user?.isRoot ? [{ key: 'backup', label: 'BACKUP', icon: FiHardDrive, accent: 'cyan', count: null }] : []),   // fix268: root only
       ...(flags.canWipe ? [{ key: 'danger', label: 'DANGER ZONE', icon: FiAlertTriangle, accent: 'red', count: null }] : []),
-      ...(isOwner ? [{ key: 'deleted', label: 'ARCHIVE', icon: FiArchive, accent: 'yellow', count: deleted === null ? '...' : deleted.length }] : []),
+      ...(isOwner ? [{ key: 'deleted', label: 'ARCHIVE', icon: FiArchive, accent: 'yellow', count: deleted === null ? '...' : deleted.length + (items || []).length }] : []),
     ];
   const activeTab = TABS.find(t => t.key === tab) || TABS[0];
   // fix183: the tab bar scrolls sideways on a narrow screen (it used to run off the edge: "D...")
@@ -510,6 +529,33 @@ const SettingsPage = () => {
                       {p.clientNames && p.clientNames.length > 0 && <p>Clients: {p.clientNames.join(', ')}</p>}
                       <p>Deleted {fmtDateTime(p.deletedAt)}{p.deletedBy ? ` by ${p.deletedBy}` : ''}.</p>
                       {p.reason && <p>Reason: {p.reason}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* fix284 (B1): deleted documents, notes and expenses, kept 90 days, then removed for good */}
+            {activeTab.key === 'deleted' && isOwner && !delLoading && !delError && items && (
+              <div className={styles.prefGroupBox}>
+                <div className={styles.prefGroupLabel}>Deleted documents, notes and expenses</div>
+                <p className={styles.hint}>Kept for 90 days, then removed for good. RESTORE puts the item back where it was.</p>
+                {itemRows.length === 0 && <p className={styles.hint}>{items.length === 0 ? 'Nothing deleted in the last 90 days.' : 'Nothing matches the search.'}</p>}
+                {itemRows.map(it => (
+                  <div key={it.id} className={styles.opCard} data-tone="yellow" style={{ marginBottom: 8 }}>
+                    <div className={styles.opHeader}>
+                      <div className={styles.opInfo}>
+                        <strong>{it.label}</strong>
+                        <span className={styles.rankManager}>{[ITEM_WORD[it.kind], it.detail].filter(Boolean).join(' · ')}</span>
+                      </div>
+                      <button type="button" className={styles.addOpBtn} data-tone="yellow" onClick={() => restoreItem(it)}
+                        title={`Put this ${String(ITEM_WORD[it.kind] || 'item').toLowerCase()} back`}>
+                        <FiRotateCcw aria-hidden="true" /> RESTORE
+                      </button>
+                    </div>
+                    <div className={styles.opDetails}>
+                      <p>Deleted {fmtDateTime(it.deletedAt)}{it.deletedBy ? ` by ${it.deletedBy}` : ''}. Removed for good in {it.daysLeft} day{it.daysLeft === 1 ? '' : 's'}.</p>
+                      {it.reason && <p>Reason: {it.reason}</p>}
                     </div>
                   </div>
                 ))}

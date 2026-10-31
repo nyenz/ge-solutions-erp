@@ -40,6 +40,7 @@ public class NoteService {
     private final TimelineService timeline;   // fix223
     private final com.gesolutions.erp.modules.client.repository.ClientRepository clientRepository;   // fix225
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;   // fix225
+    private final com.gesolutions.erp.modules.archive.service.ArchiveService archiveService;   // fix284 (B1)
 
     /** fix241: "ALL" (or nothing) = for everyone; "ME" = only for the person writing / pinning it. */
     public static String scope(String s) { return s != null && "ME".equalsIgnoreCase(s.trim()) ? "ME" : null; }
@@ -179,6 +180,9 @@ public class NoteService {
     @Transactional
     public void delete(UUID noteId, String reason) {
         FollowUpLog n = mine(noteId);
+        String where = n.getProjectId() == null ? null : projectRepository.findById(n.getProjectId())
+                .map(p -> "project #" + p.getProjectIndex()).orElse(null);
+        archiveService.keepNote(n, where, reason);   // fix284 (B1): kept 90 days, a Director can restore it
         noteRepository.delete(n);
         auditService.logActionAfterCommit("NOTE_DELETED", "Operator [" + AuditService.currentOperator() + "] deleted a note: "
                 + shortText(n.getNotes()) + com.gesolutions.erp.common.util.DeleteReason.tail(reason));

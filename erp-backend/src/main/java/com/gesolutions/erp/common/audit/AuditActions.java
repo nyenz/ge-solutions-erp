@@ -30,6 +30,8 @@ public final class AuditActions {
     public static final String DATA_WIPED = "DATA_WIPED";
     public static final String DOCUMENT_CATEGORY_ADDED = "DOCUMENT_CATEGORY_ADDED";
     public static final String DOCUMENT_DELETED = "DOCUMENT_DELETED";
+    public static final String ARCHIVE_RESTORED = "ARCHIVE_RESTORED";   // fix284 (B1)
+    public static final String ARCHIVE_PURGED = "ARCHIVE_PURGED";       // fix284 (B1)
     public static final String DOCUMENT_UPLOADED = "DOCUMENT_UPLOADED";
     public static final String EDIT_MODE_OPENED = "EDIT_MODE_OPENED";
     public static final String EXPENSE_DELETED = "EXPENSE_DELETED";
@@ -120,6 +122,8 @@ public final class AuditActions {
     /** Every code current server code may write. */
     public static final Set<String> ALL = Set.of(
             ACCESS_DENIED,
+            ARCHIVE_PURGED,
+            ARCHIVE_RESTORED,
             AUDIT_EXPORT,
             AUDIT_REPAIRED,
             AUTO_RECEIVABLE,

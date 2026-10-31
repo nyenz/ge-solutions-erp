@@ -119,7 +119,7 @@ const NotesTimeline = ({ scope = 'project', id, canWrite = true, refreshKey, onO
     };
     const askDelete = (r) => askReason({
         title: 'DELETE NOTE', okLabel: 'DELETE NOTE', picks: DELETE_PICKS.NOTE, noteKept: true,
-        message: 'Delete this note? The audit trail keeps its words.',
+        message: 'Delete this note? It goes to the Archive (Settings) for 90 days, where a Director can restore it.',
         run: async (reason) => { await timelineService.remove(r.id, reason); await load(); toast('Note deleted', 'warn'); },
     });
 

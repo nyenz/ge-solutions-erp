@@ -22,7 +22,7 @@
   MIDNIGHT_HUE/SAT/BASE and the gesnavy block in index.css), fix281 payment words readable in CLASSIC/SLATE/MIDNIGHT + this list.
 - **Working with David:** load the skill `nyenz-app-design` first. One server step = ONE paste, say what he should see. He types
   secrets only in the server terminal. I cannot reach the server from the cloud box (port 22 blocked).
-- **Shipping a change:** section 2 below; next number **fix284**; commit trailers = the session's attribution reminder.
+- **Shipping a change:** section 2 below; next number **fix285**; commit trailers = the session's attribution reminder.
 
 ## THE FINISH LINE (everything left, in order). When all of A and B are ticked, the app is DONE and live.
 ### A. David's own steps -- STATUS 30 Oct 2026 (afternoon): DONE = 1 server updated (deploy.sh --force path found a bug, fixed in fix282), 2 upload test, 3 BACKUP ZIP saved,
@@ -45,6 +45,7 @@
 11. Staff accounts on the real app, then a last walk-through by David before real data goes in.
 
 ### B. Build work still open from the old review (docs/APP_REVIEW.md section 4, checked against the code on 30 Oct)
+ALL FIVE DONE in fix284 (1 Nov 2026): B1 Archive tab in Settings lists deleted documents/notes/expenses (archived_items, 90 days, nightly purge 02:45), B2 SUSPEND asks first, B3 utils/format.js, B4 utils/projectNumbers.js, B5 config/StartupSecretGuard.java.
 Must do before real client data (small, safe, additive):
 - B1 **Archive for deleted documents, notes and expenses, 90 days, a Director can restore** (Q5 = A; today only whole
   projects go to the Archive). medium.

@@ -888,7 +888,7 @@ const FolderPage = () => {
     // fix223: deleting a document asks WHY; the reason goes to the audit log and the project's Notes
     const handleDeleteDoc = (docId, fileName) => askReason({
         title: 'DELETE DOCUMENT', okLabel: 'DELETE DOCUMENT', picks: DELETE_PICKS.DOCUMENT, noteKept: true,
-        message: 'Delete "' + fileName + '"? The file is removed from storage.',
+        message: 'Delete "' + fileName + '"? It goes to the Archive (Settings) for 90 days, where a Director can restore it.',
         run: async (reason) => { await landService.deleteDocument(docId, reason); await loadFolderData(); toast('Document removed', 'warn', 3000); },
     });
     // fix165/167: the payment and its receipt travel TOGETHER; the payer (one owner) and what it is for are recorded.
