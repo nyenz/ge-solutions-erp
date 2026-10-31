@@ -154,6 +154,8 @@
 .ledgerTable tbody tr.row:hover { background: rgba(var(--ink-rgb), 0.04); border-left-color: var(--orange); }
 .ledgerTable tbody tr.rowStatic td { color: rgba(var(--ink-rgb), 0.9); }
 .mono { font-family: 'Space Mono', monospace; }
+.indexStack { display: inline-flex; flex-direction: column; gap: 2px; }
+.numSub { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 600; color: rgba(var(--ink-rgb), 0.55); white-space: nowrap; }
 .moneyRed { color: var(--tx-red, #fca5a5); font-weight: 700; }
 .moneyGreen { color: var(--tx-green, #6ee7b7); font-weight: 700; }
 .openLink { font-size: 10px; font-weight: 900; letter-spacing: 1px; color: rgba(var(--ink-rgb), 0.35); white-space: nowrap; }

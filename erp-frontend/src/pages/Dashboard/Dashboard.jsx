@@ -25,11 +25,12 @@ import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
 import BackupReminder from '../../components/common/BackupReminder';   // fix268
 import { cached, remember } from '../../utils/pageCache';
+import { fmtDay, fmtDayTime, fmtMoney, fmtTime } from '../../utils/format';   // fix284 (B3)
 
-const fmt = (n) => Number(n || 0).toLocaleString();
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const day = (s) => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})T?(\d{2})?:?(\d{2})?/); return m ? m[3] + ' ' + MONTHS[Number(m[2]) - 1] + ' ' + m[1] + (m[4] ? ' ' + m[4] + ':' + m[5] : '') : ''; };
-const time = (s) => { const m = String(s || '').match(/T(\d{2}):(\d{2})/); return m ? m[1] + ':' + m[2] : ''; };
+const fmt = fmtMoney;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];   // month labels of the trend chart
+const day = fmtDayTime;
+const time = fmtTime;
 const typeLabel = (t) => String(t || '').replace(/_/g, ' ');
 /** UGX 271,730,000 -> 271.7M (the full figure stays in the tooltip) */
 const short = (n) => {
@@ -386,7 +387,7 @@ const Dashboard = () => {
                                     {(data.recentActivity || []).map(a => (
                                         <li key={a.id}>
                                             <Link to={'/audit?id=' + a.id} className={styles.event}>
-                                                <span className={styles.eventTime}>{time(a.timestamp)}<small>{day(a.timestamp).slice(0, 6)}</small></span>
+                                                <span className={styles.eventTime}>{time(a.timestamp)}<small>{fmtDay(a.timestamp).slice(0, -5)}</small></span>
                                                 <span className={styles.eventBody}>
                                                     <strong>{friendlyAction(a.action)}</strong>
                                                     <span className={styles.eventWho}><FiUsers aria-hidden="true" /> {a.performedBy}</span>

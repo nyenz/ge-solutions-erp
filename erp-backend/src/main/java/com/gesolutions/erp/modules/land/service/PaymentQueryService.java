@@ -121,6 +121,8 @@ public class PaymentQueryService {
             m.put("projectType", p == null ? null : ProjectType.of(p).name());
             m.put("projectTypeLabel", p == null ? null : ProjectType.of(p).getLabel());
             m.put("plotNumber", p == null || p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
+            m.put("invoiceNumber", p == null ? null : p.getInvoiceNumber());     // fix284 (B4)
+            m.put("contractNumber", p == null ? null : p.getContractNumber());   // fix284 (B4)
             m.put("deleted", p != null && p.isDeleted());
             m.put("amountPaid", r.getAmountPaid());
             m.put("paymentType", r.getPaymentType());
@@ -193,7 +195,7 @@ public class PaymentQueryService {
             String digits = t.replaceAll("[^0-9]", "");
             StringBuilder hay = new StringBuilder();
             for (String k : List.of("projectIndex", "plotNumber", "clientName", "payerPhone", "recordedBy", "notes", "projectTypeLabel",
-                    "paymentMethodLabel", "paymentReference")) {
+                    "paymentMethodLabel", "paymentReference", "invoiceNumber", "contractNumber")) {
                 Object v = m.get(k);
                 if (v != null) hay.append(v).append(' ');
             }

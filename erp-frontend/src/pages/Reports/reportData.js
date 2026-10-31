@@ -20,7 +20,7 @@ export * from './reportFields';
 const MAX_ROWS = 20000;
 const withNote = (rows, total, what) => {
   if (Number.isFinite(total) && total > rows.length) {
-    rows.note = `Showing the newest ${rows.length.toLocaleString()} of ${total.toLocaleString()} ${what}.`;
+    rows.note = `Showing the newest ${rows.length.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} ${what}.`;
   }
   return rows;
 };

@@ -22,6 +22,7 @@ import { statusOf, moneyWordsOf, hasPrice, MONEY_WORD } from '../../utils/projec
 import { GLOSSARY } from '../../components/common/glossary';
 
 // fix180: the clients (who pay, whom Recovery calls) are the people shown on the ledger; old rows fall back to the owners
+import { invoiceText, contractText } from '../../utils/projectNumbers';   // fix284
 const clientsOf = (proj) => ((proj.clients && proj.clients.length) ? proj.clients : (proj.proprietors || []));
 
 const matchesSearch = (proj, term, statuses) => {
@@ -294,8 +295,8 @@ const LedgerPage = () => {
                                                     {/* fix228 (David): the plot number right after the index (no line when there is none); no NIN here */}
                                                     {proj.landTitle?.plotNumber && <span className={styles.stackPlot} title="Plot number on the title">PLOT {proj.landTitle.plotNumber}</span>}
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
-                                                    {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">{/^INV/i.test(proj.invoiceNumber) ? '' : 'INV '}{proj.invoiceNumber}</span>}
-                                                    {proj.contractNumber && <span className={styles.stackSub} title="Contract number">{/^(CON|CTR)/i.test(proj.contractNumber) ? '' : 'CON '}{proj.contractNumber}</span>}
+                                                    {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">{invoiceText(proj.invoiceNumber)}</span>}
+                                                    {proj.contractNumber && <span className={styles.stackSub} title="Contract number">{contractText(proj.contractNumber)}</span>}
                                                     {proj.pending && <span className={styles.stackSub} title="How long this entry has been waiting for the office">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                 </div>
@@ -343,10 +344,10 @@ const LedgerPage = () => {
                                         <td className={styles.moneyCell}>
                                             <div className={styles.moneyRow}>
                                                 <span className={styles.debtLabel}>DEBT:</span>
-                                                <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {debt.toLocaleString()}</span>
+                                                <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {debt.toLocaleString('en-US')}</span>
                                             </div>
                                             {isReceivable && proj.storageFeesAccumulated > 0 && (
-                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees{Number(proj.storageFeesPaid || 0) > 0 ? ' (UGX ' + Number(proj.storageFeesPaid).toLocaleString() + ' paid)' : ''}</div>
+                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString('en-US')} storage fees{Number(proj.storageFeesPaid || 0) > 0 ? ' (UGX ' + Number(proj.storageFeesPaid).toLocaleString('en-US') + ' paid)' : ''}</div>
                                             )}
                                             <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
                                                 <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />

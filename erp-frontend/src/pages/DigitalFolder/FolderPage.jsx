@@ -59,6 +59,7 @@ import { fetchDoc } from '../../utils/docFile';   // fix261
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
 import { flagId, flagField, flagServerError, errorCode } from '../../utils/fieldError';   // fix213
+import { fmtDay, fmtDayTime, fmtMoney } from '../../utils/format';   // fix284 (B3)
 
 // fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
 const NOTE_MAX = 2000;
@@ -77,9 +78,9 @@ const errText = (err) => (err && err.response ? errorText(err) : cleanMessage((e
 // fix241 (David, D1): a popup's error is a toast ON TOP plus the wrong box marked and scrolled to (no red box inside).
 const ModalError = PopupError;
 
-const fmt = (n) => Number(n || 0).toLocaleString();
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
-const fmtDateTime = (d) => (d ? new Date(d).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+const fmt = fmtMoney;
+const fmtDate = fmtDay;
+const fmtDateTime = fmtDayTime;
 // fix167: the server sends isCompleted (fix167) -- older answers said "completed"
 const statusDone = (s) => !!(s && (s.isCompleted ?? s.completed));
 // fix181 (16.9): today's date on THIS device's calendar (toISOString is UTC and is a day off around midnight in Kampala)
@@ -177,7 +178,7 @@ const CurrencyInput = ({ label, value, onChange, error, id, disabled, hint, plac
     const inputId = id || 'cur-' + (label || '').replace(/\W/g, '-').toLowerCase();
     const bad = !readShillings(value).ok;
     error = error || (bad ? MONEY_BAD : undefined);
-    const display = focused || bad ? String(value ?? '') : (value !== '' && value !== null && value !== undefined ? Number(value).toLocaleString() : '');
+    const display = focused || bad ? String(value ?? '') : (value !== '' && value !== null && value !== undefined ? fmtMoney(value) : '');
     return (<div className={`${styles.hwInputWrap} ${error ? styles.inputError : ''}`}>
         <div className={styles.inputLabelRow}><label htmlFor={inputId}>{label}</label><span className={styles.currencyTag}>UGX</span>
             {disabled && <span className={styles.autoCalcBadge}>LOCKED</span>}</div>
@@ -1062,7 +1063,7 @@ const FolderPage = () => {
                 <div className={styles.printDossierTitle}>{plotName}</div>
                 <div className={styles.printDossierMeta}>
                     <span><strong>INDEX:</strong> #{project.projectIndex}</span>
-                    <span><strong>PRINTED:</strong> {new Date().toLocaleDateString()}</span>
+                    <span><strong>PRINTED:</strong> {fmtDay(new Date())}</span>
                     {project.problem && <span><strong>PROBLEM</strong></span>}
                     {project.landTitle?.isReleased && <span><strong>HANDED OVER</strong></span>}
                     {project.isReceivable && <span><strong>IN RECEIVABLES</strong></span>}
@@ -1207,7 +1208,7 @@ const FolderPage = () => {
                             {project.landTitle && (<div className={`${styles.specGroup} ${styles.specGroupDivided}`}>
                                 <div className={styles.sectionSubHeader}>TITLE</div>
                                 <div className={styles.readOnlyGrid}>
-                                    {[['PLOT NUMBER', project.landTitle.plotNumber], ['BLOCK', project.landTitle.block], ['AREA (HA)', project.landTitle.areaHectares != null ? Number(project.landTitle.areaHectares).toLocaleString(undefined, { maximumFractionDigits: 4 }) : ''], ['VOLUME', project.landTitle.volume], ['FOLIO', project.landTitle.folio], ['TENURE', project.landTitle.tenure], ['TITLE DATE', fmtDate(project.landTitle.titleIssueDate)]].map(([l, v]) => (
+                                    {[['PLOT NUMBER', project.landTitle.plotNumber], ['BLOCK', project.landTitle.block], ['AREA (HA)', project.landTitle.areaHectares != null ? Number(project.landTitle.areaHectares).toLocaleString('en-US', { maximumFractionDigits: 4 }) : ''], ['VOLUME', project.landTitle.volume], ['FOLIO', project.landTitle.folio], ['TENURE', project.landTitle.tenure], ['TITLE DATE', fmtDate(project.landTitle.titleIssueDate)]].map(([l, v]) => (
                                         <div key={l} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
                                 </div>
                             </div>)}
@@ -1264,10 +1265,10 @@ const FolderPage = () => {
                             {isEditing ? (<div className={styles.inputGrid3} data-group="MONEY">
                                 <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({ ...buffer, totalCost: v })} hint="Changing it needs a reason (box appears below)." />
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT PAID</label><span className={styles.autoCalcBadge}>LOCKED</span></div>
-                                    <input className={`${styles.hwInput} ${styles.calcInput}`} value={(Number(buffer.initialPayment) || 0).toLocaleString()} disabled />
+                                    <input className={`${styles.hwInput} ${styles.calcInput}`} value={fmtMoney(buffer.initialPayment)} disabled />
                                     <span className={styles.inputHint}>Changes only through RECORD PAYMENT, or REVERSE in Payment History.</span></div>
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT OWED</label><span className={styles.autoCalcBadge}>AUTO</span></div>
-                                    <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled /></div>
+                                    <input className={`${styles.hwInput} ${styles.calcInput}`} value={fmtMoney(arrearsEdit)} disabled /></div>
                                 {costChanged && (<SmartInput label="REASON FOR COST CHANGE" value={buffer.costChangeReason || ''} required error={fieldErrors.costChangeReason}
                                     onChange={e => touchedSetBuffer({ ...buffer, costChangeReason: e.target.value })} />)}
                             </div>) : (<div className={styles.moneyStatsRow}>

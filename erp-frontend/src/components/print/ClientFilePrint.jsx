@@ -8,12 +8,13 @@ import GesMark from './GesMark';   // fix233: the real GES globe logo
 import { PROJECT_STATUS } from '../../utils/projectStatus';
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import s from './ProjectFilePrint.module.css';
+import { fmtDay, fmtMoney, fmtUgx } from '../../utils/format';   // fix284 (B3)
 
-const money = (n) => 'UGX ' + Number(n || 0).toLocaleString();
-const num = (n) => Number(n || 0).toLocaleString();
+const money = fmtUgx;
+const num = fmtMoney;
 // fix266: "UGX 2000000.00" in a call text prints as "UGX 2,000,000"
-const tidyMoney = (t) => String(t || '').replace(/UGX\s*(-?\d+)(?:\.\d+)?/g, (m, n) => 'UGX ' + Number(n).toLocaleString('en-US'));
-const day = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+const tidyMoney = (t) => String(t || '').replace(/UGX\s*(-?\d+)(?:\.\d+)?/g, (m, n) => fmtUgx(n));
+const day = fmtDay;
 const dash = (v) => (v === null || v === undefined || v === '' ? '—' : v);
 const isJoint = (p) => String(p.ownershipType || 'SOLO').toUpperCase() === 'JOINT';
 const statusWord = (p) => (p.released ? PROJECT_STATUS.HANDED_OVER : p.receivable ? PROJECT_STATUS.RECEIVABLES : PROJECT_STATUS.ACTIVE).label;

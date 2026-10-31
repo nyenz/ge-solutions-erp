@@ -1,3 +1,4 @@
+import { fmtDay } from './format.js';   // fix284 (B3)
 // PATH: erp-frontend/src/utils/paymentHealth.js
 // fix181 (2.2, 5.2, 6.10, 11.9): THE payment-recency colour, used by the Project Ledger, the Client Ledger, the Portfolio
 // and Recovery. The number of days comes from the SERVER (daysSincePayment), never from this device's clock.
@@ -29,7 +30,7 @@ export function paymentColor(days) {
 }
 
 export function paymentLabel(days, isNew, startsOn) {
-    if (isNew) return 'New project' + (startsOn ? ' - recovery starts ' + String(startsOn).slice(0, 10) : '');
+    if (isNew) return 'New project' + (startsOn ? ' - recovery starts ' + fmtDay(startsOn) : '');
     if (days === null || days === undefined) return 'No payment recorded';
     if (Number(days) === 0) return 'Last payment today';
     return 'Last payment ' + days + ' day' + (Number(days) === 1 ? '' : 's') + ' ago';

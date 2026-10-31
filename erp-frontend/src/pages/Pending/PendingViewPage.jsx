@@ -25,8 +25,9 @@ import { ToastStack } from '../../components/common/Feedback';
 import styles from './Pending.module.css';
 import RetryButton from '../../components/common/RetryButton';
 import { FiAlertTriangle } from 'react-icons/fi';
+import { fmtDay } from '../../utils/format';   // fix284 (B3)
 
-const day = (v) => (v ? String(v).slice(0, 10) : '');
+const day = fmtDay;
 const localISO = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const digits = (v) => String(v || '').replace(/[^0-9]/g, '');
 
@@ -274,9 +275,9 @@ export default function PendingViewPage() {
                             <label className={styles.field}><span className={styles.label}>Contract number</span>
                                 <input className={`${styles.input} ${styles.mono}`} value={contractNo} maxLength={80} autoComplete="off" onChange={e => setContractNo(e.target.value)} placeholder="As written on the contract" /></label>
                             <label className={styles.field}><span className={styles.label}>Total cost (UGX)</span>
-                                <input className={styles.input} inputMode="numeric" value={cost ? Number(digits(cost)).toLocaleString() : ''} onChange={e => setCost(digits(e.target.value))} /></label>
+                                <input className={styles.input} inputMode="numeric" value={cost ? Number(digits(cost)).toLocaleString('en-US') : ''} onChange={e => setCost(digits(e.target.value))} /></label>
                             <label className={styles.field}><span className={styles.label}>Already received (UGX)</span>
-                                <input className={styles.input} inputMode="numeric" placeholder="Optional" value={deposit ? Number(digits(deposit)).toLocaleString() : ''} onChange={e => setDeposit(digits(e.target.value))} /></label>
+                                <input className={styles.input} inputMode="numeric" placeholder="Optional" value={deposit ? Number(digits(deposit)).toLocaleString('en-US') : ''} onChange={e => setDeposit(digits(e.target.value))} /></label>
                             {Number(digits(deposit)) > 0 && (p.clients || []).length > 1 && (
                                 <label className={styles.field}><span className={styles.label}>Which client paid?</span>
                                     <HardwareModalSelect value={payerNin} options={payerOptions} onChange={setPayerNin} placeholder="Choose the client" ariaLabel="Client who paid" /></label>

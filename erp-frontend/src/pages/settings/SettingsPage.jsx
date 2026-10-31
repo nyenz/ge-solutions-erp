@@ -31,6 +31,7 @@ import { errorText } from '../../utils/errorText';
 import useAppMode from '../../hooks/useAppMode';   // fix278
 import useScrollEdges from '../../hooks/useScrollEdges';
 import { useTabThumb, useSwapMotion } from '../../hooks/useTabMotion';
+import { fmtDayTime } from '../../utils/format';   // fix284 (B3)
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 
 /* Every option here is wired to real CSS in index.css -- see the note at the
@@ -72,7 +73,7 @@ const KEY_RULES = [
 ];
 // fix181 (15.4d): the same username rule as the server
 const USERNAME_RULE = /^[A-Za-z0-9._-]{3,30}$/;
-const fmtDateTime = (d) => (d ? new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+const fmtDateTime = fmtDayTime;
 const daysLeft = (d) => (d ? Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) : null);
 
 const SettingsPage = () => {
@@ -106,6 +107,7 @@ const SettingsPage = () => {
   const [reveal, setReveal] = useState(null);
   const [copied, setCopied] = useState(false);
   const [rankFor, setRankFor] = useState(null);      // { op, role } -- the rank modal (14.5b, 15.4b)
+  const [suspendFor, setSuspendFor] = useState(null);  // fix284 (B2): the person about to be suspended (asks first)
   const [resetFor, setResetFor] = useState(null);    // the person whose key is about to be reset (14.3d)
   const [wipeText, setWipeText] = useState('');
   const [wipeKey, setWipeKey] = useState('');
@@ -173,6 +175,7 @@ const SettingsPage = () => {
     catch (e) { toast(e.message, 'error'); }
     finally { loadOps(); }   // 14.5f: the list is reloaded after a failure too
   };
+  const confirmSuspend = () => { const op = suspendFor; setSuspendFor(null); if (op) toggleOp(op); };
   const toggleOp = async (op) => {
     try { await settingsService.toggleOperator(op.username, !op.active); toast(op.active ? `${op.username} is suspended.` : `${op.username} is active again.`, 'warn'); }
     catch (e) { toast(e.message, 'error'); }
@@ -414,7 +417,7 @@ const SettingsPage = () => {
                           <button type="button" className={styles.rankBtn} onClick={() => setRankFor({ op, role: op.role })}
                             title={`Change the rank of ${op.username} (move up or down)`} aria-label={`Change the rank of ${op.username}`}><FiShield aria-hidden="true" /></button>
                           <button type="button" className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`}
-                            onClick={() => toggleOp(op)}
+                            onClick={() => (op.active ? setSuspendFor(op) : toggleOp(op))}
                             title={op.active ? `Suspend ${op.username} (signs them out at once)` : `Activate ${op.username} again`}
                             aria-label={op.active ? `Suspend ${op.username}` : `Activate ${op.username}`}>
                             <FiPower aria-hidden="true" />
@@ -566,6 +569,19 @@ const SettingsPage = () => {
       </HardwareModal>
 
       {/* fix181 (14.3d): resetting a key asks first and names the person */}
+      <HardwareModal isOpen={!!suspendFor} onClose={() => setSuspendFor(null)} title="SUSPEND">
+        {suspendFor && (
+          <>
+            <div className={styles.modalBody}>
+              <p className={styles.revealHint}>Suspend {suspendFor.username}? They are signed out at once and cannot sign in until you press the power button again. Nothing they entered is lost.</p>
+            </div>
+            <div className={styles.modalCenter}>
+              <button type="button" className={modalStyles.modalBtnPrimary} onClick={confirmSuspend}><FiPower aria-hidden="true" /> SUSPEND</button>
+            </div>
+          </>
+        )}
+      </HardwareModal>
+
       <HardwareModal isOpen={!!resetFor} onClose={() => setResetFor(null)} title="RESET KEY">
         {resetFor && (
           <>

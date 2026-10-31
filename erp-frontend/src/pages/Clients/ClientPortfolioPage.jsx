@@ -33,8 +33,10 @@ import { LoadingState } from '../../components/common/LoadingState';
 import { errorText } from '../../utils/errorText';   // fix205
 import { methodLine } from '../../utils/paymentMethods';   // fix214
 import NotesTimeline from '../../components/notes/NotesTimeline';   // fix215
+import { invoiceText, contractText } from '../../utils/projectNumbers';   // fix284 (B4)
+import { fmtDay, fmtMoney } from '../../utils/format';   // fix284 (B3)
 
-const fmt = (n) => Number(n || 0).toLocaleString();
+const fmt = fmtMoney;
 const dayDiff = (iso) => { if (!iso) return null; const d = new Date(iso); if (isNaN(d.getTime())) return null; return Math.floor((Date.now() - d.getTime()) / 86400000); };
 const isJoint = (p) => String(p.ownershipType || 'SOLO').toUpperCase() === 'JOINT';
 // fix181 (5.5, 11.8): paid / billed, both from the server; 100% only when the title was really handed over
@@ -72,7 +74,13 @@ const sortPlots = (rows, key, direction) => {
 // ONLY identifier this page shows per row -- the plot-number column is
 // gone, so a folder with no title yet still reads cleanly instead of
 // showing an empty "no title yet" placeholder next to it.
-const IndexCell = ({ p }) => (<span className={styles.mono}>{p.index || '---'}</span>);
+const IndexCell = ({ p, numbers }) => (
+  <span className={styles.indexStack}>
+    <span className={styles.mono}>{p.index || '---'}</span>
+    {numbers && p.invoiceNumber && <span className={styles.numSub} title="Invoice number">{invoiceText(p.invoiceNumber)}</span>}
+    {numbers && p.contractNumber && <span className={styles.numSub} title="Contract number">{contractText(p.contractNumber)}</span>}
+  </span>
+);
 
 const emptyForm = { name: '', phone: '', email: '', address: '' };
 
@@ -245,7 +253,7 @@ const ClientPortfolioPage = () => {
               ? (<input className={styles.editInput} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />)
               : (<span className={styles.specValue}>{d.address || '---'}</span>)}
           </div>
-          <div className={styles.specItem}><span className={styles.specLabel}><FiClock aria-hidden="true" /> LAST CONTACT</span><span className={styles.specValue}>{d.lastContact ? String(d.lastContact).slice(0, 10) + (days != null ? ' (' + days + 'D AGO)' : '') : 'NEVER'}</span></div>
+          <div className={styles.specItem}><span className={styles.specLabel}><FiClock aria-hidden="true" /> LAST CONTACT</span><span className={styles.specValue}>{d.lastContact ? fmtDay(d.lastContact) + (days != null ? ' (' + days + 'D AGO)' : '') : 'NEVER'}</span></div>
         </div>
       </CollapsibleSection>
 
@@ -310,7 +318,7 @@ const ClientPortfolioPage = () => {
                         <tr key={p.projectId || g.key + i} className={styles.row} onClick={() => navigate('/folder/' + p.projectId)} tabIndex={0}
                           title="Click to open folder"
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/folder/' + p.projectId); } }}>
-                          <td className="gsStickyCol"><IndexCell p={p} /></td>
+                          <td className="gsStickyCol"><IndexCell p={p} numbers /></td>
                           <td>{p.district || '---'}</td>
                           <td>
                             <span className={`${styles.tag} ${isJoint(p) ? styles.tagJoint : styles.tagNeutral}`}>{isJoint(p) ? 'JOINT' : 'SOLO'}</span>
@@ -337,7 +345,7 @@ const ClientPortfolioPage = () => {
                             {p.recoveryState && (<button type="button" className={styles.coChip} title="Open this client in Recovery"
                               onClick={(e) => { e.stopPropagation(); navigate('/recovery?client=' + id); }}>{p.recoveryState}</button>)}
                             <span className={styles.coLine}>{p.projectTypeLabel || ''}{p.hasTitleDetails ? ' - has title details' : ' - no title details yet'}</span>
-                            {p.recoveryStartsOn && <span className={styles.coLine}>new project - recovery starts {String(p.recoveryStartsOn).slice(0, 10)}</span>}
+                            {p.recoveryStartsOn && <span className={styles.coLine}>new project - recovery starts {fmtDay(p.recoveryStartsOn)}</span>}
                             {p.parentProjectId && (<button type="button" className={styles.coChip} onClick={(e) => { e.stopPropagation(); navigate('/folder/' + p.parentProjectId); }}>
                               From #{p.parentProjectIndex || '?'} plot {p.parentSubdivisionNo}</button>)}
                             {(p.transfers || []).length > 0 && (<span className={styles.coLine}>{p.transfers.length} of {p.subdivisionCount || '?'} plot(s) transferred:
@@ -388,7 +396,7 @@ const ClientPortfolioPage = () => {
                       <td className="gsStickyCol"><IndexCell p={p} /></td>
                       <td><span className={styles.mono}>{fmt(p.paid)}</span></td>
                       <td><span className={styles.mono}>{fmt(p.storage)}</span></td>
-                      <td><span className={styles.mono}>{p.lastPayment ? String(p.lastPayment).slice(0, 10) : 'NEVER'}</span></td>
+                      <td><span className={styles.mono}>{p.lastPayment ? fmtDay(p.lastPayment) : 'NEVER'}</span></td>
                       <td><span className={styles.healthCell}><PaymentHealthDot days={p.daysSincePayment} isNew={isNew} startsOn={p.recoveryStartsOn} /> {paymentLabel(p.daysSincePayment, isNew, p.recoveryStartsOn)}</span></td>
                     </tr>);
                   })}
@@ -415,7 +423,7 @@ const ClientPortfolioPage = () => {
                   </div>
                   {p.payments.map(pay => (
                     <div key={pay.id} role="row" className={`${styles.payLine} ${pay.reversed ? styles.payLineGone : ''} ${pay.reversal ? styles.payLineRev : ''}`}>
-                      <span role="cell" className={styles.payDate}>{pay.paidOn ? String(pay.paidOn).slice(0, 10) : 'No date'}</span>
+                      <span role="cell" className={styles.payDate}>{pay.paidOn ? fmtDay(pay.paidOn) : 'No date'}</span>
                       <span role="cell" className={styles.payAmt}>{fmt(pay.amount)}</span>
                       <span role="cell" className={styles.payWho}>{pay.payerName}</span>
                       <span role="cell" className={styles.payHow}>{methodLine(pay.paymentMethod, pay.paymentReference)}</span>
