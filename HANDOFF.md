@@ -22,6 +22,7 @@
   MIDNIGHT_HUE/SAT/BASE and the gesnavy block in index.css), fix281 payment words readable in CLASSIC/SLATE/MIDNIGHT + this list.
 - **Working with David:** load the skill `nyenz-app-design` first. One server step = ONE paste, say what he should see. He types
   secrets only in the server terminal. I cannot reach the server from the cloud box (port 22 blocked).
+- **GUIDE PICTURES RULE (fix284):** any change David can SEE (a page, a theme, a button name) means the in-app GUIDE pictures are retaken in the same fix: push the branch to `screens`, wait for the run, copy `guide/*.jpg` + `guide.json` from branch `screens-out` into `erp-frontend/public/guide/`, run `node docs/guide/build-guide.mjs`, and check `guide-log.txt` is EMPTY (every step pressed and highlighted). They were last retaken on 1 Nov 2026; before that they were stale since fix262 and covered by the welcome pop-up.
 - **Shipping a change:** section 2 below; next number **fix285**; commit trailers = the session's attribution reminder.
 
 ## THE FINISH LINE (everything left, in order). When all of A and B are ticked, the app is DONE and live.
