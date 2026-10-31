@@ -104,6 +104,10 @@ const TASKS = (P, C) => [
     for (const who of ['director', 'manager', 'secretary', 'employee']) {
         const r = await post('/auth/login', { username: 'test.' + who, password: PW });
         tok[who] = r;
+        // fix284: the "Welcome to Golden Seed" pop-up (offered once to new accounts) covered every picture and blocked
+        // every button press. Mark the guide as seen for the picture accounts, on the server and in the saved session.
+        try { await post('/profile/guide-seen', {}, r.token); } catch { /* older server: the session flag below is enough */ }
+        if (r.user) r.user.showGuide = false;
     }
     const projectId = firstId(await get('/land/ledger?page=0&size=20', tok.director.token), ['id', 'projectId']);
     const clientId = firstId(await get('/recovery/clients/ledger', tok.director.token), ['clientId', 'id']);
