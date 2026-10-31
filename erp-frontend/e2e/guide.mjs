@@ -82,7 +82,7 @@ const TASKS = (P, C) => [
     { id: 'report', role: 'Director', who: 'director', title: 'Run a report and download the PDF', why: 'Numbers for meetings, in the company colours.', steps: [
         { go: 'reports', hi: { css: 'text=/^SCOPE$/' }, cap: 'Reports: pick the data at the top (Projects, Clients, Payments, Expenses, Company) and the period.' },
         { go: 'reports', hi: 'REPORT CATALOGUE', cap: 'Pick a ready report in the catalogue and press Use This Report.' },
-        { go: 'reports', click: { css: 'button:has-text("Use This Report")' }, hi: 'PDF -- THE DOCUMENT', cap: 'Choose one or more charts, then download the CSV (for Excel) or the PDF document.' },
+        { go: 'reports', hi: 'PDF -- THE DOCUMENT', cap: 'Choose one or more charts, then download the CSV (for Excel) or the PDF document.' },
     ] },
     { id: 'receivables', role: 'Director', who: 'director', title: 'Receivables and storage fees', why: 'Long-owing projects and the storage fees of kept titles.', steps: [
         { go: 'land/projects', click: 'RECEIVABLES', hi: 'RECEIVABLES', cap: 'Ledger > Receivables: projects owing for a long time. Storage fees grow every 30 days.' },
