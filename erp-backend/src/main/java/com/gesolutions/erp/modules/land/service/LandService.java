@@ -983,6 +983,24 @@ public class LandService {
         return doUpdateProjectFull(projectId, request);
     }
 
+    /**
+     * fix285 (David): the Secretary edits the folder information (people, title details, location, subdivisions,
+     * neighbours) but never the money. Whatever the page sends for the cost is replaced with the saved cost, so this
+     * path can never change the Total Cost (Amount Paid is never taken from an edit anyway).
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public LandProject updateProjectDetails(UUID projectId, LandEntryRequest request) {
+        LandProject p = projectRepository.findByIdForUpdate(projectId)
+                .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
+        if (p.isPending()) {
+            throw new BusinessException("PENDING_PROJECT: This project is Pending. Use START PROJECT to add the prices.");
+        }
+        request.setTotalCost(p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO);
+        request.setExpectedTotalCost(null);
+        request.setCostChangeReason(null);
+        return doUpdateProjectFull(projectId, request);
+    }
+
     /** The edit itself (people, title details, location, subdivisions, cost with its reason). Callers check who may do it. */
     LandProject doUpdateProjectFull(UUID projectId, LandEntryRequest request) {
         LandProject project = projectRepository.findById(projectId)

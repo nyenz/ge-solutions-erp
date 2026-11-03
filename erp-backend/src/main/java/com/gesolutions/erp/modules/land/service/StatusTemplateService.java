@@ -44,14 +44,20 @@ public class StatusTemplateService {
         return "SYSTEM";
     }
 
-    // fix180: only these roles may create a status (Secretary is data entry only)
+    // fix180: only these roles may create a status; fix285 (David): the Secretary too (removing a stage stays Director)
     public static boolean canAddStatuses() {
         Authentication a = SecurityContextHolder.getContext().getAuthentication();
         if (a == null) return true;   // boot / seed
         return a.getAuthorities().stream().anyMatch(g -> {
             String r = g.getAuthority();
-            return "ROLE_ADMIN".equals(r) || "ROLE_MANAGER".equals(r) || "ROLE_DIRECTOR".equals(r);
+            return "ROLE_ADMIN".equals(r) || "ROLE_MANAGER".equals(r) || "ROLE_DIRECTOR".equals(r) || "ROLE_SECRETARY".equals(r);
         });
+    }
+
+    // fix285: a stage cost is money, so a stage the Secretary adds carries no cost
+    static boolean callerIsSecretary() {
+        Authentication a = SecurityContextHolder.getContext().getAuthentication();
+        return a != null && a.getAuthorities().stream().anyMatch(g -> "ROLE_SECRETARY".equals(g.getAuthority()));
     }
 
     private static ProjectType requireType(String projectType) {
@@ -212,7 +218,7 @@ public class StatusTemplateService {
         if (requests == null || requests.isEmpty()) return List.of();
         // fix180: a custom status is a NEW status -- Secretary cannot create one (the master list is picked as it is)
         if (!canAddStatuses() && requests.stream().anyMatch(ProjectStatusRequest::isCustom)) {
-            throw new BusinessException("STATUS_ADD_DENIED: Only an Admin, Manager or Director can add a status.");
+            throw new BusinessException("STATUS_ADD_DENIED: Only staff from Secretary up can add a status.");
         }
         int startOrder = projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(projectId).size();
         // fix197: a stage list sent with a new project cannot arrive with "Titled" already ticked when there is no title
@@ -227,13 +233,13 @@ public class StatusTemplateService {
                     throw new BusinessException("STATUS_NAME_REQUIRED: Custom status needs a name.");
                 }
                 name = req.getStatusName().trim();
-                cost = req.getCost() != null ? req.getCost() : BigDecimal.ZERO;
+                cost = req.getCost() != null && !callerIsSecretary() ? req.getCost() : BigDecimal.ZERO;   // fix285
             } else {
                 if (req.getStatusTemplateId() == null) throw new BusinessException("STATUS_TEMPLATE_ID_REQUIRED");
                 StatusTemplate template = templateRepository.findById(UUID.fromString(req.getStatusTemplateId()))
                         .orElseThrow(() -> new BusinessException("STATUS_TEMPLATE_NOT_FOUND"));
                 name = template.getStatusName();
-                cost = req.getCost() != null ? req.getCost() : template.getDefaultCost();
+                cost = req.getCost() != null && !callerIsSecretary() ? req.getCost() : template.getDefaultCost();   // fix285
             }
             // fix167: a status ticked on New Project arrives ticked, with when and by whom
             boolean done = req.isCompleted() && !(fix197NoTitle && LandService.isTitledStatus(name));

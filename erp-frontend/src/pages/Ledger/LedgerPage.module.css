@@ -214,3 +214,8 @@
 .stackSub, .stackPlot { white-space: nowrap; }
 
 .errorText{display:block}
+
+/* fix285: the project that was just saved on New Project glows for a few seconds */
+.rowNew td{animation:rowNewGlow 6s ease-out 1;}
+@keyframes rowNewGlow{0%,60%{background:rgba(var(--acc-rgb,238,140,58),0.22);}100%{background:transparent;}}
+@media (prefers-reduced-motion: reduce){.rowNew td{animation:none;background:rgba(var(--acc-rgb,238,140,58),0.18);}}

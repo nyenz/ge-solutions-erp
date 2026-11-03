@@ -49,7 +49,8 @@ export function roleFlags(user) {
         canSeeCompanyMoney: isOwnerLevel,     // Payments, Reports, money columns on client pages
         canEditRecords: isManager,            // edit mode, statuses, payments on the Folder page
         canUploadDocs: rank >= 2,             // add scans without edit mode
-        canAddStatus: isManager,              // only Admin, Director, Manager create statuses
+        canAddStatus: rank >= 2,              // fix285: Secretary and above add stages (removing one stays Director)
+        canEditFolderInfo: rank >= 2,         // fix285: Secretary may EDIT the folder information (never the money)
         canManageStaff: isOwnerLevel,         // Staff tab
         canUseArchive: isOwnerLevel,          // delete / restore projects, Archive tab
         canWipe: isAdmin,                     // Danger Zone

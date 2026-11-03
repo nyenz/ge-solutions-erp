@@ -53,6 +53,8 @@ public class SecretaryRightsTest {
     @Autowired private ClientRepository clients;
     @Autowired private LandProjectRepository projects;
     @Autowired private ProjectStatusRepository statuses;
+    @Autowired private com.gesolutions.erp.modules.land.service.LandService landService;                    // fix285
+    @Autowired private com.gesolutions.erp.modules.land.service.ProjectNumbersService numbers;              // fix285
 
     @AfterEach
     void clear() { SecurityContextHolder.clearContext(); }
@@ -152,5 +154,53 @@ public class SecretaryRightsTest {
         Client after = clients.findById(c.getId()).orElseThrow();
         assertEquals("Changed Name", after.getFullName());
         assertEquals("New address", after.getHomeAddress());
+    }
+
+    // fix285 (David): the Secretary edits the folder information, but the money stays as it was
+    @Test
+    public void secretaryEditsFolderInformationButNeverTheMoney() {
+        Client c = client();
+        LandProject p = project(c, false);
+        p.setDistrict("KAMULI");
+        projects.save(p);
+        com.gesolutions.erp.modules.land.dto.LandEntryRequest r = new com.gesolutions.erp.modules.land.dto.LandEntryRequest();
+        r.setDistrict("IGANGA");
+        r.setSubCounty("NAKALAMA");
+        r.setTotalCost(BigDecimal.valueOf(5));
+        r.setCostChangeReason("trying to change it");
+        com.gesolutions.erp.modules.land.dto.LandEntryRequest.OwnerRequest row = new com.gesolutions.erp.modules.land.dto.LandEntryRequest.OwnerRequest();
+        row.setFullName(c.getFullName()); row.setNationalId(c.getNationalId()); row.setPhone("0790111222");
+        r.setClients(new java.util.ArrayList<>(List.of(row)));
+        as("ROLE_SECRETARY");
+        landService.updateProjectDetails(p.getId(), r);
+        LandProject after = projects.findById(p.getId()).orElseThrow();
+        assertEquals("IGANGA", after.getDistrict(), "the place is changed");
+        assertEquals("NAKALAMA", after.getSubCounty());
+        assertEquals(0, after.getTotalCost().compareTo(BigDecimal.valueOf(1_000_000)), "the total cost stays");
+    }
+
+    // fix285: the Secretary adds a stage; a cost sent with it is dropped
+    @Test
+    public void secretaryAddsAStageWithoutACost() {
+        Client c = client();
+        LandProject p = project(c, false);
+        as("ROLE_SECRETARY");
+        var req = com.gesolutions.erp.modules.land.dto.ProjectStatusRequest.builder().isCustom(true).statusName("Extra visit").cost(BigDecimal.valueOf(50_000)).build();
+        List<ProjectStatus> made = statusService.attachStatusesToProject(p.getId(), List.of(req));
+        assertEquals(1, made.size());
+        assertEquals(0, made.get(0).getCost() == null ? 0 : made.get(0).getCost().compareTo(BigDecimal.ZERO), "no cost from a Secretary");
+    }
+
+    // fix285: a made-up invoice number takes the next free number for its place
+    @Test
+    public void nextFreeInvoiceNumberCountsUpPerPlace() {
+        Client c = client();
+        String pre = "T" + UUID.randomUUID().toString().substring(0, 4).toUpperCase() + "-NAM";
+        assertEquals(pre + "-0001", numbers.nextFree(pre));
+        LandProject a = project(c, false); a.setInvoiceNumber(pre + "-0007"); projects.save(a);
+        LandProject b = project(c, false); b.setInvoiceNumber(pre + "-BAD"); projects.save(b);
+        assertEquals(pre + "-0008", numbers.nextFree(pre));
+        assertEquals(pre.replace("-NAM", "-BUG") + "-0001", numbers.nextFree(pre.replace("-NAM", "-BUG")), "another sub-county starts at 1");
+        assertThrows(com.gesolutions.erp.common.exception.BusinessException.class, () -> numbers.nextFree("  "));
     }
 }
