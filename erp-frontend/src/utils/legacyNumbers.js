@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/utils/legacyNumbers.js
 // fix285 (David, 3 Nov 2026): older (legacy) projects often have no NIN, no contract number, and an invoice number that
 // was only unique inside one sub-county. The MISSING ticks on the forms fill these in the same way every time:
-//   NIN missing       -> the person's full name in capitals            (NAMUGANZA SARAH)
+//   NIN missing       -> the person's full name in capitals, NO spaces  (NAMUGANZASARAH)
 //   invoice missing   -> DISTRICT-SUBCOUNTY-NUMBER in initials          (KAM-NAM-0007)
 //   contract missing  -> the same text as the invoice number            (KAM-NAM-0007)
 // Initials: a one-word name gives its first 3 letters (KAMULI -> KAM); a name of several words gives the first letter
@@ -36,7 +36,7 @@ export function madeInvoiceNumber(district, subCounty, paper) {
     return pre && num ? pre + '-' + num : '';
 }
 
-/** The NIN used for a person who has none: the full name in capitals, spaces tidied. */
+/** The NIN used for a person who has none: the full name in capitals with NO spaces (fix286, David). */
 export function ninFromName(fullName) {
-    return String(fullName || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    return String(fullName || '').toUpperCase().replace(/\s+/g, '');
 }
