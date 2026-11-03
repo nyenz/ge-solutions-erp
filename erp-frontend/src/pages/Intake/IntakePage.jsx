@@ -1192,16 +1192,16 @@ export default function IntakePage() {
                 </div>
             </div>
 
+            {/* fix285 (David): what SAVE + NEXT PLOT keeps for the next plot (remembered for this account) */}
+            <div className={styles.keepBar} role="group" aria-label="Keep for next plot">
+                <span className={`${styles.label} ${styles.keepLabel}`}>Keep for next</span>
+                {KEEP_OPTIONS.map(([k, w]) => (
+                    <button key={k} type="button" aria-pressed={!!keepNext[k]} className={`${styles.typeBtn} ${styles.keepChip} ${keepNext[k] ? styles.typeBtnActive : ''}`}
+                        onClick={() => setKeepNext(prev => { const next = { ...prev, [k]: !prev[k] }; writeJSON(KEEP_KEY(user), next); return next; })}>{w}</button>
+                ))}
+                {lastSaved && <span className={styles.savedLine} role="status">Saved #{lastSaved.index}{lastSaved.plot ? ' (plot ' + lastSaved.plot + ')' : ''}</span>}
+            </div>
             <div className={styles.bottomBar}>
-                {/* fix285 (David): what SAVE + NEXT PLOT keeps for the next plot (remembered for this account) */}
-                <div className={styles.keepBar} role="group" aria-label="Keep for next plot">
-                    <span className={`${styles.label} ${styles.keepLabel}`}>Keep for next</span>
-                    {KEEP_OPTIONS.map(([k, w]) => (
-                        <button key={k} type="button" aria-pressed={!!keepNext[k]} className={`${styles.typeBtn} ${styles.keepChip} ${keepNext[k] ? styles.typeBtnActive : ''}`}
-                            onClick={() => setKeepNext(prev => { const next = { ...prev, [k]: !prev[k] }; writeJSON(KEEP_KEY(user), next); return next; })}>{w}</button>
-                    ))}
-                    {lastSaved && <span className={styles.savedLine} role="status">Saved #{lastSaved.index}{lastSaved.plot ? ' (plot ' + lastSaved.plot + ')' : ''}</span>}
-                </div>
                 <div className={styles.bottomBarRight}>
                     {/* fix199 (David, test note 21): the button SAVES this project first, then keeps the type, clients, owners and
                         place for the next plot -- the old word "Duplicate" did not say that it saves */}

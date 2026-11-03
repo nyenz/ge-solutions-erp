@@ -234,7 +234,7 @@ label.missingTick { display: inline-flex; align-items: center; gap: 6px; margin-
     font-size: var(--fs-meta); letter-spacing: 1px; line-height: 1.3; }
 label.missingTick input { width: 14px; height: 14px; flex-shrink: 0; }
 .inputLocked { background: rgba(var(--acc-rgb, 238, 140, 58), 0.08); border-style: dashed; cursor: default; }
-.keepBar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-right: auto; }
+.keepBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; margin-top: var(--gap-md); }
 span.keepLabel { letter-spacing: 1.2px; overflow: visible; }
 button.keepChip { padding: 4px 12px; font-size: var(--fs-meta); }
 .savedLine { font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.8px; color: var(--green, #22c55e); margin-left: 6px; }
