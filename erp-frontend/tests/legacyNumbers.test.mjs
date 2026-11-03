@@ -23,7 +23,8 @@ test('the made invoice number (the examples David saw)', () => {
 });
 
 test('a NIN made from the name', () => {
-    assert.equal(ninFromName('  namuganza   sarah '), 'NAMUGANZA SARAH');
+    assert.equal(ninFromName('  namuganza   sarah '), 'NAMUGANZASARAH');
+    assert.equal(ninFromName('Sarah Namuganza Joy'), 'SARAHNAMUGANZAJOY');
 });
 
 test('money boxes show commas while typing and keep the cursor', () => {
