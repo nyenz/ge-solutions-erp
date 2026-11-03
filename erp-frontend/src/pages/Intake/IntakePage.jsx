@@ -744,7 +744,7 @@ export default function IntakePage() {
                         suggestions={suggestForRow(people, 'nationalId', o)}
                         onChange={v => onChange(idx, 'nationalId', v)} onPick={pickPerson(idx, onFill)} />}
                 {/* fix285 (David): older projects often have no NIN; the full name in capitals is used, the same way every time */}
-                <label className={styles.missingTick}>
+                <label className={`${styles.label} ${styles.missingTick}`}>
                     <input type="checkbox" checked={!!o.noNin} aria-label={'NIN missing for ' + what + ' ' + (idx + 1)}
                         onChange={e => onFill(idx, e.target.checked ? { noNin: true, nationalId: ninFromName(o.fullName) } : { noNin: false, nationalId: '' })} />
                     NIN missing
@@ -1049,7 +1049,7 @@ export default function IntakePage() {
                             <input type="text" className={`${styles.input} ${invoiceMissing ? styles.inputLocked : ''}`} value={invoiceNumber} maxLength={80} autoComplete="off" aria-label="Invoice Number"
                                 placeholder={invoiceMissing ? (invPrefix ? invPrefix + '-0001' : 'Fill District and Sub-county first') : 'As written on the invoice'} readOnly={invoiceMissing}
                                 onChange={e => { setInvoiceNumber(e.target.value); markDirty(); }} />
-                            <label className={styles.missingTick}>
+                            <label className={`${styles.label} ${styles.missingTick}`}>
                                 <input type="checkbox" checked={invoiceMissing} aria-label="Invoice number missing"
                                     onChange={e => { setInvoiceMissing(e.target.checked); if (!e.target.checked) { setInvoiceNumber(''); setPaperNo(''); } markDirty(); }} />
                                 Invoice number missing
@@ -1065,7 +1065,7 @@ export default function IntakePage() {
                             <input type="text" className={`${styles.input} ${contractMissing ? styles.inputLocked : ''}`} value={contractNumber} maxLength={80} autoComplete="off" aria-label="Contract Number"
                                 placeholder={contractMissing ? 'Same as the invoice number' : 'As written on the contract'} readOnly={contractMissing}
                                 onChange={e => { setContractNumber(e.target.value); markDirty(); }} />
-                            <label className={styles.missingTick}>
+                            <label className={`${styles.label} ${styles.missingTick}`}>
                                 <input type="checkbox" checked={contractMissing} aria-label="Contract number missing"
                                     onChange={e => { setContractMissing(e.target.checked); if (!e.target.checked) setContractNumber(''); markDirty(); }} />
                                 Contract number missing (use the invoice number)
@@ -1195,9 +1195,9 @@ export default function IntakePage() {
             <div className={styles.bottomBar}>
                 {/* fix285 (David): what SAVE + NEXT PLOT keeps for the next plot (remembered for this account) */}
                 <div className={styles.keepBar} role="group" aria-label="Keep for next plot">
-                    <span className={styles.keepLabel}>Keep for next</span>
+                    <span className={`${styles.label} ${styles.keepLabel}`}>Keep for next</span>
                     {KEEP_OPTIONS.map(([k, w]) => (
-                        <button key={k} type="button" aria-pressed={!!keepNext[k]} className={`${styles.keepChip} ${keepNext[k] ? styles.keepChipOn : ''}`}
+                        <button key={k} type="button" aria-pressed={!!keepNext[k]} className={`${styles.typeBtn} ${styles.keepChip} ${keepNext[k] ? styles.typeBtnActive : ''}`}
                             onClick={() => setKeepNext(prev => { const next = { ...prev, [k]: !prev[k] }; writeJSON(KEEP_KEY(user), next); return next; })}>{w}</button>
                     ))}
                     {lastSaved && <span className={styles.savedLine} role="status">Saved #{lastSaved.index}{lastSaved.plot ? ' (plot ' + lastSaved.plot + ')' : ''}</span>}
