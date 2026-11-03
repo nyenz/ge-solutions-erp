@@ -6,6 +6,7 @@
 // lives on the Report Hub (Reports/ExpenseAnalysis.jsx) -- this page is purely
 // "log cash going out, and fix it within 24h".
 import { roleFlags } from '../../utils/roles';
+import MoneyInput from '../../components/common/MoneyInput';   // fix285: commas while typing
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     FiTrendingDown, FiPlus, FiRefreshCw, FiEdit2, FiTrash2,
@@ -412,17 +413,7 @@ const ExpensesPage = () => {
                 )}
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
-                    <input
-                        type="number"
-                        min="0"
-                        inputMode="decimal"
-                        className={styles.amountInput}
-                        placeholder="0"
-                        aria-label="Expense amount"
-                        autoFocus
-                        value={logAmount}
-                        onChange={e => setLogAmount(e.target.value)}
-                    />
+                    <MoneyInput className={styles.amountInput} ariaLabel="Expense amount" autoFocus value={logAmount} onChange={setLogAmount} />
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>NOTE (OPTIONAL)</label>
@@ -481,15 +472,7 @@ const ExpensesPage = () => {
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
-                    <input
-                        type="number"
-                        min="0"
-                        inputMode="decimal"
-                        className={styles.amountInput}
-                        aria-label="Edit amount"
-                        value={editAmount}
-                        onChange={e => setEditAmount(e.target.value)}
-                    />
+                    <MoneyInput className={styles.amountInput} ariaLabel="Edit amount" value={editAmount} onChange={setEditAmount} />
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>NOTE (OPTIONAL)</label>

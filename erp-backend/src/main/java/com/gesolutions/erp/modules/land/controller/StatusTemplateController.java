@@ -99,6 +99,7 @@ public class StatusTemplateController {
         return ResponseEntity.ok(statusTemplateService.getProjectStatuses(projectId));
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix285: the Secretary adds stages too
     @PostMapping("/land/projects/{projectId}/statuses")
     public ResponseEntity<List<ProjectStatus>> attachStatuses(
             @PathVariable UUID projectId, @RequestBody List<ProjectStatusRequest> requests) {
@@ -106,6 +107,7 @@ public class StatusTemplateController {
         return ResponseEntity.ok(statusTemplateService.attachStatusesToProject(projectId, requests));
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix285: the Secretary adds stages too
     @PutMapping("/land/projects/{projectId}/statuses/reorder")
     public ResponseEntity<List<ProjectStatus>> reorderProjectStatuses(
             @PathVariable UUID projectId, @RequestBody List<String> orderedIds) {

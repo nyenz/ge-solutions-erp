@@ -90,6 +90,27 @@ public class ProjectNumbersService {
         return new String[] { inv, con };
     }
 
+    /**
+     * fix285 (David): legacy projects without an invoice number get one made from the place: DISTRICT-SUBCOUNTY-NUMBER
+     * in initials (for example KAM-NAM-0007). This gives the next free number after the highest one already used with
+     * that prefix (deleted projects count too, so a restore can never clash). Four digits, more when needed.
+     */
+    public String nextFree(String prefix) {
+        String pre = clean(prefix);
+        if (pre == null || pre.length() > MAX_LENGTH - 5 || !pre.matches("[A-Za-z0-9-]+")) {
+            throw new BusinessException("PREFIX_INVALID: Fill in the District and the Sub-county first.");
+        }
+        pre = pre.toUpperCase(java.util.Locale.ROOT);
+        long highest = 0;
+        java.util.regex.Pattern tail = java.util.regex.Pattern.compile("^" + java.util.regex.Pattern.quote(pre) + "-(\\d{1,9})$", java.util.regex.Pattern.CASE_INSENSITIVE);
+        for (String n : projectRepository.findInvoiceNumbersStartingWith(pre + "-")) {
+            if (n == null) continue;
+            java.util.regex.Matcher m = tail.matcher(n.trim());
+            if (m.matches()) highest = Math.max(highest, Long.parseLong(m.group(1)));
+        }
+        return pre + "-" + String.format("%04d", highest + 1);
+    }
+
     /** Checks and writes both numbers onto the project (the caller saves the project). */
     public void apply(LandProject p, String invoice, String contract) {
         String[] n = check(p.getId(), invoice, contract);

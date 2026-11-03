@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { scrollBehavior } from '../../utils/motion';   // fix285
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
@@ -87,6 +88,11 @@ const LedgerPage = () => {
         return { key: filterKey, page: typeof next === 'function' ? next(cur) : next };
     });
     const tableScrollRef = useTableScrollHandoff();
+    // fix285 (David): after SAVE on New Project the Ledger opens with ?new=<id>; that row is found, its page is shown
+    // and it is lit up for a few seconds so the new entry is easy to see.
+    const newId = ledgerParams.get('new');
+    const [flashId, setFlashId] = useState(null);
+    const flashDone = useRef(false);
 
     const fetchLedger = useCallback(async () => {
         // one quiet retry after 5 seconds (the free server may still be waking up), then the error row
@@ -155,6 +161,15 @@ const LedgerPage = () => {
         });
         return filtered;
     }, [projects, searchTerm, activeFilter, sortConfig, statusMap]);
+    useEffect(() => {
+        if (!newId || flashDone.current) return;
+        const at = processedData.findIndex(p => p.id === newId);
+        if (at < 0) return;
+        flashDone.current = true;
+        Promise.resolve().then(() => { setPage(Math.floor(at / PAGE_SIZE)); setFlashId(newId); });
+        setTimeout(() => { document.querySelector('[data-row-id="' + newId + '"]')?.scrollIntoView({ block: 'center', behavior: scrollBehavior() }); }, 120);
+        setTimeout(() => setFlashId(null), 6000);
+    }, [newId, processedData]);   // eslint-disable-line react-hooks/exhaustive-deps -- setPage is rebuilt every draw; flashDone runs this once
 
     // fix169: pages are cut from the FILTERED list, so every filter spans the whole ledger
     const pageData = useMemo(() => processedData.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [processedData, page]);
@@ -285,7 +300,8 @@ const LedgerPage = () => {
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(proj.pending ? `/pending/${proj.id}` : `/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
-                                        className={proj.problem ? styles.rowProblem : isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
+                                        data-row-id={proj.id}
+                                        className={(proj.problem ? styles.rowProblem : isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : '') + (flashId === proj.id ? ' ' + styles.rowNew : '')}>
                                         <td className={`${styles.rowNum} gsHidePhone`}>{page * PAGE_SIZE + i + 1}</td>
                                         <td className={`${styles.plotCell} gsStickyCol`}>
                                             <div className={styles.indexRow}>

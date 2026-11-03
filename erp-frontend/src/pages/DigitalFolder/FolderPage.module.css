@@ -1981,3 +1981,8 @@
 }
 :global(:root[data-theme="gesnavy"]) .terminalHeader h1 { color: var(--night-title); }
 :global(:root[data-theme="gesnavy"]) .terminalHeader p { color: var(--night-sub); }
+
+/* fix285 (David): the MISSING ticks in the numbers popup */
+.missingTick { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; cursor: pointer; font-size: clamp(9px, 0.95vw, 11px);
+    font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.7); }
+.missingTick input { width: 14px; height: 14px; }
