@@ -1631,7 +1631,7 @@ const FolderPage = () => {
                     <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="num-invoice">INVOICE NUMBER</label>
                         <input id="num-invoice" type="text" className={modalStyles.modalInput} value={numModal.invoice} maxLength={80} autoComplete="off" autoFocus={canSetNumbers} readOnly={!canSetNumbers || numModal.invMissing}
                             onChange={e => { const v = e.target.value; setNumModal(m => ({ ...m, invoice: v, contract: m.conMissing ? v : m.contract })); if (numErr) setNumErr(''); }} />
-                        {canSetNumbers && (<label className={styles.missingTick}>
+                        {canSetNumbers && (<label className={`${modalStyles.modalLabel} ${styles.missingTick}`}>
                             <input type="checkbox" checked={!!numModal.invMissing} aria-label="Invoice number missing"
                                 onChange={e => { const on = e.target.checked; setNumModal(m => ({ ...m, invMissing: on, paper: on ? m.paper : '' })); if (on) setTimeout(() => fillMadeInvoice(numModal.paper), 0); }} />
                             INVOICE NUMBER MISSING</label>)}
@@ -1642,7 +1642,7 @@ const FolderPage = () => {
                         <input id="num-contract" type="text" className={modalStyles.modalInput} value={numModal.contract} maxLength={80} autoComplete="off" readOnly={!canSetNumbers || numModal.conMissing}
                             onChange={e => { setNumModal(m => ({ ...m, contract: e.target.value })); if (numErr) setNumErr(''); }}
                             onKeyDown={e => { if (e.key === 'Enter' && canSetNumbers) saveNumbers(); }} />
-                        {canSetNumbers && (<label className={styles.missingTick}>
+                        {canSetNumbers && (<label className={`${modalStyles.modalLabel} ${styles.missingTick}`}>
                             <input type="checkbox" checked={!!numModal.conMissing} aria-label="Contract number missing"
                                 onChange={e => { const on = e.target.checked; setNumModal(m => ({ ...m, conMissing: on, contract: on ? m.invoice : '' })); }} />
                             CONTRACT NUMBER MISSING (USE THE INVOICE NUMBER)</label>)}
