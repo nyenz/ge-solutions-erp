@@ -24,6 +24,18 @@ const landService = {
         return response.data;
     },
 
+    // fix285: the Secretary's EDIT save (the server keeps the money exactly as it is)
+    updateFolderDetails: async (projectId, data) => {
+        const response = await api.put(`/land/projects/${projectId}/details-update`, data);
+        return response.data;
+    },
+
+    // fix285: the next free made-up invoice number for a place prefix (KAM-NAM -> KAM-NAM-0008)
+    getNextInvoiceNumber: async (prefix) => {
+        const response = await api.get('/land/next-invoice-number', { params: { prefix } });
+        return response.data && response.data.invoiceNumber;
+    },
+
     // fix166: deleting a project needs a written reason (5+ characters)
     purgeAsset: async (projectId, reason) => {
         await api.delete(`/land/projects/${projectId}`, { params: { reason } });

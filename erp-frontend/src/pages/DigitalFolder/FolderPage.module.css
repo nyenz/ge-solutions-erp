@@ -1981,3 +1981,7 @@
 }
 :global(:root[data-theme="gesnavy"]) .terminalHeader h1 { color: var(--night-title); }
 :global(:root[data-theme="gesnavy"]) .terminalHeader p { color: var(--night-sub); }
+
+/* fix285 (David): the MISSING ticks in the numbers popup (also .modalLabel, so the themes colour them like the labels) */
+label.missingTick { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0 0; cursor: pointer; white-space: normal; line-height: 1.3; }
+label.missingTick input { width: 14px; height: 14px; flex-shrink: 0; }

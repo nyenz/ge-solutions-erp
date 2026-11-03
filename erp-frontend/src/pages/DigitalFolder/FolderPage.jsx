@@ -6,7 +6,7 @@ import PopupError from '../../components/common/PopupError';   // fix241
 import { portalRoot } from '../../components/common/portalRoot';
 import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { roleFlags } from '../../utils/roles';
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -60,6 +60,8 @@ import modalStyles from '../../components/common/HardwareModal.module.css';
 import { errorText, cleanMessage } from '../../utils/errorText';   // fix205
 import { flagId, flagField, flagServerError, errorCode } from '../../utils/fieldError';   // fix213
 import { fmtDay, fmtDayTime, fmtMoney } from '../../utils/format';   // fix284 (B3)
+import { typeMoney, withCommas } from '../../utils/moneyTyping';   // fix285: commas while typing
+import { madeInvoiceNumber, invoicePrefix, paperPart, ninFromName } from '../../utils/legacyNumbers';   // fix285
 
 // fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
 const NOTE_MAX = 2000;
@@ -178,13 +180,16 @@ const CurrencyInput = ({ label, value, onChange, error, id, disabled, hint, plac
     const inputId = id || 'cur-' + (label || '').replace(/\W/g, '-').toLowerCase();
     const bad = !readShillings(value).ok;
     error = error || (bad ? MONEY_BAD : undefined);
-    const display = focused || bad ? String(value ?? '') : (value !== '' && value !== null && value !== undefined ? fmtMoney(value) : '');
+    // fix285 (David): the commas show WHILE typing too; the cursor stays among the same digits
+    const display = bad ? String(value ?? '') : (value !== '' && value !== null && value !== undefined ? withCommas(value) : '');
+    const ref = useRef(null); const caret = useRef(null);
+    useLayoutEffect(() => { if (caret.current !== null && ref.current && document.activeElement === ref.current) { try { ref.current.setSelectionRange(caret.current, caret.current); } catch { /* not a text box */ } } caret.current = null; });
     return (<div className={`${styles.hwInputWrap} ${error ? styles.inputError : ''}`}>
         <div className={styles.inputLabelRow}><label htmlFor={inputId}>{label}</label><span className={styles.currencyTag}>UGX</span>
             {disabled && <span className={styles.autoCalcBadge}>LOCKED</span>}</div>
         <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''} ${disabled ? styles.calcInput : ''}`}
-            inputMode="numeric" value={display} onFocus={() => { if (!disabled) setFocused(true); }} onBlur={() => setFocused(false)}
-            onChange={e => { if (disabled) return; const r = readShillings(e.target.value); onChange(r.ok ? r.value : e.target.value); }} placeholder={placeholder} disabled={disabled} />
+            ref={ref} inputMode="numeric" value={display} onFocus={() => { if (!disabled) setFocused(true); }} onBlur={() => setFocused(false)} data-focused={focused ? 'yes' : undefined}
+            onChange={e => { if (disabled) return; const t = typeMoney(e.target.value, e.target.selectionStart); if (t.ok) { caret.current = t.caret; onChange(t.digits); } else { const r = readShillings(e.target.value); onChange(r.ok ? r.value : e.target.value); } }} placeholder={placeholder} disabled={disabled} />
         {error && <span className={styles.fieldError} role="alert"><FiAlertCircle aria-hidden="true" /> {error}</span>}
         {!error && hint && <span className={styles.inputHint}>{hint}</span>}
     </div>);
@@ -414,6 +419,7 @@ const FolderPage = () => {
     const canHandOver = isManager;
     const canReverse = isManager;
     const canUploadDocs = flags.canUploadDocs; // add scans without edit mode
+    const canEditInfoRole = flags.canEditFolderInfo;   // fix285 (David): the Secretary opens EDIT too (folder information and stages, never the money)
 
     const [binder, setBinder] = useState(null);
     const [buffer, setBuffer] = useState(null);
@@ -645,14 +651,16 @@ const FolderPage = () => {
             if (first) { setActiveTab(editTabOf(first)); setTimeout(() => flagId(EDIT_IDS[first] || first, { section: editPanelOf(first) }), 80); }
             return;
         }
-        if (!readShillings(buffer.totalCost).ok) { toast('TOTAL COST: ' + MONEY_BAD, 'error'); setActiveTab('FINANCIALS'); setTimeout(() => flagField('Total Cost'), 80); return; }   // fix199
-        if ((Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
+        if (canEdit && !readShillings(buffer.totalCost).ok) { toast('TOTAL COST: ' + MONEY_BAD, 'error'); setActiveTab('FINANCIALS'); setTimeout(() => flagField('Total Cost'), 80); return; }   // fix199
+        if (canEdit && (Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
             setFieldErrors({ costChangeReason: 'Write why (5+ characters)' }); setActiveTab('FINANCIALS'); toast('WRITE WHY THE TOTAL COST CHANGED (AT LEAST 5 CHARACTERS)', 'error', 6000); setTimeout(() => flagId(EDIT_IDS.costChangeReason), 80); return;
         }
         setFieldErrors({}); setCommitting(true);
         try {
             const cleanPerson = (o) => ({ ...o, phone: o.phone?.trim() ? (normalizePhones(o.phone).value || o.phone.trim()) : '' });
-            await landService.updateMasterFolder(id, {
+            // fix285: the Secretary saves through details-update (the server keeps the money as it is)
+            const save = canEdit ? landService.updateMasterFolder : landService.updateFolderDetails;
+            await save(id, {
                 ...buffer,
                 areaHectares: hasTitle ? Number(buffer.areaHectares) : null,
                 area: hasTitle ? String(buffer.areaHectares || '').trim() : String(buffer.area || '').trim(),   // fix203: one Area
@@ -844,7 +852,18 @@ const FolderPage = () => {
     // fix196: the two numbers of the project. Opened from the page head or from the Invoice / Contract stage.
     const openNumbers = (stage = null) => {
         const pr = binder && binder.project;
-        setNumErr(''); setNumModal({ invoice: (pr && pr.invoiceNumber) || '', contract: (pr && pr.contractNumber) || '', stage });
+        setNumErr(''); setNumModal({ invoice: (pr && pr.invoiceNumber) || '', contract: (pr && pr.contractNumber) || '', stage, invMissing: false, paper: '', conMissing: false });
+    };
+    // fix285 (David): INVOICE NUMBER MISSING makes DISTRICT-SUBCOUNTY-NUMBER (KAM-NAM-0007) from this project's place;
+    // an empty paper number takes the next free one. CONTRACT NUMBER MISSING copies the invoice number.
+    const fillMadeInvoice = async (paper) => {
+        const pr = binder && binder.project;
+        const pre = pr ? invoicePrefix(pr.district, pr.subCounty) : '';
+        if (!pre) { setNumErr('FILL IN THE DISTRICT AND THE SUB-COUNTY FIRST (EDIT, THEN LOCATION).'); return; }
+        let inv = paperPart(paper) ? madeInvoiceNumber(pr.district, pr.subCounty, paper) : '';
+        if (!inv) { try { inv = await landService.getNextInvoiceNumber(pre); } catch (err) { setNumErr(errText(err)); return; } }
+        setNumErr('');
+        setNumModal(m => (m && m.invMissing ? { ...m, invoice: inv || '', contract: m.conMissing ? (inv || '') : m.contract } : m));
     };
     const saveNumbers = async () => {
         if (!numModal || numSaving) return;
@@ -981,6 +1000,7 @@ const FolderPage = () => {
     const isLegacyProject = !!project.isLegacy;
     const isBacklog = !project.landTitle;
     const canEdit = canEditRole && !isDeleted;
+    const canEditInfo = canEditInfoRole && !isDeleted;   // fix285: EDIT button; money boxes only with canEdit
     const canSetNumbers = flags.isStaff && !isDeleted;   // fix196: every rank except Employee
     // fix180: project type, Title Details by type, clients (who pay) / owners / neighbors, subdivision plots
     const pType = projectTypeOf(project);
@@ -1130,7 +1150,7 @@ const FolderPage = () => {
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REMOVE TITLE DETAILS', confirmLabel: 'REMOVE TITLE DETAILS',
                                     info: 'This removes the saved Title Details (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the Titled stage. The old values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REMOVE TITLE DETAILS</button>)}
                         {(canEdit || (flags.isSecretary && !isDeleted)) && <button type="button" className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot (reason required).' : 'Flag this plot as having a problem and alert staff (say what it is).'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
-                        {canEdit && <button type="button" className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={isReleased} title={isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
+                        {canEditInfo && <button type="button" className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={isReleased} title={isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
                     {isEditing && (<div className={styles.ctrlGroup}>
                         {flags.canUseArchive && <button type="button" className={styles.purgeBtn} onClick={handleNuclearPurge} title="Take this project out of every list (Director or Admin, reason required, can be restored)."><FiTrash2 aria-hidden="true" /> DELETE</button>}
@@ -1159,7 +1179,7 @@ const FolderPage = () => {
                 {activeTab === 'OVERVIEW' && isReleased && (<div className={`${styles.infoStrip} ${styles.infoStripInfo}`} role="status"><FiCheckCircle aria-hidden="true" />
                     <span><strong>HANDED OVER</strong>{project.landTitle.releasedAt ? ' on ' + fmtDateTime(project.landTitle.releasedAt) : ''}{project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : ''}{project.landTitle.releaseNote ? ': ' + project.landTitle.releaseNote : ''}. The record is locked.</span></div>)}
                 {activeTab === 'OVERVIEW' && !project.landTitle && pType.titleMode === 'ALWAYS' && !isEditing && (<div className={`${styles.infoStrip} ${styles.infoStripWarn}`} role="status"><FiInfo aria-hidden="true" />
-                    <span>A {pType.label} project keeps Title Details, and they are not saved yet. {canEdit ? 'Press EDIT to enter them.' : 'A manager needs to enter them.'}</span></div>)}
+                    <span>A {pType.label} project keeps Title Details, and they are not saved yet. {canEditInfo ? 'Press EDIT to enter them.' : 'A secretary or manager needs to enter them.'}</span></div>)}
                 {/* fix181 (3.3b): one print section per tab; display:contents keeps the screen layout unchanged */}
                 <div data-print-section="OVERVIEW" style={{ display: 'contents' }}>
                 <section className={styles.hwPanel} aria-label="Plot Details" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
@@ -1220,7 +1240,7 @@ const FolderPage = () => {
                     <div className={`${styles.panelBody} ${drawers.statusesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
                         <StatusChecklistPanel projectId={id}
-                            canEdit={canEdit && isEditing && !isReleased}
+                            canEdit={canEditInfo && isEditing && !isReleased}
                             canTick={!isReleased && !isDeleted && (flags.isSecretary || (canEdit && isEditing))}
                             needsNumbers={!hasNumbers(project)} onNumbers={openNumbers} reloadKey={stagesReload}
                             needsTitle={!project.landTitle || !(binder.documents || []).some(d => d.category === 'COPY_OF_TITLE')} onTitled={openTitled}
@@ -1228,7 +1248,7 @@ const FolderPage = () => {
                             toast={toast} confirm={confirm} askReason={askReason}
                             docsByStatus={docsByStatus} docsByCategory={docsByCategory} docCats={docCats} canAttach={canUploadDocs && !isDeleted && !isReleased}
                             onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} onStages={setLiveStages} />
-                        {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick stages. The paperclip attaches documents to a stage.</span>}
+                        {!isEditing && canEditInfo && !isReleased && <span className={styles.inputHint}>Press EDIT to tick stages. The paperclip attaches documents to a stage.</span>}
                     </div></div>
                 </section>
                 {pType.value === 'SUBDIVISION' && (<section className={styles.hwPanel} aria-label="Subdivisions" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
@@ -1262,7 +1282,7 @@ const FolderPage = () => {
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
                         <div className={`${styles.panelBody} ${drawers.balance ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                             <CornerDecor hideTop />
-                            {isEditing ? (<div className={styles.inputGrid3} data-group="MONEY">
+                            {isEditing && canEdit ? (<div className={styles.inputGrid3} data-group="MONEY">
                                 <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({ ...buffer, totalCost: v })} hint="Changing it needs a reason (box appears below)." />
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT PAID</label><span className={styles.autoCalcBadge}>LOCKED</span></div>
                                     <input className={`${styles.hwInput} ${styles.calcInput}`} value={fmtMoney(buffer.initialPayment)} disabled />
@@ -1400,6 +1420,9 @@ const FolderPage = () => {
                         <div className={styles.ownersGrid2}>
                             {isEditing ? (buffer[list] || []).map((o, idx) => (<div key={idx} className={styles.ownerEditCard}>
                                 <SmartInput label={`LEGAL NAME #${idx + 1}`} value={o.fullName} showCaps required error={fieldErrors[list + '_' + idx + '_name']} onChange={e => handlePersonChange(list, idx, 'fullName', e.target.value)} id={`${list}_${idx}_name`} />
+                                {!String(o.nationalId || '').trim() && String(o.fullName || '').trim() && <button type="button" className={styles.ghostBtn}
+                                    title="Older projects often have no NIN. The full name in capitals is used as the NIN, the same way every time."
+                                    onClick={() => { const n = ninFromName(o.fullName); handlePersonChange(list, idx, 'nationalId', n); handleNinBlurCheck(list, idx, n); }}>NIN MISSING: USE THE NAME</button>}
                                 <SmartInput label="NIN" value={o.nationalId} required error={fieldErrors[list + '_' + idx + '_nin']} onChange={e => handlePersonChange(list, idx, 'nationalId', e.target.value)} onBlur={e => handleNinBlurCheck(list, idx, e.target.value)} id={`${list}_${idx}_nin`} />
                                 <SmartInput label="PHONE" value={o.phone} error={fieldErrors[list + '_' + idx + '_phone']} hint="Several numbers: separate with /" onChange={e => handlePersonChange(list, idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) handlePersonChange(list, idx, 'phone', r.value); }} id={`${list}_${idx}_phone`} />
                                 <SmartInput label="EMAIL" value={o.email} onChange={e => handlePersonChange(list, idx, 'email', e.target.value)} id={`${list}_${idx}_email`} />
@@ -1606,12 +1629,24 @@ const FolderPage = () => {
                         ? 'Type both numbers exactly as they are written on the papers. Any format is fine. No other project can have the same number. Every change is logged.'
                         : 'These are the numbers of this project. A Secretary or above can correct them.'}</div>
                     <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="num-invoice">INVOICE NUMBER</label>
-                        <input id="num-invoice" type="text" className={modalStyles.modalInput} value={numModal.invoice} maxLength={80} autoComplete="off" autoFocus={canSetNumbers} readOnly={!canSetNumbers}
-                            onChange={e => { setNumModal(m => ({ ...m, invoice: e.target.value })); if (numErr) setNumErr(''); }} /></div>
+                        <input id="num-invoice" type="text" className={modalStyles.modalInput} value={numModal.invoice} maxLength={80} autoComplete="off" autoFocus={canSetNumbers} readOnly={!canSetNumbers || numModal.invMissing}
+                            onChange={e => { const v = e.target.value; setNumModal(m => ({ ...m, invoice: v, contract: m.conMissing ? v : m.contract })); if (numErr) setNumErr(''); }} />
+                        {canSetNumbers && (<label className={`${modalStyles.modalLabel} ${styles.missingTick}`}>
+                            <input type="checkbox" checked={!!numModal.invMissing} aria-label="Invoice number missing"
+                                onChange={e => { const on = e.target.checked; setNumModal(m => ({ ...m, invMissing: on, paper: on ? m.paper : '' })); if (on) setTimeout(() => fillMadeInvoice(numModal.paper), 0); }} />
+                            INVOICE NUMBER MISSING</label>)}
+                        {numModal.invMissing && (<input type="text" className={modalStyles.modalInput} value={numModal.paper} maxLength={12} autoComplete="off" aria-label="Old paper number"
+                            placeholder="Old paper number (leave empty if none)" onChange={e => { const v = e.target.value; setNumModal(m => ({ ...m, paper: v })); fillMadeInvoice(v); }} />)}
+                    </div>
                     <div className={modalStyles.modalField}><label className={`${modalStyles.modalLabel} ${styles.modalLabelOnBlue}`} htmlFor="num-contract">CONTRACT NUMBER</label>
-                        <input id="num-contract" type="text" className={modalStyles.modalInput} value={numModal.contract} maxLength={80} autoComplete="off" readOnly={!canSetNumbers}
+                        <input id="num-contract" type="text" className={modalStyles.modalInput} value={numModal.contract} maxLength={80} autoComplete="off" readOnly={!canSetNumbers || numModal.conMissing}
                             onChange={e => { setNumModal(m => ({ ...m, contract: e.target.value })); if (numErr) setNumErr(''); }}
-                            onKeyDown={e => { if (e.key === 'Enter' && canSetNumbers) saveNumbers(); }} /></div>
+                            onKeyDown={e => { if (e.key === 'Enter' && canSetNumbers) saveNumbers(); }} />
+                        {canSetNumbers && (<label className={`${modalStyles.modalLabel} ${styles.missingTick}`}>
+                            <input type="checkbox" checked={!!numModal.conMissing} aria-label="Contract number missing"
+                                onChange={e => { const on = e.target.checked; setNumModal(m => ({ ...m, conMissing: on, contract: on ? m.invoice : '' })); }} />
+                            CONTRACT NUMBER MISSING (USE THE INVOICE NUMBER)</label>)}
+                    </div>
                     {numModal.stage && canUploadDocs && !isDeleted && !isReleased && (<div className={modalStyles.modalField}>
                         <button type="button" className={styles.addDocBtn} onClick={() => { const st = numModal.stage; setNumModal(null); attachToStatus(st); }}
                             title="The scan is filed under this stage and shows in Documents with the stage name"><FiPaperclip aria-hidden="true" />&nbsp;ATTACH THE INVOICE OR CONTRACT SCAN</button></div>)}

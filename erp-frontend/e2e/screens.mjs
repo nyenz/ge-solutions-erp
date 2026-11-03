@@ -63,6 +63,11 @@ const firstId = (d, keys = ['id', 'projectId', 'clientId']) => {
         admin: ['audit', 'settings'],
     };
     const WHO = { director, manager, secretary, employee, admin };
+    // fix285: the "Welcome to Golden Seed" pop-up covered the pictures of new accounts; mark the guide as seen (as guide.mjs does)
+    for (const w of Object.values(WHO)) {
+        try { await call('/profile/guide-seen', {}, w.token); } catch { /* older server: the session flag below is enough */ }
+        if (w.user) w.user.showGuide = false;
+    }
     const SIZES = { pc: { width: 1366, height: 800 }, phone: { width: 390, height: 844 } };
 
     const browser = await chromium.launch();

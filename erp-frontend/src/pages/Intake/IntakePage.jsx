@@ -30,6 +30,9 @@ import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/
 import { canInsertStageBelow, isInvoiceContractStage, stageTakesDocuments } from '../../utils/projectStatus';
 import { prepareUploads, anyToShrink, DOC_EXTS, DOC_ACCEPT, canPreview } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
+import MoneyInput from '../../components/common/MoneyInput';   // fix285: commas while typing
+import { madeInvoiceNumber, invoicePrefix, paperPart, ninFromName } from '../../utils/legacyNumbers';   // fix285
+import { fmtMoney } from '../../utils/format';
 import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestForRow, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
@@ -37,7 +40,7 @@ import { errorText } from '../../utils/errorText';   // fix205
 import { flagField, flagServerError } from '../../utils/fieldError';   // fix213
 const fmtDMY = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : iso; };   // fix212
 
-const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '', noNin: false });   // fix285: noNin = NIN missing tick
 const EMPTY_NEIGHBOR = () => ({ fullName: '', phone: '', side: '', plotNumber: '' });
 // fix180: the eight project types. Title Details follow the type (shared list in constants/projectTypes.js).
 const TYPE_ICONS = { FRESH_SURVEY: <FiFolderPlus aria-hidden="true" />, SUBDIVISION: <FiGrid aria-hidden="true" />, LEGACY_TITLES: <FiArchive aria-hidden="true" />,
@@ -70,6 +73,16 @@ const monthsSince = (iso) => {
 };
 const PRESET_STORAGE_KEY = 'geSolutions.intake.statusPresets';
 const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
+// fix285 (David): New Project opens with the type this person used last (each account its own), and remembers what
+// SAVE + NEXT PLOT keeps for the next plot.
+const LAST_TYPE_KEY = (u) => 'geSolutions.intake.lastType.' + (u?.username || u?.email || 'me');
+const KEEP_KEY = (u) => 'geSolutions.intake.keepNext.' + (u?.username || u?.email || 'me');
+const KEEP_DEFAULT = { place: true, clients: true, owners: true, prices: false };
+const KEEP_OPTIONS = [['place', 'Place'], ['clients', 'Clients'], ['owners', 'Owners'], ['prices', 'Prices']];
+const readJSON = (k, fallback) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : fallback; } catch { return fallback; } };
+const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } };
+// fix285: the next plot number after the one just saved (44 -> 45, 12/3 -> 12/4); '' when it does not end in digits
+const nextPlotOf = (plot) => { const m = /^(.*?)(\d+)$/.exec(String(plot || '').trim()); return m ? m[1] + String(Number(m[2]) + 1).padStart(m[2].length, '0') : ''; };
 const loadPresets = () => { try { const r = localStorage.getItem(PRESET_STORAGE_KEY); return r ? JSON.parse(r) : []; } catch { return []; } };
 const savePresets = (p) => { try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(p)); } catch { /* storage blocked */ } };
 
@@ -86,7 +99,19 @@ export default function IntakePage() {
     const [saving, setSaving] = useState(false);
     const [leaving, setLeaving] = useState(false);   // fix190: saved, about to leave the page -- SAVE stays off so a second tap cannot save a second copy
     const [nextIndex, setNextIndex] = useState('');
-    const [projectType, setProjectType] = useState('FRESH_SURVEY');
+    const [projectType, setProjectType] = useState(() => {   // fix285: the last type this person used
+        const t = readJSON(LAST_TYPE_KEY(user), null);
+        return PROJECT_TYPES.some(pt => pt.value === t) && t !== 'TRANSFER_OF_TITLE' ? t : 'FRESH_SURVEY';
+    });
+    const [keepNext, setKeepNext] = useState(() => ({ ...KEEP_DEFAULT, ...readJSON(KEEP_KEY(user), {}) }));   // fix285
+    const [lastSaved, setLastSaved] = useState(null);       // fix285: { index, plot } of the plot saved by SAVE + NEXT PLOT
+    const [nextPlot, setNextPlot] = useState('');           // fix285: suggested next plot number
+    // fix285 (David): the MISSING ticks for older projects (utils/legacyNumbers.js)
+    const [invoiceMissing, setInvoiceMissing] = useState(false);
+    const [paperNo, setPaperNo] = useState('');             // the old paper number, if there is one
+    const [nextFreeInvoice, setNextFreeInvoice] = useState('');
+    const [contractMissing, setContractMissing] = useState(false);
+    const [numbersTick, setNumbersTick] = useState(0);      // asks the server for the next free number again
     const [titleSwitch, setTitleSwitch] = useState(false);          // fix180: Topographic Survey only
     const [subdivisionCount, setSubdivisionCount] = useState('');   // fix180: Subdivision only
     const [transferFrom, setTransferFrom] = useState(null);         // fix180: { id, index, plot } when transferring a subdivision plot
@@ -296,6 +321,18 @@ export default function IntakePage() {
     // fix199 (David, test note 12): the office may leave out the invoice number, the contract number or the price;
     // the project is then saved as PENDING and starts once all three are in.
     const officeDraft = !isEmployee && (!String(invoiceNumber).trim() || !String(contractNumber).trim() || !(Number(totalCost) > 0));
+    // fix285 (David): INVOICE NUMBER MISSING makes DISTRICT-SUBCOUNTY-NUMBER (KAM-NAM-0007). The number is the old paper
+    // number, or the next free one for that place (asked from the server). CONTRACT NUMBER MISSING copies the invoice number.
+    const invPrefix = invoicePrefix(district, subCounty);
+    useEffect(() => {
+        if (!invoiceMissing || !invPrefix || paperPart(paperNo)) { setNextFreeInvoice(''); return undefined; }
+        let live = true;
+        const t = setTimeout(() => { landService.getNextInvoiceNumber(invPrefix).then(n => { if (live) setNextFreeInvoice(n || ''); }).catch(() => { if (live) setNextFreeInvoice(''); }); }, 350);
+        return () => { live = false; clearTimeout(t); };
+    }, [invoiceMissing, invPrefix, paperNo, numbersTick]);
+    const madeInvoice = invoiceMissing ? (paperPart(paperNo) ? madeInvoiceNumber(district, subCounty, paperNo) : nextFreeInvoice) : '';
+    useEffect(() => { if (invoiceMissing) setInvoiceNumber(madeInvoice); }, [invoiceMissing, madeInvoice]);
+    useEffect(() => { if (contractMissing) setContractNumber(invoiceNumber); }, [contractMissing, invoiceNumber]);
     // fix180: Title Details are shown by project type (Topographic Survey: only when switched on)
     const isTitleSectionVisible = showsTitle(projectType, titleSwitch);
     const isSubdivision = projectType === 'SUBDIVISION';
@@ -303,6 +340,7 @@ export default function IntakePage() {
     const handleProjectTypeChange = (value) => {
         if (transferFrom && value !== 'TRANSFER_OF_TITLE') { toast('A subdivision plot is transferred with a Transfer of Title project.', 'error'); return; }
         setProjectType(value); markDirty();
+        if (value !== 'TRANSFER_OF_TITLE') writeJSON(LAST_TYPE_KEY(user), value);   // fix285
         if (value !== 'TOPOGRAPHIC_SURVEY') setTitleSwitch(false);
         setAddingStatus(false); setNewStatusName(''); setInsertAfterName('');
     };
@@ -314,7 +352,7 @@ export default function IntakePage() {
 
     const openInsertBelow = (name) => { setInsertAfterName(name); setAddingStatus(true); };
     const handleAddStatus = () => {
-        if (!canAddStatus) { toast('Only an Admin, Manager or Director can add a stage.', 'error'); return; }
+        if (!canAddStatus) { toast('Only staff from Secretary up can add a stage.', 'error'); return; }
         const name = newStatusName.trim();
         if (!name) { toast('Enter a stage name first.', 'error'); flagField('New stage name'); return; }
         if (statusList.some(s => s.name.toLowerCase() === name.toLowerCase())) { toast('That stage is already on the list.', 'error'); return; }
@@ -598,23 +636,39 @@ export default function IntakePage() {
                 : wentPending ? 'Saved as PENDING. It starts once it has the Invoice Number, the Contract Number and the Total Cost.'
                 : 'Project registered successfully!', 'success');
             // fix180: a transfer goes back to the subdivision it came from; fix181: the Employee goes to MY ENTRIES
-            setTimeout(() => navigate(isEmployee ? '/my-entries' : wentPending ? '/pending/' + saved.id : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects')), 1200);
+            // fix285 (David): the Ledger opens with the new project's row lit up
+            setTimeout(() => navigate(isEmployee ? '/my-entries' : wentPending ? '/pending/' + saved.id : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects' + (saved && saved.id ? '?new=' + saved.id : ''))), 1200);
         }
     };
 
     const handleDuplicate = async () => {
         const ok = await doSave();
         if (!ok) return;
-        toast((savedRef.current && savedRef.current.pending && !isEmployee ? 'Saved as PENDING. ' : 'Saved. ') + 'The form is ready for the next plot (same type, clients, owners and place).', 'success');
+        // fix285 (David): KEEP FOR NEXT decides what stays (Place, Clients, Owners, Prices); the type always stays
+        const keep = keepNext;
+        const kept = KEEP_OPTIONS.filter(([k]) => keep[k]).map(([, w]) => w.toLowerCase());
+        const savedNow = savedRef.current;
+        setLastSaved({ index: (savedNow && savedNow.projectIndex) || nextIndex, plot: plotNumber.trim().toUpperCase() });
+        setNextPlot(nextPlotOf(plotNumber.trim().toUpperCase()));
+        toast((savedNow && savedNow.pending && !isEmployee ? 'Saved as PENDING. ' : 'Saved. ') + 'The form is ready for the next plot' + (kept.length ? ' (same type, ' + kept.join(', ') + ').' : ' (same type).'), 'success');
+        const keptPrices = { totalCost, initialStorageFee, monthlyStorageFee };
+        const keptBlock = block;
         // fix180: the type, clients, owners and location stay (the next plot is usually the same job); title, neighbors,
         // money, files and notes start blank. A subdivision transfer cannot be duplicated onto the same plot.
         setProjectStartDate(todayISO()); setTransferFrom(null);
         setTenure('FREEHOLD'); setPlotNumber(''); setBlock(''); setAreaHectares(''); setVolume(''); setFolio(''); setTitleIssueDate('');
         setNeighbors([]); setSubdivisionCount('');
-        setInvoiceNumber(''); setContractNumber('');   // fix196: every project has its own numbers
+        setInvoiceNumber(''); setContractNumber(''); setPaperNo(''); setNumbersTick(t => t + 1);   // fix196: every project has its own numbers (fix285: the MISSING ticks stay on)
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
         setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0); setPayMethod('OFFICE'); setPayRef('');   // fix172; fix199: same defaults as a new form
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
+        // fix285: what KEEP FOR NEXT leaves out starts empty
+        if (keep.place) setBlock(keptBlock);
+        else { setDistrict(''); setCounty(''); setSubCounty(''); setParish(''); setVillage(''); setArea(''); }
+        if (!keep.clients) setClients([EMPTY_OWNER()]);
+        if (!keep.clients && keep.owners) setOwnersLinked(false);   // the kept owners must not follow the new, empty client
+        if (!keep.owners) { setOwners(keep.clients ? clients.map(c => ({ ...c })) : [EMPTY_OWNER()]); setOwnersLinked(true); }
+        if (keep.prices) { setTotalCost(keptPrices.totalCost); setInitialStorageFee(keptPrices.initialStorageFee); setMonthlyStorageFee(keptPrices.monthlyStorageFee); }
         loadTypeStatuses(projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
         window.scrollTo({ top: 0, behavior: scrollBehavior() });
@@ -677,22 +731,30 @@ export default function IntakePage() {
     // fills that person's NIN, name, phone and email in this row. Nothing is filled without a pick.
     const pickPerson = (idx, onFill) => (s) => {
         const p = s.person;
-        onFill(idx, { nationalId: p.nin || '', fullName: p.name || '', phone: p.phone || '', email: p.email || '' });
+        onFill(idx, { nationalId: p.nin || '', fullName: p.name || '', phone: p.phone || '', email: p.email || '', noNin: false });
         toast('Filled from the client list: ' + (p.name || p.nin) + '. Check the details.', 'info');
     };
     const personRow = (o, idx, onChange, onRemove, canRemove, what, onFill) => (
         <div key={idx} className={styles.ownerRow}>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>NIN</label>
-                <SuggestInput className={styles.input} value={o.nationalId} aria-label={'NIN of ' + what + ' ' + (idx + 1)} hint="Known clients"
-                    suggestions={suggestForRow(people, 'nationalId', o)}
-                    onChange={v => onChange(idx, 'nationalId', v)} onPick={pickPerson(idx, onFill)} />
+                {o.noNin
+                    ? <input className={`${styles.input} ${styles.inputLocked}`} value={ninFromName(o.fullName)} readOnly aria-label={'NIN of ' + what + ' ' + (idx + 1)} title="NIN missing: the full name is used as the NIN" />
+                    : <SuggestInput className={styles.input} value={o.nationalId} aria-label={'NIN of ' + what + ' ' + (idx + 1)} hint="Known clients"
+                        suggestions={suggestForRow(people, 'nationalId', o)}
+                        onChange={v => onChange(idx, 'nationalId', v)} onPick={pickPerson(idx, onFill)} />}
+                {/* fix285 (David): older projects often have no NIN; the full name in capitals is used, the same way every time */}
+                <label className={`${styles.label} ${styles.missingTick}`}>
+                    <input type="checkbox" checked={!!o.noNin} aria-label={'NIN missing for ' + what + ' ' + (idx + 1)}
+                        onChange={e => onFill(idx, e.target.checked ? { noNin: true, nationalId: ninFromName(o.fullName) } : { noNin: false, nationalId: '' })} />
+                    NIN missing
+                </label>
             </div>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>Full Name</label>
                 <SuggestInput className={styles.input} value={o.fullName} aria-label={'Full name of ' + what + ' ' + (idx + 1)} hint="Known clients"
                     suggestions={suggestForRow(people, 'fullName', o)}
-                    onChange={v => onChange(idx, 'fullName', v)} onPick={pickPerson(idx, onFill)} />
+                    onChange={v => (o.noNin ? onFill(idx, { fullName: v, nationalId: ninFromName(v) }) : onChange(idx, 'fullName', v))} onPick={pickPerson(idx, onFill)} />
             </div>
             <div className={styles.field}>
                 <label className={`${styles.label} ${styles.required}`}>Phone</label>
@@ -811,7 +873,9 @@ export default function IntakePage() {
                             <HardwareSelect label="Tenure" required options={TENURE_OPTIONS} value={tenure} onChange={(v) => { setTenure(v); markDirty(); }} />
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
-                                <input className={styles.input} value={plotNumber} onChange={e => { setPlotNumber(e.target.value); markDirty(); }} />
+                                <input className={styles.input} value={plotNumber} placeholder={nextPlot ? 'Next: ' + nextPlot : ''} onChange={e => { setPlotNumber(e.target.value); markDirty(); }} />
+                                {/* fix285: after SAVE + NEXT PLOT, one press fills the next plot number (44 -> 45) */}
+                                {nextPlot && !plotNumber.trim() && <button type="button" className={styles.clearLink} onClick={() => { setPlotNumber(nextPlot); markDirty(); }}>Use {nextPlot}</button>}
                             </div>
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Block</label>
@@ -982,24 +1046,41 @@ export default function IntakePage() {
                     <div className={styles.grid2}>
                         <div className={styles.field}>
                             <label className={styles.label}>Invoice Number</label>
-                            <input type="text" className={styles.input} value={invoiceNumber} maxLength={80} autoComplete="off" placeholder="As written on the invoice"
+                            <input type="text" className={`${styles.input} ${invoiceMissing ? styles.inputLocked : ''}`} value={invoiceNumber} maxLength={80} autoComplete="off" aria-label="Invoice Number"
+                                placeholder={invoiceMissing ? (invPrefix ? invPrefix + '-0001' : 'Fill District and Sub-county first') : 'As written on the invoice'} readOnly={invoiceMissing}
                                 onChange={e => { setInvoiceNumber(e.target.value); markDirty(); }} />
+                            <label className={`${styles.label} ${styles.missingTick}`}>
+                                <input type="checkbox" checked={invoiceMissing} aria-label="Invoice number missing"
+                                    onChange={e => { setInvoiceMissing(e.target.checked); if (!e.target.checked) { setInvoiceNumber(''); setPaperNo(''); } markDirty(); }} />
+                                Invoice number missing
+                            </label>
+                            {invoiceMissing && (<>
+                                <input type="text" className={styles.input} value={paperNo} maxLength={12} autoComplete="off" aria-label="Old paper number"
+                                    placeholder="Old paper number (leave empty if none)" onChange={e => { setPaperNo(e.target.value); markDirty(); }} />
+                                <p className={styles.hint}>{invPrefix ? 'Made from the place: District + Sub-county initials + number. Empty paper number = the next free one.' : 'Fill in the District and the Sub-county (Location) first.'}</p>
+                            </>)}
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Contract Number</label>
-                            <input type="text" className={styles.input} value={contractNumber} maxLength={80} autoComplete="off" placeholder="As written on the contract"
+                            <input type="text" className={`${styles.input} ${contractMissing ? styles.inputLocked : ''}`} value={contractNumber} maxLength={80} autoComplete="off" aria-label="Contract Number"
+                                placeholder={contractMissing ? 'Same as the invoice number' : 'As written on the contract'} readOnly={contractMissing}
                                 onChange={e => { setContractNumber(e.target.value); markDirty(); }} />
+                            <label className={`${styles.label} ${styles.missingTick}`}>
+                                <input type="checkbox" checked={contractMissing} aria-label="Contract number missing"
+                                    onChange={e => { setContractMissing(e.target.checked); if (!e.target.checked) setContractNumber(''); markDirty(); }} />
+                                Contract number missing (use the invoice number)
+                            </label>
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Total Cost</label>
-                            <input type="number" className={styles.input} value={totalCost} onChange={e => { setTotalCost(e.target.value); markDirty(); }} />
+                            <MoneyInput className={styles.input} ariaLabel="Total Cost" value={totalCost} onChange={v => { setTotalCost(v); markDirty(); }} />
                         </div>
                         {officeDraft && (
                             <p className={styles.hint} role="status" style={{ gridColumn: '1 / -1' }}>Saved as PENDING while the Invoice Number, the Contract Number or the Total Cost is missing. It starts by itself once all three are in.</p>
                         )}
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</label>
-                            <input type="number" min="0" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />
+                            <MoneyInput className={styles.input} ariaLabel={isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'} value={initialPayment} onChange={v => { setInitialPayment(v); markDirty(); }} />
                             {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}
                         </div>
                     </div>
@@ -1041,16 +1122,16 @@ export default function IntakePage() {
                             <div className={styles.grid2}>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Initial Storage Fee</label>
-                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => { setInitialStorageFee(e.target.value); markDirty(); }} />
+                                    <MoneyInput className={styles.input} ariaLabel="Initial Storage Fee" value={initialStorageFee} onChange={v => { setInitialStorageFee(v); markDirty(); }} />
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} onBlur={fixFeeBox} />
-                                    <p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString('en-US') : '...'}. Leave blank to use it. 0 or less is not allowed and turns into the default.</p>
+                                    <MoneyInput className={styles.input} ariaLabel="Monthly Storage Fee" value={monthlyStorageFee} placeholder={systemFee ? fmtMoney(systemFee) : ''} onChange={v => { setMonthlyStorageFee(v); markDirty(); }} onBlur={fixFeeBox} />
+                                    <p className={styles.hint}>System default: {systemFee ? fmtMoney(systemFee) : '...'}. Leave blank to use it. 0 or less is not allowed and turns into the default.</p>
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Storage Fees Already Paid</label>
-                                    <input type="number" min="0" className={styles.input} value={initialStorageFeePaid} onChange={e => { setInitialStorageFeePaid(e.target.value); markDirty(); }} />
+                                    <MoneyInput className={styles.input} ariaLabel="Storage Fees Already Paid" value={initialStorageFeePaid} onChange={v => { setInitialStorageFeePaid(v); markDirty(); }} />
                                     <p className={styles.hint}>Part of the fees charged (Initial Storage Fee plus backlog fees) that the client has already paid. Counted toward the fees, not the title work. It only counts as a recent payment if you set a Date Last Paid.</p>
                                 </div>
                                 {clients.length > 1 && feesPaidEntered && (
@@ -1111,12 +1192,21 @@ export default function IntakePage() {
                 </div>
             </div>
 
+            {/* fix285 (David): what SAVE + NEXT PLOT keeps for the next plot (remembered for this account) */}
+            <div className={styles.keepBar} role="group" aria-label="Keep for next plot">
+                <span className={`${styles.label} ${styles.keepLabel}`}>Keep for next</span>
+                {KEEP_OPTIONS.map(([k, w]) => (
+                    <button key={k} type="button" aria-pressed={!!keepNext[k]} className={`${styles.typeBtn} ${styles.keepChip} ${keepNext[k] ? styles.typeBtnActive : ''}`}
+                        onClick={() => setKeepNext(prev => { const next = { ...prev, [k]: !prev[k] }; writeJSON(KEEP_KEY(user), next); return next; })}>{w}</button>
+                ))}
+                {lastSaved && <span className={styles.savedLine} role="status">Saved #{lastSaved.index}{lastSaved.plot ? ' (plot ' + lastSaved.plot + ')' : ''}</span>}
+            </div>
             <div className={styles.bottomBar}>
                 <div className={styles.bottomBarRight}>
                     {/* fix199 (David, test note 21): the button SAVES this project first, then keeps the type, clients, owners and
                         place for the next plot -- the old word "Duplicate" did not say that it saves */}
                     <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}
-                        title="Saves this project, then starts the next one with the same type, clients, owners and place. Title, neighbours, numbers, money, documents and notes start empty.">
+                        title="Saves this project, then starts the next one with the same type and what KEEP FOR NEXT is set to. Title, neighbours, numbers, payments, documents and notes start empty.">
                         <FiCopy /> Save + Next Plot
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving || leaving} onClick={handleSubmit}>

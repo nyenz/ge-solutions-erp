@@ -54,6 +54,7 @@ public class LandController {
         return ResponseEntity.ok(java.util.Map.of("defaultMonthlyFee", LandProject.DEFAULT_MONTHLY_STORAGE_FEE));
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix285: the Secretary opens EDIT too
     @PostMapping("/projects/{id}/unlock-log")
     public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
         landService.logUnlockAction(id);
@@ -94,6 +95,21 @@ public class LandController {
     public ResponseEntity<LandProject> updateProjectFull(
             @PathVariable UUID id, @RequestBody LandEntryRequest request) {
         return ResponseEntity.ok(landService.updateProjectFull(id, request));
+    }
+
+    // fix285 (David): the Secretary saves the folder information; the money is kept as it is (LandService.updateProjectDetails)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PutMapping("/projects/{id}/details-update")
+    public ResponseEntity<LandProject> updateProjectDetails(
+            @PathVariable UUID id, @RequestBody LandEntryRequest request) {
+        return ResponseEntity.ok(landService.updateProjectDetails(id, request));
+    }
+
+    // fix285 (David): the next free number for a made-up invoice number such as KAM-NAM-0008 (prefix = KAM-NAM)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/next-invoice-number")
+    public ResponseEntity<java.util.Map<String, String>> nextInvoiceNumber(@RequestParam String prefix) {
+        return ResponseEntity.ok(java.util.Map.of("invoiceNumber", projectNumbersService.nextFree(prefix)));
     }
 
     @DeleteMapping("/projects/{id}")

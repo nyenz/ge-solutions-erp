@@ -1,0 +1,2 @@
+/* fix285: the short line under a money box when a dot, letter or minus was typed */
+.refused { display: block; margin-top: 4px; font-size: var(--fs-meta, 11px); font-weight: 700; letter-spacing: 0.3px; color: var(--red); }
