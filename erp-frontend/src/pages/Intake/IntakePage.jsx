@@ -579,6 +579,7 @@ export default function IntakePage() {
         email: o.email.trim().toLowerCase(), nationalId: o.nationalId.trim().toUpperCase(), address: o.address.trim(),
     });
     const doSave = async () => {
+        setJustSaved(null);   // fix287: the green box is about the last plot; a new save attempt hides it
         if (!validate()) return false;
         setSaving(true);
         try {
