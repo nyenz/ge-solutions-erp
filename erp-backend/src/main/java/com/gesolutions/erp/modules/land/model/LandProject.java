@@ -239,6 +239,12 @@ public class LandProject {
     @Column(name = "is_legacy", nullable = false)
     private boolean isLegacy = false;
 
+    // fix287 (David): the New Project page's one-time ticket. The same ticket sent again (a second press, or a save whose
+    // answer was lost on a slow line) gets the project that is already saved, instead of being refused or saved twice.
+    @Column(name = "entry_key", length = 64, unique = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String entryKey;
+
     @Builder.Default
     @Column(name = "is_problem", nullable = false)
     private boolean problem = false;

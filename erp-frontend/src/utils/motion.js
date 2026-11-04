@@ -9,3 +9,15 @@ export const calmMotion = () => {
 
 /** 'auto' when movement is turned off, else 'smooth' (for scrollTo / scrollIntoView). */
 export const scrollBehavior = () => (calmMotion() ? 'auto' : 'smooth');
+
+// fix287: the app page scrolls inside its own area (Shell), not the window. Go to the top of both.
+export const scrollPageTop = () => {
+    try {
+        window.scrollTo({ top: 0, behavior: scrollBehavior() });
+        const seen = new Set();
+        for (const sel of ['[class*="scrollArea"]', '[class*="mainContent"]']) {
+            const el = document.querySelector(sel);
+            if (el && !seen.has(el)) { seen.add(el); el.scrollTo({ top: 0, behavior: scrollBehavior() }); }
+        }
+    } catch { /* never block the page */ }
+};

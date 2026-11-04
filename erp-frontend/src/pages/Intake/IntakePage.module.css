@@ -239,3 +239,28 @@ span.keepLabel { letter-spacing: 1.2px; overflow: visible; }
 button.keepChip { padding: 4px 12px; font-size: var(--fs-meta); }
 .savedLine { font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.8px; color: var(--green, #22c55e); margin-left: 6px; }
 @media (max-width: 700px) { .bottomBar { flex-wrap: wrap; } .keepBar { width: 100%; } }
+
+/* fix287 (David): the boxes at the top of New Project. Fixed light colours with dark words, so they read the same in every theme. */
+.problemBox, .savedBox, .missingStrip { border-radius: var(--radius, 10px); margin: 0 0 var(--gap-md) 0; font-family: var(--font-body, 'Inter'), sans-serif; }
+.problemBox { position: sticky; top: 8px; z-index: 30; max-height: 42vh; overflow-y: auto; box-shadow: 0 6px 18px rgba(0,0,0,0.18); background: #FFF1F1; border: 1.5px solid #D93A3A; color: #6B1010; padding: clamp(10px,1.2vw,14px) clamp(12px,1.6vw,18px); }
+.problemHead { display: flex; align-items: center; gap: 8px; font-size: var(--fs-value); letter-spacing: 0.5px; }
+.problemHead svg { color: #D93A3A; flex-shrink: 0; }
+.problemList { margin: 8px 0 6px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
+.problemLine { background: none; border: none; padding: 2px 0; color: #6B1010; font: inherit; font-weight: 700; font-size: var(--fs-value); text-align: left; cursor: pointer; }
+.problemLine:hover { color: #B42323; }
+.problemServer { margin: 8px 0 0 0; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.problemBtn { background: #D93A3A; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-weight: 900; font-size: var(--fs-meta); letter-spacing: 1px; cursor: pointer; }
+.problemBtn:hover { background: #B42323; }
+.problemHint { display: block; font-size: var(--fs-meta); font-weight: 700; color: #8A3A3A; }
+.savedBox { position: sticky; top: 8px; z-index: 29; box-shadow: 0 6px 18px rgba(0,0,0,0.14); display: flex; align-items: flex-start; gap: 10px; background: #EEF9F1; border: 1.5px solid #2E9E5B; color: #14532D; padding: clamp(10px,1.2vw,14px) clamp(12px,1.6vw,18px); }
+.savedBox > svg { color: #2E9E5B; flex-shrink: 0; margin-top: 2px; }
+.savedBox > div { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.savedBox span { font-size: var(--fs-meta); font-weight: 700; color: #2B6B42; }
+.boxClose { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; padding: 2px; display: inline-flex; opacity: 0.7; }
+.boxClose:hover { opacity: 1; }
+.missingStrip { background: #FFF4E6; border: 1.5px solid #E8892E; color: #6B3505; padding: 8px clamp(12px,1.6vw,18px); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.4px; }
+.savingPill { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 950; display: flex; align-items: center; gap: 12px;
+    background: #0B2250; color: #fff; border-radius: 999px; padding: 10px 18px; font-family: var(--font-body, 'Inter'), sans-serif;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.4px; box-shadow: 0 10px 28px rgba(0,0,0,0.3); }
+.savingBar { width: 120px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.25); overflow: hidden; display: inline-block; }
+.savingBar > span { display: block; height: 100%; background: #F26A0D; transition: width 0.3s; }

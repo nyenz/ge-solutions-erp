@@ -17,6 +17,8 @@ public class LandEntryRequest {
 
     // fix180: the project type (ProjectType name). Missing = worked out from isLegacy (old pages).
     private String projectType;
+    // fix287: the page's one-time ticket for this entry (see LandProject.entryKey)
+    private String entryKey;
     // fix180: Topographic Survey only -- the optional Title Details panel is switched on
     @JsonProperty("titleDetailsEnabled")
     private boolean titleDetailsEnabled;

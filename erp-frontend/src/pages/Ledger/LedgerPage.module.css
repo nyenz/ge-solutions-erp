@@ -219,3 +219,12 @@
 .rowNew td{animation:rowNewGlow 6s ease-out 1;}
 @keyframes rowNewGlow{0%,60%{background:rgba(var(--acc-rgb,238,140,58),0.22);}100%{background:transparent;}}
 @media (prefers-reduced-motion: reduce){.rowNew td{animation:none;background:rgba(var(--acc-rgb,238,140,58),0.18);}}
+
+/* fix287: the "Saved" banner, held at the bottom of the screen so it shows while the page scrolls to the new row (fixed light colours with dark words, the same in every theme) */
+.savedBanner{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:900;width:min(760px,calc(100vw - 32px));box-shadow:0 10px 28px rgba(0,0,0,0.28);display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0;padding:10px 14px;border-radius:10px;background:#EEF9F1;border:1.5px solid #2E9E5B;color:#14532D;font-weight:700;font-size:13px;}
+.savedBanner>svg{color:#2E9E5B;flex-shrink:0;}
+.savedBanner>span{flex:1;min-width:200px;}
+.savedBannerBtn{background:#2E9E5B;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-weight:900;font-size:11px;letter-spacing:1px;cursor:pointer;}
+.savedBannerBtn:hover{background:#23804A;}
+.savedBannerGhost{background:transparent;color:#14532D;border:1.5px solid rgba(20,83,45,0.4);border-radius:6px;padding:5px 12px;font-weight:900;font-size:11px;letter-spacing:1px;cursor:pointer;}
+.savedBannerGhost:hover{border-color:#14532D;}
