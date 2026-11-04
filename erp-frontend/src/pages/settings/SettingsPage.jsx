@@ -359,11 +359,11 @@ const SettingsPage = () => {
                           </div>
                         </div>
                       ))}
+                      {/* fix288 (David): which bell alerts this person gets (saved on the server, not on this device) */}
+                      {section.name === 'Notifications' && flags.isStaff && <BellAlertsPanel toast={toast} />}
                     </div>
                   ))}
                 </div>
-                {/* fix288 (David): which bell alerts this person gets (saved on the server, not on this device) */}
-                {flags.isStaff && <BellAlertsPanel toast={toast} />}
                 <div className={styles.submitRow}>
                   <button type="button" className={styles.commitBtn} onClick={resetPrefs}><FiRotateCcw aria-hidden="true" /> RESET APPEARANCE</button>
                 </div>

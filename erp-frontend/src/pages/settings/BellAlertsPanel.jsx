@@ -44,11 +44,12 @@ export default function BellAlertsPanel({ toast }) {
     };
 
     if (failed) return null;
+    // drawn inside the Appearance > NOTIFICATIONS card, under Notification refresh
     return (
-        <div className={styles.prefGroupBox}>
-            <div className={styles.prefGroupLabel}><FiBell aria-hidden="true" /> Bell alerts</div>
+        <>
             <div className={styles.prefRow}>
                 <div className={styles.prefLabel}>
+                    <strong><FiBell aria-hidden="true" /> Bell alerts</strong>
                     <span>Choose what rings your bell. Saved for your account on every device. Critical alerts (a project deleted, books that do not match the payments, a flagged problem, a failed nightly job) always show.</span>
                 </div>
             </div>
@@ -66,6 +67,6 @@ export default function BellAlertsPanel({ toast }) {
                     </div>
                 );
             })}
-        </div>
+        </>
     );
 }
