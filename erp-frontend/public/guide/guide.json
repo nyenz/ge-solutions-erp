@@ -1,5 +1,5 @@
 {
- "made": "2026-11-03T14:00:55.328Z",
+ "made": "2026-11-04T09:57:19.556Z",
  "size": {
   "width": 1280,
   "height": 720
@@ -121,7 +121,7 @@
     },
     {
      "img": "new-project-7.jpg",
-     "cap": "Press SAVE. A missing box is marked in red and the page takes you straight to it.",
+     "cap": "Press SAVE. Anything missing is listed in a red box at the top; click a line to go to that box. SAVE + DUPLICATE saves, shows it on the Ledger, and comes back ready for the next plot.",
      "box": {
       "x": 1045,
       "y": 91,
@@ -239,7 +239,7 @@
      "box": {
       "x": 79,
       "y": 351,
-      "w": 247,
+      "w": 244,
       "h": 34
      }
     },
@@ -334,8 +334,8 @@
      "cap": "Every payment is listed in Payment History. A mistake is REVERSED (never deleted) and the reason is kept.",
      "box": {
       "x": 79,
-      "y": 375,
-      "w": 226,
+      "y": 447,
+      "w": 224,
       "h": 34
      }
     }
