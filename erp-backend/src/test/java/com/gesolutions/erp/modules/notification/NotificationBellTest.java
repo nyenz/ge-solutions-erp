@@ -6,6 +6,7 @@ import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.modules.notification.controller.NotificationController;
 import com.gesolutions.erp.modules.notification.model.Notification;
 import com.gesolutions.erp.modules.notification.repository.NotificationRepository;
+import com.gesolutions.erp.modules.notification.service.NotificationTypes;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -130,6 +131,35 @@ public class NotificationBellTest {
         Notification pin = Notification.builder().type("NOTE_PINNED").entityType("PROJECT_NOTES").entityId(pid).build();
         assertEquals("/folder/" + pid + "#notes", invokeLink(pin, Role.ROLE_MANAGER));
         assertEquals("/folder/" + pid + "#notes", invokeLink(pin, Role.ROLE_SECRETARY));
+    }
+
+    // fix288 (David): the owner's root (Admin) account gets every Director alert too
+    @Test
+    public void theRootAccountGetsEveryDirectorAlert() {
+        for (NotificationTypes.Type t : NotificationTypes.all().values()) {
+            if (t.audience().contains("ROLE_DIRECTOR")) assertTrue(t.audience().contains("ROLE_ADMIN"), t.code() + " goes to the root too");
+        }
+        assertTrue(NotificationTypes.of("PAYMENT_REVERSED").audience().contains("ROLE_ADMIN"));
+        assertFalse(NotificationTypes.of("STATUS_ADVANCED").audience().contains("ROLE_ADMIN"), "Manager-only alerts stay with the Manager");
+    }
+
+    // fix288: a group switched off in Settings leaves the bell, except a CRITICAL alert; all groups off is refused
+    @Test
+    public void aSwitchedOffGroupIsHiddenButCriticalStillShows() {
+        User d = user(Role.ROLE_DIRECTOR, LocalDateTime.now().minusDays(1));
+        repo.save(Notification.builder().type("EXPENSE_LOGGED").severity("INFO").message("x").entityType("EXPENSE")
+                .entityId(UUID.randomUUID()).targetRole("ROLE_DIRECTOR").category("MONEY").createdAt(LocalDateTime.now()).build());
+        repo.save(Notification.builder().type("BOOKS_MISMATCH").severity("CRITICAL").message("x").entityType("SYSTEM")
+                .entityId(UUID.randomUUID()).targetRole("ROLE_DIRECTOR").category("MONEY").createdAt(LocalDateTime.now()).build());
+        bell.savePrefs(auth(d), Map.of("muted", List.of("MONEY")));
+        assertEquals(List.of("MONEY"), bell.prefs(auth(d)).get("muted"));
+        List<Map<String, Object>> rows = bell.list(auth(d), null, 200);
+        assertTrue(rows.stream().noneMatch(r -> "EXPENSE_LOGGED".equals(r.get("type"))), "the switched-off group is hidden");
+        assertTrue(rows.stream().anyMatch(r -> "BOOKS_MISMATCH".equals(r.get("type"))), "a critical alert still shows");
+        @SuppressWarnings("unchecked") List<String> all = (List<String>) bell.prefs(auth(d)).get("groups");
+        assertThrows(com.gesolutions.erp.common.exception.BusinessException.class, () -> bell.savePrefs(auth(d), Map.of("muted", all)));
+        bell.savePrefs(auth(d), Map.of("muted", List.of()));
+        assertTrue(bell.list(auth(d), null, 200).stream().anyMatch(r -> "EXPENSE_LOGGED".equals(r.get("type"))), "switched on again, it is back");
     }
 
     private static String invokeLink(Notification n, Role r) {

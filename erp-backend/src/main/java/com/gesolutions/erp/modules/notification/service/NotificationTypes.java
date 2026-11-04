@@ -37,7 +37,10 @@ public final class NotificationTypes {
     private static final Map<String, Type> TYPES = new LinkedHashMap<>();
 
     private static void add(String code, Group g, String severity, Repeat r, String... audience) {
-        TYPES.put(code, new Type(code, g, severity, r, List.of(audience)));
+        // fix288 (David): the owner's root (Admin) account gets every alert the Director gets, on top of its own
+        java.util.LinkedHashSet<String> who = new java.util.LinkedHashSet<>(List.of(audience));
+        if (who.contains(DIR)) who.add(ADM);
+        TYPES.put(code, new Type(code, g, severity, r, List.copyOf(who)));
     }
 
     static {
