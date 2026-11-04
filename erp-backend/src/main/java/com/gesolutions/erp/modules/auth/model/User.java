@@ -88,6 +88,11 @@ public class User {
     @Column(name = "notify_since")
     private java.time.LocalDateTime notifySince;
 
+    // fix288 (David): the bell groups this person switched OFF in Settings (comma list, e.g. "MONEY,NOTES").
+    // A CRITICAL alert always shows. Empty = every group on.
+    @Column(name = "muted_alert_groups", length = 200)
+    private String mutedAlertGroups;
+
     // fix262 (David): a new account sees the short guide once, at its first visit (it can skip it). null = not offered
     // (accounts that existed before this was added are not shown it).
     @Column(name = "show_guide")

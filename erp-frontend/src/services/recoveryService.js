@@ -32,6 +32,9 @@ getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   // fix181 (17.6, 21.1): before = the createdAt of the last row shown (older page)
   getNotifications: (before) => api.get('/notifications', { params: before ? { before } : {} }).then(r => r.data),
   getSummary: () => api.get('/notifications/summary').then(r => r.data),
+  // fix288: Settings > Bell alerts -- which groups ring this person's bell
+  getAlertPrefs: () => api.get('/notifications/prefs').then(r => r.data),
+  saveAlertPrefs: (muted) => api.put('/notifications/prefs', { muted }).then(r => r.data),
   getUnreadCount: () => api.get('/notifications/unread-count').then(r => r.data.unread),
   markRead: (id) => api.post('/notifications/' + id + '/read'),
   // fix181 (17.4(3), 17.18b): one call, one group, only alerts up to the newest one shown
