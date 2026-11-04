@@ -5,6 +5,7 @@ import { roleFlags } from '../../utils/roles';
 import { PAY_METHODS, methodLabel, methodCode, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom';
+import { FiAlertTriangle, FiCheckCircle } from 'react-icons/fi';   // fix287
 import { createPortal } from 'react-dom';
 import {
     FiUser, FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
@@ -37,7 +38,7 @@ import useEntryMemory from '../../hooks/useEntryMemory';
 import { suggestPlace, suggestForRow, nearMiss, placeValues, placeLabel, norm as normText } from '../../utils/entryMemory';
 import styles from './IntakePage.module.css';
 import { errorText } from '../../utils/errorText';   // fix205
-import { flagField, flagServerError } from '../../utils/fieldError';   // fix213
+import { flagField, flagServerError, errorCode } from '../../utils/fieldError';   // fix213; fix287: errorCode
 const fmtDMY = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : iso; };   // fix212
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '', noNin: false });   // fix285: noNin = NIN missing tick
@@ -78,6 +79,11 @@ const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
 const LAST_TYPE_KEY = (u) => 'geSolutions.intake.lastType.' + (u?.username || u?.email || 'me');
 const KEEP_KEY = (u) => 'geSolutions.intake.keepNext.' + (u?.username || u?.email || 'me');
 const KEEP_DEFAULT = { place: true, clients: true, owners: true, prices: false };
+// fix287 (David): the MISSING ticks become this person's defaults; the next plot travels to the Ledger and back in here
+const MISSING_KEY = (u) => 'geSolutions.intake.missing.' + (u?.username || u?.email || 'me');
+const NEXT_KEY = 'geSolutions.intake.nextPlot';
+const readSession = (k) => { try { const r = sessionStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } };
+const writeSession = (k, v) => { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } };
 const KEEP_OPTIONS = [['place', 'Place'], ['clients', 'Clients'], ['owners', 'Owners'], ['prices', 'Prices']];
 const readJSON = (k, fallback) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : fallback; } catch { return fallback; } };
 const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } };
@@ -90,6 +96,8 @@ export default function IntakePage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
+    const missingDefaults = useMemo(() => ({ nin: false, invoice: false, contract: false, ...readJSON(MISSING_KEY(user), {}) }), [user]);   // fix287
+    const newRow = (noNin) => ({ ...EMPTY_OWNER(), noNin: !!noNin });   // fix287: a new row keeps the NIN missing tick of the row above
     // fix180: only Admin, Manager and Director can add a status (Secretary is data entry only; the server checks too)
     const canAddStatus = roleFlags(user).canAddStatus;
     // fix181 (8.7e): the Employee enters field data only -- no money section; the project is saved as PENDING
@@ -107,10 +115,12 @@ export default function IntakePage() {
     const [lastSaved, setLastSaved] = useState(null);       // fix285: { index, plot } of the plot saved by SAVE + NEXT PLOT
     const [nextPlot, setNextPlot] = useState('');           // fix285: suggested next plot number
     // fix285 (David): the MISSING ticks for older projects (utils/legacyNumbers.js)
-    const [invoiceMissing, setInvoiceMissing] = useState(false);
+    const [invoiceMissing, setInvoiceMissing] = useState(() => !!missingDefaults.invoice);   // fix287: remembered
     const [paperNo, setPaperNo] = useState('');             // the old paper number, if there is one
     const [nextFreeInvoice, setNextFreeInvoice] = useState('');
-    const [contractMissing, setContractMissing] = useState(false);
+    const [contractMissing, setContractMissing] = useState(() => !!missingDefaults.contract);
+    const [problemBox, setProblemBox] = useState(null);     // fix287: { list, server } -- the red box at the top
+    const [justSaved, setJustSaved] = useState(null);       // fix287: the green box after SAVE + DUPLICATE
     const [numbersTick, setNumbersTick] = useState(0);      // asks the server for the next free number again
     const [titleSwitch, setTitleSwitch] = useState(false);          // fix180: Topographic Survey only
     const [subdivisionCount, setSubdivisionCount] = useState('');   // fix180: Subdivision only
@@ -122,8 +132,8 @@ export default function IntakePage() {
     // operator (e.g. entering a project two days after it started).
     const [entryDate] = useState(todayDMY);
     // fix180: CLIENTS first, then OWNERS. Owners start as a copy of the clients and follow them until staff change an owner.
-    const [clients, setClients] = useState([EMPTY_OWNER()]);
-    const [owners, setOwners] = useState([EMPTY_OWNER()]);
+    const [clients, setClients] = useState(() => [newRow(missingDefaults.nin)]);
+    const [owners, setOwners] = useState(() => [newRow(missingDefaults.nin)]);
     const [ownersLinked, setOwnersLinked] = useState(true);
     const [neighbors, setNeighbors] = useState([]);
     const [district, setDistrict] = useState('');
@@ -459,51 +469,74 @@ export default function IntakePage() {
     };
 
     // fix213: every refusal marks the box that is wrong and scrolls to it (utils/fieldError.js)
-    const fail = (msg, field, section) => { toast(msg, 'error'); flagField(field, { section }); return false; };
+    // fix287 (David): EVERY problem is collected and listed at once in the red box at the top (each line jumps to its
+    // box); the first wrong box is marked and scrolled to. quiet = only list (no messages, no changes): the box refreshes
+    // itself while the person fixes things.
+    let problems = [];
+    const fail = (msg, field, section) => { problems.push({ msg, field, section }); return false; };
+    const collectProblems = (quiet) => {
+        problems = [];
+        const loc = () => {
+            if (!district.trim()) fail('District is required.', 'District', 'Location');
+            if (!county.trim()) fail('County is required.', 'County', 'Location');
+            if (!subCounty.trim()) fail('Sub-county is required.', 'Sub-county', 'Location');
+            if (!parish.trim()) fail('Parish is required.', 'Parish', 'Location');
+            if (!village.trim()) fail('Village is required.', 'Village', 'Location');
+            if (!isTitleSectionVisible && area.trim() && !(Number(area) > 0)) fail('Area (hectares) must be a number more than 0, for example 0.405.', 'Area (hectares)', 'Location');
+        };
+        const titleChecks = () => {
+            if (!plotNumber.trim()) fail('Plot Number is required.', 'Plot Number', 'Title');
+            if (!block.trim()) fail('Block is required.', 'Block', 'Title');
+            if (!(Number(areaHectares) > 0)) fail('Area (hectares) is required and must be more than 0.', 'Area (hectares)', 'Title');
+            if (!titleIssueDate) fail('Title Date is required.', 'Title date', 'Title');
+        };
+        loc();
+        validateRest(quiet, titleChecks);
+        return problems;
+    };
     const validate = () => {
-        if (!district.trim()) return fail('District is required.', 'District', 'Location');
-        if (!county.trim()) return fail('County is required.', 'County', 'Location');
-        if (!subCounty.trim()) return fail('Sub-county is required.', 'Sub-county', 'Location');
-        if (!parish.trim()) return fail('Parish is required.', 'Parish', 'Location');
-        if (!village.trim()) return fail('Village is required.', 'Village', 'Location');
+        const list = collectProblems(false);
+        if (list.length === 0) { setProblemBox(null); return true; }
+        setProblemBox({ list: list.map(p => ({ ...p })), server: null });
+        toast(list.length === 1 ? 'NOT SAVED: ' + list[0].msg : 'NOT SAVED: ' + list.length + ' things to fix. They are listed at the top of the form.', 'error', 6000);
+        flagField(list[0].field, { section: list[0].section });
+        return false;
+    };
+    const validateRest = (quiet, titleChecks) => {
         // fix199 (David, test note 11): Area is the size of the land in hectares, so digits only (e.g. 0.405)
         // fix203 (David): Area is typed ONCE. With Title Details it is the title's Area (required there); without a title
         // it is the Location box, which may be left empty but must be a number when typed.
-        if (!isTitleSectionVisible && area.trim() && !(Number(area) > 0)) return fail('Area (hectares) must be a number more than 0, for example 0.405.', 'Area (hectares)', 'Location');
-        const checkPeople = (rows, what) => {
-            for (let i = 0; i < rows.length; i++) {
-                const o = rows[i];
-                if (!o.nationalId.trim()) return fail(`${what} ${i + 1}: NIN is required.`, `NIN of ${what} ${i + 1}`, what);
-                if (!o.fullName.trim()) return fail(`${what} ${i + 1}: Full Name is required.`, `Full name of ${what} ${i + 1}`, what);
-                if (!o.phone.trim()) return fail(`${what} ${i + 1}: Phone is required (use / for multiple numbers).`, `Phone of ${what} ${i + 1}`, what);
-                const ph = normalizePhones(o.phone);
-                if (!ph.ok) return fail(`${what} ${i + 1}: ${ph.error}`, `Phone of ${what} ${i + 1}`, what);
-            }
+        const checkPerson = (o, i, what) => {
+            if (!o.nationalId.trim()) fail(`${what} ${i + 1}: NIN is required (or tick NIN missing).`, `NIN of ${what} ${i + 1}`, what);
+            if (!o.fullName.trim()) fail(`${what} ${i + 1}: Full Name is required.`, `Full name of ${what} ${i + 1}`, what);
+            if (!o.phone.trim()) return fail(`${what} ${i + 1}: Phone is required (use / for multiple numbers).`, `Phone of ${what} ${i + 1}`, what);
+            const ph = normalizePhones(o.phone);
+            if (!ph.ok) fail(`${what} ${i + 1}: ${ph.error}`, `Phone of ${what} ${i + 1}`, what);
             return true;
         };
-        if (!checkPeople(clients, 'Client') || !checkPeople(owners, 'Owner')) return false;
+        clients.forEach((o, i) => checkPerson(o, i, 'Client'));
+        if (!ownersLinked) owners.forEach((o, i) => checkPerson(o, i, 'Owner'));   // linked owners are the clients (already checked)
         for (let i = 0; i < neighbors.length; i++) {
             const nb = neighbors[i];
-            if (!nb.fullName.trim()) return fail(`Neighbor ${i + 1}: Name is required (or remove the row).`, `Name of Neighbor ${i + 1}`, 'Neighbor');
-            if (nb.phone.trim() && !normalizePhones(nb.phone).ok) return fail(`Neighbor ${i + 1}: ${normalizePhones(nb.phone).error}`, `Phone of Neighbor ${i + 1}`, 'Neighbor');
+            if (!nb.fullName.trim()) fail(`Neighbor ${i + 1}: Name is required (or remove the row).`, `Name of Neighbor ${i + 1}`, 'Neighbor');
+            if (nb.phone.trim() && !normalizePhones(nb.phone).ok) fail(`Neighbor ${i + 1}: ${normalizePhones(nb.phone).error}`, `Phone of Neighbor ${i + 1}`, 'Neighbor');
         }
-        if (isSubdivision && !(Number(subdivisionCount) >= 1 && Number.isInteger(Number(subdivisionCount)))) return fail('Enter the number of subdivisions (plots) being created.', 'Number of Subdivisions');
-        if (isTitleSectionVisible) {
-            if (!plotNumber.trim()) return fail('Plot Number is required.', 'Plot Number', 'Title');
-            if (!block.trim()) return fail('Block is required.', 'Block', 'Title');
-            if (!(Number(areaHectares) > 0)) return fail('Area (hectares) is required and must be more than 0.', 'Area (hectares)', 'Title');
-            if (!titleIssueDate) return fail('Title Date is required.', 'Title date', 'Title');
-        }
+        if (isSubdivision && !(Number(subdivisionCount) >= 1 && Number.isInteger(Number(subdivisionCount)))) fail('Enter the number of subdivisions (plots) being created.', 'Number of Subdivisions');
+        if (isTitleSectionVisible) titleChecks();
         if (isEmployee) return fileCheck();   // fix181: no money on a field entry; the office adds it
         // fix199 (David, test notes 9 + 12): an office entry with no invoice number, no contract number or no price is
         // saved as PENDING instead of being refused. It cannot carry money received yet.
         if (officeDraft) {
             if ((Number(initialPayment) || 0) > 0 || (isLegacy && ((Number(initialStorageFee) || 0) > 0 || (Number(initialStorageFeePaid) || 0) > 0))) {
-                return fail('Money received is recorded once the project has its Invoice Number, Contract Number and Total Cost. Fill in all three, or set the payment boxes to 0.', !invoiceNumber.trim() ? 'Invoice Number' : !contractNumber.trim() ? 'Contract Number' : 'Total Cost', 'Financ');
+                fail('Money received is recorded once the project has its Invoice Number, Contract Number and Total Cost. Fill in all three, or set the payment boxes to 0.', !invoiceNumber.trim() ? 'Invoice Number' : !contractNumber.trim() ? 'Contract Number' : 'Total Cost', 'Financ');
             }
-            if (!Number.isInteger(Number(totalCost) || 0)) return fail('Total Cost: whole shillings only (no decimals).', 'Total Cost', 'Financ');
+            if (!Number.isInteger(Number(totalCost) || 0)) fail('Total Cost: whole shillings only (no decimals).', 'Total Cost', 'Financ');
             return fileCheck();
         }
+        moneyChecks(quiet);
+        return fileCheck();
+    };
+    const moneyChecks = (quiet) => {
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) return fail('Initial Payment is required (0 or more).', isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment', 'Financ');
         if (!Number.isInteger(Number(totalCost)) || !Number.isInteger(Number(initialPayment))) return fail('Total Cost and Initial Payment: whole shillings only (no decimals).', !Number.isInteger(Number(totalCost)) ? 'Total Cost' : (isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'), 'Financ');
         // fix171: the same checks the server makes, so the message shows before anything is sent
@@ -522,7 +555,7 @@ export default function IntakePage() {
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') return fail('Pick which client paid the Storage Fees Already Paid.', 'Storage Fees Paid By', 'Financ');
         }
         if (isLegacy) {
-            fixFeeBox();   // fix173: 0 or negative monthly fee -> default, with a message
+            if (!quiet) fixFeeBox();   // fix173: 0 or negative monthly fee -> default, with a message
             const feeCharged = Number(initialStorageFee) || 0;
             const feePaid = Number(initialStorageFeePaid) || 0;
             if (feeCharged < 0 || feePaid < 0) return fail('Storage fees cannot be negative.', feeCharged < 0 ? 'Initial Storage Fee' : 'Storage Fees Already Paid', 'Financ');
@@ -533,7 +566,7 @@ export default function IntakePage() {
                 return fail('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', receivablesSince ? 'In Receivables Since' : 'Initial Storage Fee', 'Financ');
             }
         }
-        return fileCheck();
+        return true;
     };
     function fileCheck() {
         if (!isEmployee && fileQueue.length === 0) return fail('At least one document is required.', null, 'Documents');
@@ -617,14 +650,27 @@ export default function IntakePage() {
                 savedRef.current = saved || null;   // fix199: an incomplete office entry comes back Pending
             }
             dirtyRef.current = false; setDirty(false);
+            setProblemBox(null);
+            writeJSON(MISSING_KEY(user), { nin: !!(clients[0] && clients[0].noNin), invoice: invoiceMissing, contract: contractMissing });   // fix287
             return true;
         } catch (err) {
-            toast(errorText(err), 'error');   // fix205
-            flagServerError(err);   // fix213: mark the box the server refused (plot taken, invoice number used ...)
+            toast('NOT SAVED: ' + errorText(err), 'error', 7000);   // fix205
+            // fix287 (David): the server's refusal goes in the red box too, names the right person, and offers the project
+            // that already has the number or the plot
+            const text = errorText(err), code = errorCode(err);
+            const found = /project #\s*([A-Z0-9-]+)/i.exec(String((err && err.response && err.response.data && (err.response.data.message || err.response.data.error)) || text));
+            setProblemBox({ list: [], server: { msg: text, projectIndex: found ? found[1] : null } });
+            const up = (v) => String(v || '').trim().toUpperCase();
+            const raw = up(text);
+            const rowHit = (rows, what) => { const i = rows.findIndex(o => (up(o.nationalId) && raw.includes(up(o.nationalId))) || (up(o.fullName) && raw.includes(up(o.fullName)))); return i >= 0 ? [what, i] : null; };
+            const who = /NIN|PHONE|EMAIL/.test(code) ? (rowHit(clients, 'Client') || (!ownersLinked && rowHit(owners, 'Owner'))) : null;
+            if (who) flagField((/PHONE/.test(code) ? 'Phone of ' : /EMAIL/.test(code) ? 'Email of ' : 'NIN of ') + who[0] + ' ' + (who[1] + 1), { section: who[0] });
+            else flagServerError(err);   // fix213: mark the box the server refused (plot taken, invoice number used ...)
             return false;
         } finally { setSaving(false); }
     };
 
+    const liveProblems = problemBox && !problemBox.server ? collectProblems(true) : [];   // fix287: the box follows the fixes
     const handleSubmit = async () => {
         if (leaving) return;
         const ok = await doSave();
@@ -637,42 +683,75 @@ export default function IntakePage() {
                 : 'Project registered successfully!', 'success');
             // fix180: a transfer goes back to the subdivision it came from; fix181: the Employee goes to MY ENTRIES
             // fix285 (David): the Ledger opens with the new project's row lit up
-            setTimeout(() => navigate(isEmployee ? '/my-entries' : wentPending ? '/pending/' + saved.id : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects' + (saved && saved.id ? '?new=' + saved.id : ''))), 1200);
+            // fix287: a PENDING save goes to the Ledger too (it is listed there with its PENDING tag), so SAVE always ends
+            // in the same place. The Employee goes to MY ENTRIES; a subdivision transfer goes back to its subdivision.
+            setTimeout(() => navigate(isEmployee ? '/my-entries' : transferFrom ? '/folder/' + transferFrom.id
+                : '/land/projects' + (saved && saved.id ? '?new=' + saved.id + (wentPending ? '&pending=1' : '') : '')), 900);
         }
     };
 
-    const handleDuplicate = async () => {
-        const ok = await doSave();
-        if (!ok) return;
-        // fix285 (David): KEEP FOR NEXT decides what stays (Place, Clients, Owners, Prices); the type always stays
+    // fix287 (David): SAVE + DUPLICATE saves, shows the new row on the Ledger, then comes back here with the next plot ready.
+    // What stays is decided by KEEP FOR NEXT (the type and the MISSING ticks always stay). The Employee stays on the form.
+    const nextPlotState = () => {
         const keep = keepNext;
-        const kept = KEEP_OPTIONS.filter(([k]) => keep[k]).map(([, w]) => w.toLowerCase());
         const savedNow = savedRef.current;
-        setLastSaved({ index: (savedNow && savedNow.projectIndex) || nextIndex, plot: plotNumber.trim().toUpperCase() });
-        setNextPlot(nextPlotOf(plotNumber.trim().toUpperCase()));
-        toast((savedNow && savedNow.pending && !isEmployee ? 'Saved as PENDING. ' : 'Saved. ') + 'The form is ready for the next plot' + (kept.length ? ' (same type, ' + kept.join(', ') + ').' : ' (same type).'), 'success');
-        const keptPrices = { totalCost, initialStorageFee, monthlyStorageFee };
-        const keptBlock = block;
-        // fix180: the type, clients, owners and location stay (the next plot is usually the same job); title, neighbors,
-        // money, files and notes start blank. A subdivision transfer cannot be duplicated onto the same plot.
+        const ninDefault = !!(clients[0] && clients[0].noNin);
+        const nextClients = keep.clients ? clients.map(c => ({ ...c })) : [newRow(ninDefault)];
+        const nextOwners = keep.owners ? owners.map(c => ({ ...c })) : nextClients.map(c => ({ ...c }));
+        return {
+            projectType, titleSwitch, keep,
+            place: keep.place ? { district, county, subCounty, parish, village, block } : null,
+            clients: nextClients, owners: nextOwners,
+            ownersLinked: keep.owners ? (keep.clients ? ownersLinked : false) : true,
+            prices: keep.prices ? { totalCost, initialStorageFee, monthlyStorageFee } : null,
+            invoiceMissing, contractMissing,
+            saved: { index: (savedNow && savedNow.projectIndex) || nextIndex, plot: plotNumber.trim().toUpperCase(), pending: !!(savedNow && savedNow.pending) },
+            nextPlot: nextPlotOf(plotNumber.trim().toUpperCase()),
+        };
+    };
+    const applyNext = (st) => {
+        setProjectType(st.projectType); setTitleSwitch(!!st.titleSwitch);
         setProjectStartDate(todayISO()); setTransferFrom(null);
-        setTenure('FREEHOLD'); setPlotNumber(''); setBlock(''); setAreaHectares(''); setVolume(''); setFolio(''); setTitleIssueDate('');
-        setNeighbors([]); setSubdivisionCount('');
-        setInvoiceNumber(''); setContractNumber(''); setPaperNo(''); setNumbersTick(t => t + 1);   // fix196: every project has its own numbers (fix285: the MISSING ticks stay on)
-        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
+        setTenure('FREEHOLD'); setPlotNumber(''); setAreaHectares(''); setVolume(''); setFolio(''); setTitleIssueDate('');
+        setNeighbors([]); setSubdivisionCount(''); setArea('');
+        setDistrict(st.place ? st.place.district : ''); setCounty(st.place ? st.place.county : ''); setSubCounty(st.place ? st.place.subCounty : '');
+        setParish(st.place ? st.place.parish : ''); setVillage(st.place ? st.place.village : ''); setBlock(st.place ? st.place.block : '');
+        setClients(st.clients); setOwners(st.owners); setOwnersLinked(st.ownersLinked);
+        setInvoiceNumber(''); setContractNumber(''); setPaperNo(''); setNumbersTick(t => t + 1);   // fix196: every project has its own numbers
+        setInvoiceMissing(!!st.invoiceMissing); setContractMissing(!!st.contractMissing);
+        setTotalCost(st.prices ? st.prices.totalCost : 0); setInitialStorageFee(st.prices ? st.prices.initialStorageFee : 0); setMonthlyStorageFee(st.prices ? st.prices.monthlyStorageFee : '');
+        setInitialPayment(0); setInitialStorageFeePaid(0);
         setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0); setPayMethod('OFFICE'); setPayRef('');   // fix172; fix199: same defaults as a new form
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
-        // fix285: what KEEP FOR NEXT leaves out starts empty
-        if (keep.place) setBlock(keptBlock);
-        else { setDistrict(''); setCounty(''); setSubCounty(''); setParish(''); setVillage(''); setArea(''); }
-        if (!keep.clients) setClients([EMPTY_OWNER()]);
-        if (!keep.clients && keep.owners) setOwnersLinked(false);   // the kept owners must not follow the new, empty client
-        if (!keep.owners) { setOwners(keep.clients ? clients.map(c => ({ ...c })) : [EMPTY_OWNER()]); setOwnersLinked(true); }
-        if (keep.prices) { setTotalCost(keptPrices.totalCost); setInitialStorageFee(keptPrices.initialStorageFee); setMonthlyStorageFee(keptPrices.monthlyStorageFee); }
-        loadTypeStatuses(projectType);
+        setLastSaved(st.saved); setNextPlot(st.nextPlot || ''); setProblemBox(null);
+        const kept = KEEP_OPTIONS.filter(([k]) => st.keep && st.keep[k]).map(([, w]) => w);
+        setJustSaved({ ...st.saved, kept });
+        loadTypeStatuses(st.projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
         window.scrollTo({ top: 0, behavior: scrollBehavior() });
     };
+    const handleDuplicate = async () => {
+        if (leaving) return;
+        const ok = await doSave();
+        if (!ok) return;
+        const st = nextPlotState();
+        const saved = savedRef.current;
+        if (isEmployee || !saved || !saved.id) {
+            applyNext(st);
+            toast((st.saved.pending && !isEmployee ? 'Saved as PENDING. ' : 'Saved. ') + 'The form is ready for the next plot.', 'success');
+            return;
+        }
+        setLeaving(true);
+        writeSession(NEXT_KEY, st);
+        toast((st.saved.pending ? 'Saved as PENDING. ' : 'Saved. ') + 'Showing it on the Ledger, then back here for the next plot.', 'success');
+        setTimeout(() => navigate('/land/projects?new=' + saved.id + '&next=1' + (st.saved.pending ? '&pending=1' : '')), 700);
+    };
+    // fix287: back from the Ledger with ?next=1 -> the next plot is filled in; any other visit throws an old one away
+    useEffect(() => {
+        const st = readSession(NEXT_KEY);
+        writeSession(NEXT_KEY, null);
+        if (searchParams.get('next') === '1' && st) Promise.resolve().then(() => applyNext(st));
+    }, []);   // eslint-disable-line react-hooks/exhaustive-deps -- once, when the page opens
 
     // fix171: Amount Owed now includes the storage fees still unpaid (Legacy Title only, and only while the title work is not fully paid)
     const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
@@ -790,6 +869,27 @@ export default function IntakePage() {
                 </div>
             </header>
 
+            {/* fix287 (David): clear feedback at the top of the form -- what was just saved, what is still wrong, which MISSING ticks are on */}
+            {justSaved && (<div className={styles.savedBox} role="status">
+                <FiCheckCircle aria-hidden="true" />
+                <div><strong>Saved #{justSaved.index}{justSaved.plot ? ' (plot ' + justSaved.plot + ')' : ''}{justSaved.pending ? ' as PENDING' : ''}. Ready for the next plot.</strong>
+                    <span>Kept: {['Type'].concat(justSaved.kept || []).join(', ')}. Empty: documents, plot, numbers, payments{(justSaved.kept || []).includes('Place') ? '' : ', place'}{(justSaved.kept || []).includes('Clients') ? '' : ', clients'}.</span></div>
+                <button type="button" className={styles.boxClose} onClick={() => setJustSaved(null)} aria-label="Hide this message"><FiX /></button>
+            </div>)}
+            {problemBox && (liveProblems.length > 0 || problemBox.server) && (<div className={styles.problemBox} role="alert">
+                <div className={styles.problemHead}><FiAlertTriangle aria-hidden="true" />
+                    <strong>NOT SAVED. {problemBox.server ? 'The server refused it:' : liveProblems.length === 1 ? '1 thing to fix:' : liveProblems.length + ' things to fix:'}</strong>
+                    <button type="button" className={styles.boxClose} onClick={() => setProblemBox(null)} aria-label="Hide this message"><FiX /></button></div>
+                {problemBox.server && (<p className={styles.problemServer}>{problemBox.server.msg}
+                    {problemBox.server.projectIndex && <button type="button" className={styles.problemBtn} onClick={() => window.open('/land/projects?q=' + encodeURIComponent(problemBox.server.projectIndex), '_blank', 'noopener')}>FIND PROJECT #{problemBox.server.projectIndex}</button>}</p>)}
+                {!problemBox.server && (<ol className={styles.problemList}>{liveProblems.map((p, i) => (
+                    <li key={i}><button type="button" className={styles.problemLine} onClick={() => flagField(p.field, { section: p.section })}>{p.msg}</button></li>))}</ol>)}
+                {!problemBox.server && <span className={styles.problemHint}>Click a line to go to that box. Each line goes away when it is fixed. Nothing was saved and nothing was cleared.</span>}
+            </div>)}
+            {(invoiceMissing || contractMissing || clients.some(c => c.noNin) || (!ownersLinked && owners.some(o => o.noNin))) && (<div className={styles.missingStrip} role="status">
+                MISSING ticks on: {[(clients.some(c => c.noNin) || (!ownersLinked && owners.some(o => o.noNin))) && 'NIN', invoiceMissing && 'Invoice number', contractMissing && 'Contract number'].filter(Boolean).join(', ')}.
+                Untick them for a recent project that has its real numbers.
+            </div>)}
             <div className={styles.sections}>
                 <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
                     <div className={styles.grid3}>
@@ -849,7 +949,7 @@ export default function IntakePage() {
                 <CollapsibleSection icon={<FiUsers />} title={`${nClients}. Clients`}>
                     <p className={styles.linkNote}>The people who brought the work and pay for it. Recovery calls the clients.</p>
                     {clients.map((o, idx) => personRow(o, idx, updateClient, removeClient, clients.length > 1, 'client', fillClient))}
-                    <button type="button" className={styles.addBtn} onClick={() => changeClients(p => [...p, EMPTY_OWNER()])}>
+                    <button type="button" className={styles.addBtn} onClick={() => changeClients(p => [...p, newRow(p.length && p[p.length - 1].noNin)])}>
                         <FiPlus /> Add Client
                     </button>
                 </CollapsibleSection>
@@ -862,7 +962,7 @@ export default function IntakePage() {
                                 <button type="button" className={styles.clearLink} onClick={copyClientsToOwners}>Copy from clients again</button></>}
                     </div>
                     {owners.map((o, idx) => personRow(o, idx, updateOwner, removeOwner, owners.length > 1, 'owner', fillOwner))}
-                    <button type="button" className={styles.addBtn} onClick={() => { setOwnersLinked(false); setOwners(p => [...p, EMPTY_OWNER()]); markDirty(); }}>
+                    <button type="button" className={styles.addBtn} onClick={() => { setOwnersLinked(false); setOwners(p => [...p, newRow(p.length && p[p.length - 1].noNin)]); markDirty(); }}>
                         <FiPlus /> Add Owner
                     </button>
                 </CollapsibleSection>
@@ -874,7 +974,7 @@ export default function IntakePage() {
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
                                 <input className={styles.input} value={plotNumber} placeholder={nextPlot ? 'Next: ' + nextPlot : ''} onChange={e => { setPlotNumber(e.target.value); markDirty(); }} />
-                                {/* fix285: after SAVE + NEXT PLOT, one press fills the next plot number (44 -> 45) */}
+                                {/* fix285: after SAVE + DUPLICATE, one press fills the next plot number (44 -> 45) */}
                                 {nextPlot && !plotNumber.trim() && <button type="button" className={styles.clearLink} onClick={() => { setPlotNumber(nextPlot); markDirty(); }}>Use {nextPlot}</button>}
                             </div>
                             <div className={styles.field}>
@@ -1192,7 +1292,7 @@ export default function IntakePage() {
                 </div>
             </div>
 
-            {/* fix285 (David): what SAVE + NEXT PLOT keeps for the next plot (remembered for this account) */}
+            {/* fix285 (David): what SAVE + DUPLICATE keeps for the next plot (remembered for this account) */}
             <div className={styles.keepBar} role="group" aria-label="Keep for next plot">
                 <span className={`${styles.label} ${styles.keepLabel}`}>Keep for next</span>
                 {KEEP_OPTIONS.map(([k, w]) => (
@@ -1203,11 +1303,11 @@ export default function IntakePage() {
             </div>
             <div className={styles.bottomBar}>
                 <div className={styles.bottomBarRight}>
-                    {/* fix199 (David, test note 21): the button SAVES this project first, then keeps the type, clients, owners and
-                        place for the next plot -- the old word "Duplicate" did not say that it saves */}
+                    {/* fix199 (test note 21) / fix287 (David, 4 Nov 2026): named SAVE + DUPLICATE; it saves first, visits the Ledger,
+                        and comes back with the next plot ready */}
                     <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving || leaving}
-                        title="Saves this project, then starts the next one with the same type and what KEEP FOR NEXT is set to. Title, neighbours, numbers, payments, documents and notes start empty.">
-                        <FiCopy /> Save + Next Plot
+                        title="Saves this project, shows it on the Ledger, then comes back here with the next one ready: the same type and what KEEP FOR NEXT is set to. Title, neighbours, numbers, payments, documents and notes start empty.">
+                        <FiCopy /> Save + Duplicate
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving || leaving} onClick={handleSubmit}>
                         <FiSave /> Save Project

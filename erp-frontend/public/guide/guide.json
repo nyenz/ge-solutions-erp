@@ -1,5 +1,5 @@
 {
- "made": "2026-10-31T23:00:03.520Z",
+ "made": "2026-11-03T14:00:55.328Z",
  "size": {
   "width": 1280,
   "height": 720
@@ -182,7 +182,7 @@
      "cap": "The folder tabs: Overview, Financials, People, Documents, Notes.",
      "box": {
       "x": 70,
-      "y": 252,
+      "y": 275,
       "w": 129,
       "h": 47
      }
@@ -201,7 +201,7 @@
      "box": {
       "x": 79,
       "y": 375,
-      "w": 309,
+      "w": 392,
       "h": 34
      }
     },
@@ -209,10 +209,10 @@
      "img": "stage-2.jpg",
      "cap": "Tick a stage when it is done. It saves the moment you click it.",
      "box": {
-      "x": 96,
-      "y": 366,
-      "w": 1140,
-      "h": 52
+      "x": 106,
+      "y": 368,
+      "w": 1120,
+      "h": 50
      }
     },
     {
@@ -220,7 +220,7 @@
      "cap": "The paperclip attaches that stage’s document (it is filed in Documents under the stage).",
      "box": {
       "x": 1173,
-      "y": 369,
+      "y": 426,
       "w": 50,
       "h": 46
      }
@@ -238,8 +238,8 @@
      "cap": "Notes tab: everything that happened on this project — notes, decisions, money, events and calls.",
      "box": {
       "x": 79,
-      "y": 328,
-      "w": 246,
+      "y": 351,
+      "w": 247,
       "h": 34
      }
     },
@@ -248,7 +248,7 @@
      "cap": "Press ADD NOTE. Pick a topic, write the note, and choose a follow-up day if needed.",
      "box": {
       "x": 1106,
-      "y": 426,
+      "y": 449,
       "w": 130,
       "h": 50
      }
@@ -314,7 +314,7 @@
      "cap": "Folder > Financials: press RECORD PAYMENT.",
      "box": {
       "x": 136,
-      "y": 169,
+      "y": 192,
       "w": 196,
       "h": 54
      }
@@ -334,8 +334,8 @@
      "cap": "Every payment is listed in Payment History. A mistake is REVERSED (never deleted) and the reason is kept.",
      "box": {
       "x": 79,
-      "y": 447,
-      "w": 224,
+      "y": 375,
+      "w": 226,
       "h": 34
      }
     }
@@ -401,7 +401,7 @@
      "box": {
       "x": 241,
       "y": 465,
-      "w": 1189,
+      "w": 1190,
       "h": 83
      }
     }
@@ -466,7 +466,7 @@
      "cap": "In a folder, Financials holds the fee buttons: rate, pause, reduce, set aside, waive or add to the cost. Each one asks why.",
      "box": {
       "x": 79,
-      "y": 539,
+      "y": 563,
       "w": 173,
       "h": 34
      }

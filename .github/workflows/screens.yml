@@ -53,6 +53,7 @@ jobs:
           npx playwright install --with-deps chromium
           WEB=http://localhost:5173 node e2e/screens.mjs
           WEB=http://localhost:5173 node e2e/guide.mjs
+          WEB=http://localhost:5173 node e2e/intake-check.mjs || true
       - name: Keep the server log with the pictures
         if: always()
         run: cp erp-backend/server.log erp-frontend/screens/ 2>/dev/null || true

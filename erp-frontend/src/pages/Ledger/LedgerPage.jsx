@@ -10,7 +10,7 @@ import {
 import landService from '../../services/landService';
 import { cached, remember } from '../../utils/pageCache';
 import BackToTopButton from '../../components/common/BackToTopButton';
-import { FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw, FiCheckCircle } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
@@ -69,12 +69,14 @@ const Pins = ({ pos }) => (
 const LedgerPage = () => {
     const navigate = useNavigate();
     // fix182 (speed): a return visit draws the last list at once and refreshes it quietly (utils/pageCache.js)
+    // fix181 (17.10, 17.20): a link can open a tab (/land/projects?tab=PENDING)
+    const [ledgerParams] = useSearchParams();
+    const ledgerParamsInit = () => ledgerParams.get('q') || '';
     const [projects, setProjects] = useState(() => cached('ledger') || []);
     const [loading, setLoading] = useState(() => !cached('ledger'));
     const [loadError, setLoadError] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(() => ledgerParamsInit());   // fix287: ?q= opens with a search (FIND PROJECT)
     // fix181 (17.10, 17.20): a link can open a tab (/land/projects?tab=PENDING)
-    const [ledgerParams] = useSearchParams();
     const [activeFilter, setActiveFilter] = useState(() => (ledgerParams.get('tab') || 'ALL').toUpperCase());
     const swapRef = useSwapMotion(activeFilter);   // fix192: the list fades in gently when the tab changes
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
@@ -91,6 +93,19 @@ const LedgerPage = () => {
     // fix285 (David): after SAVE on New Project the Ledger opens with ?new=<id>; that row is found, its page is shown
     // and it is lit up for a few seconds so the new entry is easy to see.
     const newId = ledgerParams.get('new');
+    // fix287 (David): after SAVE + DUPLICATE the Ledger shows the new row, then goes back to New Project for the next plot
+    const goBack = ledgerParams.get('next') === '1';
+    const wasPending = ledgerParams.get('pending') === '1';
+    const [backIn, setBackIn] = useState(goBack ? 4 : null);
+    const [showSaved, setShowSaved] = useState(!!newId);
+    useEffect(() => {
+        if (backIn === null) return undefined;
+        if (backIn <= 0) { navigate('/land/new?next=1'); return undefined; }
+        const t = setTimeout(() => setBackIn(n => (n === null ? null : n - 1)), 1000);
+        return () => clearTimeout(t);
+    }, [backIn, navigate]);
+    useEffect(() => { if (!newId || goBack) return undefined; const t = setTimeout(() => setShowSaved(false), 9000); return () => clearTimeout(t); }, [newId, goBack]);
+    const newProject = newId ? projects.find(p => p.id === newId) : null;
     const [flashId, setFlashId] = useState(null);
     const flashDone = useRef(false);
 
@@ -200,6 +215,18 @@ const LedgerPage = () => {
                 </HeaderActions>
             </header>
 
+            {/* fix287: what was just saved, and (after SAVE + DUPLICATE) the way back to the form */}
+            {showSaved && (<div className={styles.savedBanner} role="status">
+                <FiCheckCircle aria-hidden="true" />
+                <span><strong>Saved{newProject ? ' #' + newProject.projectIndex : ''}{newProject && newProject.landTitle && newProject.landTitle.plotNumber ? ' (plot ' + newProject.landTitle.plotNumber + ')' : ''}{wasPending ? ' as PENDING' : ''}.</strong>
+                    {wasPending ? ' It still needs the Invoice Number, the Contract Number or the Total Cost; it is in the PENDING tab.' : ' The row is lit up below.'}
+                    {backIn !== null && ' Back to New Project for the next plot in ' + backIn + '...'}</span>
+                {backIn !== null && (<>
+                    <button type="button" className={styles.savedBannerBtn} onClick={() => navigate('/land/new?next=1')}>BACK NOW</button>
+                    <button type="button" className={styles.savedBannerGhost} onClick={() => { setBackIn(null); setShowSaved(false); }}>STAY HERE</button>
+                </>)}
+                {backIn === null && <button type="button" className={styles.savedBannerGhost} onClick={() => setShowSaved(false)}>OK</button>}
+            </div>)}
             {/* Control cluster (fix42): only .searchBlock is sticky (see
                 CSS) -- filters and legend are normal in-flow content and
                 scroll away with the page. Only 2 things are sticky on
