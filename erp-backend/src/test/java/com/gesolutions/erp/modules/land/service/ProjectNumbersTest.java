@@ -267,4 +267,25 @@ public class ProjectNumbersTest {
         assertEquals("INV 12 / 2026", ProjectNumbersService.clean("  INV   12 / 2026 "));
         assertNull(ProjectNumbersService.clean("   "));
     }
+
+    // fix287 (David): the same New Project ticket twice gives back the saved project (no second copy, no refusal)
+    @Test
+    public void theSameEntrySentTwiceIsSavedOnce() throws Exception {
+        as(Role.ROLE_SECRETARY);
+        LandEntryRequest r = entry();
+        r.setInvoiceNumber("K-INV-" + tag()); r.setContractNumber("K-CON-" + tag());
+        r.setTotalCost(new BigDecimal("900000")); r.setInitialPayment(BigDecimal.ZERO);
+        r.setEntryKey("ticket-" + tag());
+        long before = projects.count();
+        LandProject first = land.atomicIntake(r, null);
+        LandProject again = land.atomicIntake(r, null);
+        assertEquals(first.getId(), again.getId(), "the second send gets the same project back");
+        assertEquals(before + 1, projects.count(), "only one project was saved");
+        LandEntryRequest other = entry();
+        other.setInvoiceNumber(r.getInvoiceNumber()); other.setContractNumber("K-CON-" + tag());
+        other.setTotalCost(new BigDecimal("900000")); other.setInitialPayment(BigDecimal.ZERO);
+        other.setEntryKey("ticket-" + tag());
+        BusinessException e = assertThrows(BusinessException.class, () -> land.atomicIntake(other, null));
+        assertTrue(e.getMessage().startsWith("INVOICE_NUMBER_TAKEN"), "a DIFFERENT entry with the same number is still refused");
+    }
 }

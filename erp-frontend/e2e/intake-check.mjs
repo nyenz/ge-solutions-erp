@@ -112,6 +112,10 @@ fs.writeFileSync(SCAN, PNG);
         check((await page.getByLabel('Invoice number missing').isChecked().catch(() => false)), 'Invoice number missing is still ticked');
         check((await byLabel('District').inputValue()) === 'KAMULI', 'the place is kept');
         check(await page.locator('text=CLICK TO UPLOAD').count() > 0, 'the documents are empty for the next plot');
+        const focused = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('aria-label'));
+        check(focused === 'Total Cost', 'the cursor goes to the first box that must change (no title on this type, prices not kept): ' + focused);
+        check(await page.getByRole('button', { name: 'Location', exact: true }).count() > 0, 'KEEP FOR NEXT offers Location');
+        await top();
         await shot('back-ready-for-next');
         const nextInv = await value('Invoice Number');
         check(nextInv === 'KAM-NAM-0008', 'empty paper number takes the next free one: ' + nextInv);
@@ -130,10 +134,11 @@ fs.writeFileSync(SCAN, PNG);
         check(/land\/new/.test(page.url()), 'the form stays open (nothing cleared)');
         await shot('server-refused');
 
-        // 6. SAVE (single) after the fix: always the Ledger, the new row lit up
+        // 6. SAVE (single) after the fix, pressed twice fast: saved once, always the Ledger, the new row lit up
         await page.getByLabel('Old paper number').fill('');
         await page.waitForTimeout(800);
-        await page.getByRole('button', { name: /Save Project/ }).click();
+        const btn = page.getByRole('button', { name: /Save Project/ });
+        await btn.click(); await btn.click({ force: true }).catch(() => {});
         await page.waitForURL(/land\/projects\?new=/, { timeout: 20000 });
         await page.waitForTimeout(2000);
         check(await page.locator('[class*="rowNew"]').count() > 0, 'SAVE goes to the Ledger with the new row lit up');

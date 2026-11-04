@@ -117,7 +117,7 @@ const landService = {
         return response.data;
     },
 
-    createAtomicEntry: async (data, scans, categories = []) => {
+    createAtomicEntry: async (data, scans, categories = [], onProgress) => {
         const formData = new FormData();
         const payload = { ...data };
         delete payload.fileQueue;
@@ -125,8 +125,12 @@ const landService = {
         if (scans) scans.forEach(file => formData.append('scans', file));
         // fix174: one document type (category code) per file, same order as scans
         if (scans && categories.length === scans.length) categories.forEach(c => formData.append('categories', c || ''));
+        // fix287 (David): scans on a slow line can take more than a minute. The page used to stop waiting at 60 seconds
+        // while the server went on and saved, so a second press was refused ("invoice number already used").
+        // Now it waits up to 5 minutes and shows how far the upload is.
         const response = await api.post('/land/ingest', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000,
+            onUploadProgress: e => { if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100)); },
         });
         return response.data;
     },

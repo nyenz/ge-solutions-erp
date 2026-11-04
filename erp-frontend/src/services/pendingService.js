@@ -3,14 +3,16 @@
 import api from '../api/axios';
 
 const pendingService = {
-    create: async (data, scans, categories = []) => {
+    create: async (data, scans, categories = [], onProgress) => {
         const fd = new FormData();
         const payload = { ...data };
         delete payload.fileQueue;
         fd.append('data', JSON.stringify(payload));
         if (scans) scans.forEach(f => fd.append('scans', f));
         if (scans && categories.length === scans.length) categories.forEach(c => fd.append('categories', c || ''));
-        return (await api.post('/land/pending', fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+        // fix287: scans on a slow line take time -- wait up to 5 minutes and tell the page how far the upload is
+        return (await api.post('/land/pending', fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000,
+            onUploadProgress: e => { if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100)); } })).data;
     },
     mine: async () => (await api.get('/land/pending/mine')).data,
     view: async (id) => (await api.get(`/land/pending/${id}`)).data,

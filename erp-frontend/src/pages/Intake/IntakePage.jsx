@@ -1,6 +1,6 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import { portalRoot } from '../../components/common/portalRoot';
-import { scrollPageTop } from '../../utils/motion';   // fix226: follows Settings > Animation
+import { scrollPageTop, scrollBehavior as scrollBehaviorNow } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { roleFlags } from '../../utils/roles';
 import { PAY_METHODS, methodLabel, methodCode, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -82,9 +82,11 @@ const KEEP_DEFAULT = { place: true, clients: true, owners: true, prices: false }
 // fix287 (David): the MISSING ticks become this person's defaults; the next plot travels to the Ledger and back in here
 const MISSING_KEY = (u) => 'geSolutions.intake.missing.' + (u?.username || u?.email || 'me');
 const NEXT_KEY = 'geSolutions.intake.nextPlot';
+// fix287: a one-time ticket per entry, so the same entry is never saved twice
+const newTicket = () => { try { if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID(); } catch { /* old browser */ } return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12); };
 const readSession = (k) => { try { const r = sessionStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } };
 const writeSession = (k, v) => { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } };
-const KEEP_OPTIONS = [['place', 'Place'], ['clients', 'Clients'], ['owners', 'Owners'], ['prices', 'Prices']];
+const KEEP_OPTIONS = [['place', 'Location'], ['clients', 'Clients'], ['owners', 'Owners'], ['prices', 'Prices']];   // fix287: 'place' is shown as LOCATION (the section's own name)
 const readJSON = (k, fallback) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : fallback; } catch { return fallback; } };
 const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } };
 // fix285: the next plot number after the one just saved (44 -> 45, 12/3 -> 12/4); '' when it does not end in digits
@@ -121,6 +123,10 @@ export default function IntakePage() {
     const [contractMissing, setContractMissing] = useState(() => !!missingDefaults.contract);
     const [problemBox, setProblemBox] = useState(null);     // fix287: { list, server } -- the red box at the top
     const [justSaved, setJustSaved] = useState(null);       // fix287: the green box after SAVE + DUPLICATE
+    const ticketRef = useRef(newTicket());                   // fix287: this entry's one-time ticket
+    const savingRef = useRef(false);                         // fix287: a second press while saving does nothing
+    const [progress, setProgress] = useState(null);         // fix287: upload % while saving (null = not saving)
+    const [focusNext, setFocusNext] = useState(null);       // fix287: the box to go to after SAVE + DUPLICATE
     const [numbersTick, setNumbersTick] = useState(0);      // asks the server for the next free number again
     const [titleSwitch, setTitleSwitch] = useState(false);          // fix180: Topographic Survey only
     const [subdivisionCount, setSubdivisionCount] = useState('');   // fix180: Subdivision only
@@ -579,13 +585,16 @@ export default function IntakePage() {
         email: o.email.trim().toLowerCase(), nationalId: o.nationalId.trim().toUpperCase(), address: o.address.trim(),
     });
     const doSave = async () => {
+        if (savingRef.current) return false;   // fix287: already saving (a double press)
         setJustSaved(null);   // fix287: the green box is about the last plot; a new save attempt hides it
         if (!validate()) return false;
-        setSaving(true);
+        savingRef.current = true;
+        setSaving(true); setProgress(fileQueue.length ? 0 : 100);
         try {
             let noteText = notes.trim();
             if (noteText && !/^\[\d{2}\/\d{2}\/\d{4}\]/.test(noteText)) noteText = `[${todayDMY()}] ${noteText}`;
             const payload = {
+                entryKey: ticketRef.current,   // fix287: the same ticket on a second try = 'already saved', never a copy
                 district: district.trim().toUpperCase(), county: county.trim().toUpperCase(),
                 subCounty: subCounty.trim().toUpperCase(), parish: parish.trim().toUpperCase(),
                 village: village.trim().toUpperCase(), area: isTitleSectionVisible ? String(areaHectares || '').trim() : area.trim(),   // fix203: one Area
@@ -645,16 +654,24 @@ export default function IntakePage() {
                 ['invoiceNumber', 'contractNumber', 'totalCost', 'initialPayment', 'isStartAsReceivable', 'initialStorageFee', 'initialStorageFeePaid', 'monthlyStorageFee',
                     'lastPaidDate', 'receivablesSince', 'initialPaymentPayerNin', 'initialStorageFeePaidPayerNin', 'paymentMethod', 'paymentReference'].forEach(k => { delete payload[k]; });
                 payload.selectedStatuses = payload.selectedStatuses.filter(s => !s.isCustom).map(s => ({ ...s, cost: undefined }));
-                await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+                await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category), setProgress);
             } else {
-                const saved = await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+                const saved = await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category), setProgress);
                 savedRef.current = saved || null;   // fix199: an incomplete office entry comes back Pending
             }
             dirtyRef.current = false; setDirty(false);
             setProblemBox(null);
+            ticketRef.current = newTicket();   // fix287: the next entry gets its own ticket
             writeJSON(MISSING_KEY(user), { nin: !!(clients[0] && clients[0].noNin), invoice: invoiceMissing, contract: contractMissing });   // fix287
             return true;
         } catch (err) {
+            // fix287: no answer at all (slow line, connection dropped): it may well be saved. The ticket makes another press safe.
+            if (!err || !err.response) {
+                const msg = 'No answer from the server. Your project may already be saved. Press SAVE again: it will not be saved twice.';
+                toast(msg, 'error', 9000);
+                setProblemBox({ list: [], server: { msg, projectIndex: null } });
+                return false;
+            }
             toast('NOT SAVED: ' + errorText(err), 'error', 7000);   // fix205
             // fix287 (David): the server's refusal goes in the red box too, names the right person, and offers the project
             // that already has the number or the plot
@@ -668,7 +685,7 @@ export default function IntakePage() {
             if (who) flagField((/PHONE/.test(code) ? 'Phone of ' : /EMAIL/.test(code) ? 'Email of ' : 'NIN of ') + who[0] + ' ' + (who[1] + 1), { section: who[0] });
             else flagServerError(err);   // fix213: mark the box the server refused (plot taken, invoice number used ...)
             return false;
-        } finally { setSaving(false); }
+        } finally { setSaving(false); setProgress(null); savingRef.current = false; }
     };
 
     const liveProblems = problemBox && !problemBox.server ? collectProblems(true) : [];   // fix287: the box follows the fixes
@@ -730,7 +747,25 @@ export default function IntakePage() {
         loadTypeStatuses(st.projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
         scrollPageTop();   // fix287: the page scrolls inside the app area, not the window
+        // fix287 (David): then go to the first part that must be different for this plot
+        const k = st.keep || {};
+        setFocusNext(!k.clients ? 'Full name of client 1' : !k.place ? 'District'
+            : showsTitle(st.projectType, !!st.titleSwitch) ? 'Plot Number' : !k.prices ? 'Total Cost' : 'Invoice Number');
     };
+    useEffect(() => {
+        if (!focusNext) return undefined;
+        const t = setTimeout(() => {
+            const want = focusNext.toLowerCase();
+            let el = document.querySelector('[aria-label="' + focusNext + '"]');
+            if (!el) {
+                const lab = Array.from(document.querySelectorAll('label')).find(l => l.textContent.replace(/[*]/g, '').trim().toLowerCase() === want);
+                el = lab && lab.parentElement && lab.parentElement.querySelector('input');
+            }
+            if (el) { el.scrollIntoView({ block: 'center', behavior: scrollBehaviorNow() }); try { el.focus({ preventScroll: true }); } catch { /* old browser */ } }
+            setFocusNext(null);
+        }, 700);
+        return () => clearTimeout(t);
+    }, [focusNext]);
     const handleDuplicate = async () => {
         if (leaving) return;
         const ok = await doSave();
@@ -871,10 +906,15 @@ export default function IntakePage() {
             </header>
 
             {/* fix287 (David): clear feedback at the top of the form -- what was just saved, what is still wrong, which MISSING ticks are on */}
+            {/* fix287: while saving, how far it is (scans on a slow line take time) */}
+            {progress !== null && (<div className={styles.savingPill} role="status" aria-live="polite">
+                <span className={styles.savingBar}><span style={{ width: Math.max(4, progress) + '%' }} /></span>
+                {progress < 100 ? 'Uploading documents... ' + progress + '%' : 'Saving the project... please wait'}
+            </div>)}
             {justSaved && (<div className={styles.savedBox} role="status">
                 <FiCheckCircle aria-hidden="true" />
                 <div><strong>Saved #{justSaved.index}{justSaved.plot ? ' (plot ' + justSaved.plot + ')' : ''}{justSaved.pending ? ' as PENDING' : ''}. Ready for the next plot.</strong>
-                    <span>Kept: {['Type'].concat(justSaved.kept || []).join(', ')}. Empty: documents, plot, numbers, payments{(justSaved.kept || []).includes('Place') ? '' : ', place'}{(justSaved.kept || []).includes('Clients') ? '' : ', clients'}.</span></div>
+                    <span>Kept: {['Type'].concat(justSaved.kept || []).join(', ')}. Empty: documents, plot, numbers, payments{(justSaved.kept || []).includes('Location') ? '' : ', location'}{(justSaved.kept || []).includes('Clients') ? '' : ', clients'}.</span></div>
                 <button type="button" className={styles.boxClose} onClick={() => setJustSaved(null)} aria-label="Hide this message"><FiX /></button>
             </div>)}
             {problemBox && (liveProblems.length > 0 || problemBox.server) && (<div className={styles.problemBox} role="alert">

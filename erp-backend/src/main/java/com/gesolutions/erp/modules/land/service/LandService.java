@@ -438,6 +438,14 @@ public class LandService {
      * PENDING_CREATED instead of NEW_INTAKE. The pending flag never comes from the browser.
      */
     LandProject doIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories, boolean pendingEntry) throws Exception {
+        // fix287 (David): the same ticket again = this entry is already saved (the first answer was lost or the button was
+        // pressed twice). Give back that project; nothing is saved a second time and no "number already used" refusal.
+        String entryKey = request.getEntryKey() != null && !request.getEntryKey().isBlank() ? request.getEntryKey().trim() : null;
+        if (entryKey != null && entryKey.length() > 64) throw new BusinessException("ENTRY_KEY_INVALID: The form ticket is too long.");
+        if (entryKey != null) {
+            java.util.Optional<LandProject> already = projectRepository.findByEntryKey(entryKey);
+            if (already.isPresent()) return already.get();
+        }
         // fix195 (review S03): files sent WITH a new project pass the same check as files added later in the folder
         // (PDF / JPG / PNG / WEBP, never empty). It runs first, before an index number is used or anything is saved.
         if (scans != null && scans.length > 0) requireScanFiles(scans);
@@ -574,6 +582,7 @@ public class LandService {
         if (numbers != null) { project.setInvoiceNumber(numbers[0]); project.setContractNumber(numbers[1]); }   // fix196
         // fix181 (8.9): who entered it (account id + username as it was then)
         project.setCreatedBy(getCurrentOperator());
+        project.setEntryKey(entryKey);   // fix287
 
         // fix180: CLIENTS first (they pay, Recovery calls them), then OWNERS (the people on the title). Owners left empty
         // are a copy of the clients; an old page that sends only owners has those owners as its clients.
