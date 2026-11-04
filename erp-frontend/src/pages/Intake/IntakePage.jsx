@@ -1,6 +1,6 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import { portalRoot } from '../../components/common/portalRoot';
-import { scrollBehavior } from '../../utils/motion';   // fix226: follows Settings > Animation
+import { scrollPageTop } from '../../utils/motion';   // fix226: follows Settings > Animation
 import { roleFlags } from '../../utils/roles';
 import { PAY_METHODS, methodLabel, methodCode, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -728,7 +728,7 @@ export default function IntakePage() {
         setJustSaved({ ...st.saved, kept });
         loadTypeStatuses(st.projectType);
         landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
-        window.scrollTo({ top: 0, behavior: scrollBehavior() });
+        scrollPageTop();   // fix287: the page scrolls inside the app area, not the window
     };
     const handleDuplicate = async () => {
         if (leaving) return;

@@ -39,7 +39,7 @@ fs.writeFileSync(SCAN, PNG);
     page.on('pageerror', e => errors.push(String(e.message || e)));
     let n = 0;
     const shot = async (name, full = false) => { n += 1; await page.waitForTimeout(500); await page.screenshot({ path: `${OUT}/${String(n).padStart(2, '0')}-${name}.png`, fullPage: full }); };
-    const top = async () => { await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(300); };
+    const top = async () => { await page.waitForTimeout(600); await page.evaluate(() => { window.scrollTo(0, 0); document.querySelectorAll('[class*="scrollArea"], [class*="mainContent"]').forEach(el => el.scrollTo(0, 0)); }); await page.waitForTimeout(400); };
     const byLabel = (text) => page.locator(`xpath=//label[normalize-space()="${text}"]/following::input[1]`).first();
     const fillLabel = async (text, value) => { const el = byLabel(text); await el.click(); await el.fill(value); await page.keyboard.press('Escape'); };
     const addScan = async () => {
@@ -92,7 +92,7 @@ fs.writeFileSync(SCAN, PNG);
         check((await value('Invoice Number')) === 'KAM-NAM-0007', 'invoice number made from the place: ' + (await value('Invoice Number')));
         check((await value('Contract Number')) === 'KAM-NAM-0007', 'contract number copies the invoice number');
         check((await cost.inputValue()) === '1,500,000', 'price shows commas while typing: ' + (await cost.inputValue()));
-        await page.getByLabel('Invoice Number').scrollIntoViewIfNeeded();
+        await page.locator('[aria-label="Invoice Number"]').first().scrollIntoViewIfNeeded();
         await shot('numbers-and-commas');
         await top();
         await shot('missing-strip-on');
