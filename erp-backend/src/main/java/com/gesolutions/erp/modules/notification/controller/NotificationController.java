@@ -51,6 +51,17 @@ public class NotificationController {
         if (n.getActor() != null && n.getActor().equalsIgnoreCase(u.getUsername())) m = m.replace("by " + n.getActor(), "by you");
         return m;
     }
+    // fix288 (David): the groups this person switched off in Settings. A CRITICAL alert always shows.
+    private static Set<String> muted(User u) {
+        Set<String> m = new HashSet<>();
+        if (u.getMutedAlertGroups() != null) for (String g : u.getMutedAlertGroups().split(",")) if (!g.isBlank()) m.add(g.trim().toUpperCase(Locale.ROOT));
+        return m;
+    }
+    private static boolean shows(Notification n, Set<String> muted) {
+        if (muted.isEmpty() || "CRITICAL".equals(n.getSeverity())) return true;
+        return !muted.contains(NotificationTypes.groupOf(n.getType(), n.getCategory()));
+    }
+
     private Set<UUID> readIds(User u) {
         return readRepo.findByUserId(u.getId()).stream().map(NotificationRead::getNotificationId).collect(Collectors.toSet());
     }
@@ -137,10 +148,13 @@ public class NotificationController {
         LocalDateTime now = LocalDateTime.now();
         int lim = Math.min(Math.max(limit, 1), MAX_ROWS);
         List<Notification> page;
+        Set<String> off = muted(u);   // fix288
         if (before != null && !before.isBlank()) {
             LocalDateTime b = LocalDateTime.parse(before);
             page = notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername()).stream()
-                    .filter(n -> n.getCreatedAt().isBefore(b)).limit(lim).toList();
+                    .filter(n -> n.getCreatedAt().isBefore(b)).filter(n -> shows(n, off)).limit(lim).toList();
+        } else if (!off.isEmpty()) {
+            page = notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername()).stream().filter(n -> shows(n, off)).limit(lim).toList();
         } else {
             page = notifRepo.findForRolePage(u.getRole().name(), since(u), u.getUsername(), org.springframework.data.domain.PageRequest.of(0, lim));
         }
@@ -169,7 +183,9 @@ public class NotificationController {
         Map<String, Long> byGroup = new LinkedHashMap<>();
         Map<String, Long> totalByGroup = new LinkedHashMap<>();   // fix259: the ALL view counts every alert, read or not
         long total = 0, unread = 0, critical = 0;
+        Set<String> off = muted(u);   // fix288
         for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername())) {
+            if (!shows(n, off)) continue;
             total++;
             String g = NotificationTypes.groupOf(n.getType(), n.getCategory());
             totalByGroup.merge(g, 1L, Long::sum);
@@ -182,7 +198,9 @@ public class NotificationController {
         m.put("unreadByGroup", byGroup);
         m.put("totalByGroup", totalByGroup);
         m.put("unreadCritical", critical);
-        m.put("groups", groupsFor(u.getRole()));
+        List<String> groups = new ArrayList<>(groupsFor(u.getRole()));
+        groups.removeAll(off);   // fix288: a group switched off has no tab in the bell
+        m.put("groups", groups);
         m.put("total", total);
         m.put("dueNow", seesDueNow(u) ? recoveryState.dueNowCached() : null);
         return m;
@@ -199,6 +217,7 @@ public class NotificationController {
     public Map<String, Long> unread(Authentication auth) {
         User u = me(auth);
         if (noBell(u)) return Map.of("unread", 0L);
+        if (!muted(u).isEmpty()) return Map.of("unread", ((Number) summary(auth).get("unread")).longValue());   // fix288
         return Map.of("unread", notifRepo.countUnread(u.getRole().name(), since(u), u.getUsername(), u.getId()));
     }
 
@@ -226,15 +245,45 @@ public class NotificationController {
         if (noBell(u)) return Map.of("ok", false);
         LocalDateTime limit = upTo == null || upTo.isBlank() ? LocalDateTime.now() : LocalDateTime.parse(upTo);
         Set<UUID> read = readIds(u);
+        Set<String> off = muted(u);   // fix288: only what the person can see is marked read
         List<UUID> toMark = new ArrayList<>();
         for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u), u.getUsername())) {
-            if (read.contains(n.getId()) || n.getCreatedAt().isAfter(limit)) continue;
+            if (read.contains(n.getId()) || n.getCreatedAt().isAfter(limit) || !shows(n, off)) continue;
             if (group != null && !group.isBlank() && !"ALL".equalsIgnoreCase(group)
                     && !group.equalsIgnoreCase(NotificationTypes.groupOf(n.getType(), n.getCategory()))) continue;
             toMark.add(n.getId());
         }
         int marked = markRead(toMark, u);
         return Map.of("ok", true, "marked", marked);
+    }
+
+    /** fix288 (David): Settings > Bell alerts -- the groups this rank can get, and which ones this person switched off. */
+    @GetMapping("/prefs")
+    public Map<String, Object> prefs(Authentication auth) {
+        User u = me(auth);
+        if (noBell(u)) return Map.of("groups", List.of(), "muted", List.of());
+        List<String> mine = groupsFor(u.getRole());
+        List<String> off = muted(u).stream().filter(mine::contains).sorted().toList();
+        return Map.of("groups", mine, "muted", off);
+    }
+
+    @PutMapping("/prefs")
+    public Map<String, Object> savePrefs(Authentication auth, @RequestBody Map<String, List<String>> body) {
+        User u = me(auth);
+        if (noBell(u)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This account has no bell");
+        List<String> mine = groupsFor(u.getRole());
+        List<String> want = body == null || body.get("muted") == null ? List.of() : body.get("muted");
+        List<String> off = new ArrayList<>();
+        for (String g : want) {
+            String gg = g == null ? "" : g.trim().toUpperCase(Locale.ROOT);
+            if (mine.contains(gg) && !off.contains(gg)) off.add(gg);
+        }
+        if (!mine.isEmpty() && off.size() >= mine.size()) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("ALERTS_ALL_OFF: Keep at least one group of bell alerts on.");
+        }
+        u.setMutedAlertGroups(off.isEmpty() ? null : String.join(",", off));
+        userRepo.save(u);
+        return prefs(auth);
     }
 
     private int markRead(List<UUID> ids, User u) {

@@ -24,6 +24,7 @@ import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './SettingsPage.module.css';
 import BackupPanel from './BackupPanel';   // fix268
 import RecoveryEmailPanel from './RecoveryEmailPanel';   // fix279
+import BellAlertsPanel from './BellAlertsPanel';   // fix288
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS, RANKS as RANK_INFO } from '../../utils/roles';
@@ -358,6 +359,8 @@ const SettingsPage = () => {
                           </div>
                         </div>
                       ))}
+                      {/* fix288 (David): which bell alerts this person gets (saved on the server, not on this device) */}
+                      {section.name === 'Notifications' && flags.isStaff && <BellAlertsPanel toast={toast} />}
                     </div>
                   ))}
                 </div>
