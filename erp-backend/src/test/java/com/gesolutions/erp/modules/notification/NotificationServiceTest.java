@@ -65,7 +65,8 @@ public class NotificationServiceTest {
         UUID p = UUID.randomUUID();
         service.emitToAudience("PAYMENT_ON_RECEIVABLE", "Payment one", "PROJECT", p);
         service.emitToAudience("PAYMENT_ON_RECEIVABLE", "Payment two", "PROJECT", p);
-        assertEquals(2, rows("PAYMENT_ON_RECEIVABLE", p).size());
+        assertEquals(2, rows("PAYMENT_ON_RECEIVABLE", p).stream().filter(n -> "ROLE_DIRECTOR".equals(n.getTargetRole())).count());
+        assertEquals(4, rows("PAYMENT_ON_RECEIVABLE", p).size(), "fix288: the root (Admin) gets them too");
     }
 
     @Test
@@ -74,7 +75,7 @@ public class NotificationServiceTest {
         service.emitToAudience("PENDING_CREATED", "New pending", "PROJECT", p);
         service.emitToAudience("PENDING_CREATED", "New pending again", "PROJECT", p);
         List<Notification> r = rows("PENDING_CREATED", p);
-        assertEquals(3, r.size(), "one each for the Secretary, the Manager and (fix241) the Director, not repeated");
+        assertEquals(4, r.size(), "one each for the Secretary, the Manager, (fix241) the Director and (fix288) the root Admin, not repeated");
         assertTrue(r.stream().anyMatch(n -> n.getTargetRole().equals("ROLE_SECRETARY")));
         assertTrue(r.stream().anyMatch(n -> n.getTargetRole().equals("ROLE_MANAGER")));
         assertTrue(r.stream().anyMatch(n -> n.getTargetRole().equals("ROLE_DIRECTOR")));
