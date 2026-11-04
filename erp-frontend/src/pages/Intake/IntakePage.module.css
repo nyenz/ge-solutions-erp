@@ -242,7 +242,7 @@ button.keepChip { padding: 4px 12px; font-size: var(--fs-meta); }
 
 /* fix287 (David): the boxes at the top of New Project. Fixed light colours with dark words, so they read the same in every theme. */
 .problemBox, .savedBox, .missingStrip { border-radius: var(--radius, 10px); margin: 0 0 var(--gap-md) 0; font-family: var(--font-body, 'Inter'), sans-serif; }
-.problemBox { background: #FFF1F1; border: 1.5px solid #D93A3A; color: #6B1010; padding: clamp(10px,1.2vw,14px) clamp(12px,1.6vw,18px); }
+.problemBox { position: sticky; top: 8px; z-index: 30; max-height: 42vh; overflow-y: auto; box-shadow: 0 6px 18px rgba(0,0,0,0.18); background: #FFF1F1; border: 1.5px solid #D93A3A; color: #6B1010; padding: clamp(10px,1.2vw,14px) clamp(12px,1.6vw,18px); }
 .problemHead { display: flex; align-items: center; gap: 8px; font-size: var(--fs-value); letter-spacing: 0.5px; }
 .problemHead svg { color: #D93A3A; flex-shrink: 0; }
 .problemList { margin: 8px 0 6px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
