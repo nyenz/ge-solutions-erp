@@ -100,6 +100,9 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     @Query("SELECT p FROM LandProject p WHERE p.deleted = false AND LOWER(p.invoiceNumber) = LOWER(:n)")
     List<LandProject> findLiveByInvoiceNumber(@org.springframework.data.repository.query.Param("n") String n);
 
+    // fix287: the project already saved with this New Project ticket
+    Optional<LandProject> findByEntryKey(String entryKey);
+
     // fix285: every invoice number (deleted projects too) that starts with a made-up prefix such as KAM-NAM-
     @Query("SELECT p.invoiceNumber FROM LandProject p WHERE LOWER(p.invoiceNumber) LIKE LOWER(CONCAT(:prefix, '%'))")
     List<String> findInvoiceNumbersStartingWith(@org.springframework.data.repository.query.Param("prefix") String prefix);

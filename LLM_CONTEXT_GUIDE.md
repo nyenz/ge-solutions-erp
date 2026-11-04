@@ -1760,5 +1760,10 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here).
 - SAVE + DUPLICATE: `nextPlotState()` -> sessionStorage `geSolutions.intake.nextPlot` -> `/land/projects?new=<id>&next=1`
   (banner, countdown) -> `/land/new?next=1` -> `applyNext()` fills the form. Opening New Project any other way throws an
   old draft away. The Employee stays on the form (no Ledger).
+- SAVE TWICE IS SAFE (fix287): every entry carries a one-time ticket (`entryKey`, LandProject.entry_key, unique, never
+  shown). `LandService.doIntake` gives back the project already saved with that ticket. The page waits up to 5 minutes for
+  the upload (it stopped at 60 s while the server went on and saved -> second press refused 'invoice number already used'),
+  shows an upload % pill, and a press while saving does nothing. No answer at all -> 'may already be saved, press SAVE again'.
+- After SAVE + DUPLICATE the cursor goes to the first box that must change (client name / District / Plot Number / Total Cost).
 - MISSING defaults per account: localStorage `geSolutions.intake.missing.<user>` {nin, invoice, contract}, written after a
   good save. Test: `e2e/intake-check.mjs` writes `screens/intake-check/check.txt` (PASS/FAIL lines) and pictures.
