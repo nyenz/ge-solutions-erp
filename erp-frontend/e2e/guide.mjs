@@ -41,7 +41,7 @@ const TASKS = (P, C) => [
         { go: 'land/new', hi: 'STAGES', cap: 'Stages: the steps of the work. The usual list is ready; tick what is already done.' },
         { go: 'land/new', hi: 'FINANCIALS', cap: 'Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending.' },
         { go: 'land/new', hi: 'DOCUMENTS', cap: 'Documents: add scans and choose their type. PDF, photos, Word and Excel are accepted.' },
-        { go: 'land/new', hi: 'SAVE', cap: 'Press SAVE. A missing box is marked in red and the page takes you straight to it.' },
+        { go: 'land/new', hi: 'SAVE', cap: 'Press SAVE. Anything missing is listed in a red box at the top; click a line to go to that box. SAVE + DUPLICATE saves, shows it on the Ledger, and comes back ready for the next plot.' },
     ] },
     { id: 'find', role: 'Secretary', who: 'secretary', title: 'Find a project and open its folder', why: 'Every project lives in its folder: details, stages, money, documents and notes.', steps: [
         { go: 'land/projects', hi: { css: 'input[type="search"], input[placeholder*="Search"]' }, cap: 'Project Ledger: type any part of a name, phone, plot, NIN or index in the search box.' },
