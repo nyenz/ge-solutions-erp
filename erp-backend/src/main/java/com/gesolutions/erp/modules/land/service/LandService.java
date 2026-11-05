@@ -40,6 +40,7 @@ public class LandService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final ProjectIndexService projectIndexService;
     private final ProjectNumbersService projectNumbers;   // fix196
+    private final ProblemService problemService;          // fix289
     private final StatusTemplateService statusTemplateService;
     private final ProjectStatusRepository projectStatusRepository;
     private final LandTitleRepository landTitleRepository;
@@ -503,9 +504,10 @@ public class LandService {
             request.setPaymentReference(null);
         }
         boolean savePending = pendingEntry || officeDraft;
+        java.util.List<LandProject> sameHits = request.isAllowSameNumber() ? new java.util.ArrayList<>() : null;   // fix289
         String[] numbers = pendingEntry ? null : officeDraft
-                ? projectNumbers.checkEach(null, request.getInvoiceNumber(), request.getContractNumber())
-                : projectNumbers.check(null, request.getInvoiceNumber(), request.getContractNumber());
+                ? projectNumbers.checkEach(null, request.getInvoiceNumber(), request.getContractNumber(), sameHits)
+                : projectNumbers.check(null, request.getInvoiceNumber(), request.getContractNumber(), sameHits);
         String projectIndex = projectIndexService.generateNextIndex();
 
         // fix181 (12.2): the intake money is checked by ONE method, shared with graduatePending
@@ -529,8 +531,10 @@ public class LandService {
             if (request.getBlock() == null || request.getBlock().isBlank()) {
                 throw new BusinessException("BLOCK_REQUIRED: Block is required in Title Details.");
             }
-            requireAreaHectares(request.getAreaHectares());
-            if (request.getTitleIssueDate() == null) {
+            // fix289 (David): "Problem in Title details" lets Area and Title Date stay empty (the problem is recorded)
+            boolean titleProblem = request.hasProblem("TITLE_DETAILS");
+            if (!titleProblem || request.getAreaHectares() != null) requireAreaHectares(request.getAreaHectares());
+            if (request.getTitleIssueDate() == null && !titleProblem) {
                 throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
             }
             plotGuard.assertFree(request.getPlotNumber(), request.getBlock(), request.getDistrict(), null);   // fix213
@@ -629,6 +633,8 @@ public class LandService {
                 }
             }
         }
+
+        saveIntakeProblems(saved, request, sameHits);   // fix289
 
         String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
         String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
@@ -1010,6 +1016,45 @@ public class LandService {
         return doUpdateProjectFull(projectId, request);
     }
 
+    /**
+     * fix289 (David): the problems that came with a new entry. Ticks (NIN / phone / invoice / contract missing, Location or
+     * Title details problem) and the Other problems box arrive as rows; a person's row is tied to that client by NIN.
+     * "Save with problem" on a number already used gives BOTH projects a SAME_NUMBER problem pointing at each other.
+     * One alert for the whole entry, not one per problem.
+     */
+    private void saveIntakeProblems(LandProject saved, LandEntryRequest request, java.util.List<LandProject> sameHits) {
+        java.util.List<ProblemService.NewProblem> rows = new java.util.ArrayList<>();
+        if (request.getProblems() != null) {
+            java.util.Map<String, java.util.UUID> byNin = new java.util.HashMap<>();
+            saved.getClients().forEach(c -> { if (c.getNationalId() != null) byNin.put(c.getNationalId().trim().toUpperCase(), c.getId()); });
+            saved.getProprietors().forEach(c -> { if (c.getNationalId() != null) byNin.putIfAbsent(c.getNationalId().trim().toUpperCase(), c.getId()); });
+            for (LandEntryRequest.ProblemRequest r : request.getProblems()) {
+                if (r == null || r.getKind() == null) continue;
+                java.util.UUID who = r.getPersonNin() == null ? null : byNin.get(r.getPersonNin().trim().toUpperCase());
+                boolean auto = !"OTHER".equalsIgnoreCase(r.getKind()) && !"WRONG_NUMBER".equalsIgnoreCase(r.getKind());
+                rows.add(new ProblemService.NewProblem(r.getKind(), r.getLabel(), r.getDetail(), r.getSolution(), who, null, auto));
+            }
+        }
+        java.util.List<LandProject> others = sameHits == null ? java.util.List.of() : sameHits;
+        for (LandProject o : others) {
+            String what = numbersShared(saved, o);
+            rows.add(new ProblemService.NewProblem("SAME_NUMBER", null, what + " also on project #" + o.getProjectIndex() + ".", null, null, o.getId(), true));
+        }
+        java.util.List<com.gesolutions.erp.modules.land.model.ProjectProblem> made = problemService.addAll(saved, rows, false);
+        for (LandProject o : others) {
+            problemService.addAll(o, java.util.List.of(new ProblemService.NewProblem("SAME_NUMBER", null,
+                    numbersShared(saved, o) + " also on project #" + saved.getProjectIndex() + ".", null, null, saved.getId(), true)), false);
+        }
+        problemService.alertAdded(saved, made);
+    }
+
+    private static String numbersShared(LandProject a, LandProject b) {
+        java.util.List<String> w = new java.util.ArrayList<>();
+        if (a.getInvoiceNumber() != null && a.getInvoiceNumber().equalsIgnoreCase(String.valueOf(b.getInvoiceNumber()))) w.add("Invoice number " + a.getInvoiceNumber());
+        if (a.getContractNumber() != null && a.getContractNumber().equalsIgnoreCase(String.valueOf(b.getContractNumber()))) w.add("Contract number " + a.getContractNumber());
+        return w.isEmpty() ? "The same number" : String.join(" and ", w);
+    }
+
     /** The edit itself (people, title details, location, subdivisions, cost with its reason). Callers check who may do it. */
     LandProject doUpdateProjectFull(UUID projectId, LandEntryRequest request) {
         LandProject project = projectRepository.findById(projectId)
@@ -1060,7 +1105,7 @@ public class LandService {
             if (request.getBlock() == null || request.getBlock().isBlank()) {
                 throw new BusinessException("BLOCK_REQUIRED: Type the Block before saving the title.");
             }
-            requireAreaHectares(request.getAreaHectares());
+            if (request.getAreaHectares() != null || !problemService.hasOpen(project.getId(), "TITLE_DETAILS")) requireAreaHectares(request.getAreaHectares());   // fix289
             title = LandTitle.builder()
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
@@ -1073,7 +1118,8 @@ public class LandService {
                     .build();
             project.setLandTitle(title);
         } else if (title != null) {
-            requireAreaHectares(request.getAreaHectares());
+            // fix289: while a "Problem with title details" is open, the Area may stay empty
+            if (request.getAreaHectares() != null || !problemService.hasOpen(project.getId(), "TITLE_DETAILS")) requireAreaHectares(request.getAreaHectares());
             title.setPlotNumber(request.getPlotNumber());
             title.setTenure(request.getTenure());
             title.setBlock(request.getBlock());

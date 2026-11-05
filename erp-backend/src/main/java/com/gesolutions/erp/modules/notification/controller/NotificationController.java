@@ -59,7 +59,17 @@ public class NotificationController {
     }
     private static boolean shows(Notification n, Set<String> muted) {
         if (muted.isEmpty() || "CRITICAL".equals(n.getSeverity())) return true;
-        return !muted.contains(NotificationTypes.groupOf(n.getType(), n.getCategory()));
+        // fix289: a muted entry is a whole group (MONEY) or one alert (T:PAYMENT_REVERSED)
+        return !muted.contains(NotificationTypes.groupOf(n.getType(), n.getCategory())) && !muted.contains("T:" + n.getType());
+    }
+    // fix289: the single alerts this rank can get, per group (for Settings > Bell alerts)
+    private static Map<String, List<String>> typesFor(Role r) {
+        Map<String, List<String>> out = new LinkedHashMap<>();
+        for (NotificationTypes.Type t : NotificationTypes.all().values()) {
+            if (!t.audience().contains(r.name())) continue;
+            out.computeIfAbsent(t.group().name(), k -> new ArrayList<>()).add(t.code());
+        }
+        return out;
     }
 
     private Set<UUID> readIds(User u) {
@@ -99,11 +109,13 @@ public class NotificationController {
             case "PROJECT_NOTES" -> { return "/folder/" + id + "#notes"; }   // fix241 (David, E5): a pinned note opens the folder's NOTES
             case "PROJECT" -> {
                 if ("PENDING_CREATED".equals(type)) return "/pending/" + id;
+                if ("SITE_VISIT_NEEDED".equals(type)) return "/problems?tab=visits";   // fix289
                 String hash = switch (type) {
                     case "PAYMENT_ON_RECEIVABLE", "PAYMENT_REVERSED", "RECEIVABLE_EXIT", "STORAGE_FEE_APPLIED", "FEES_REDUCED",
                          "COST_CHANGED", "STORAGE_FEE_RESUMED" -> "#payment";
                     case "DOC_UPLOADED" -> "#documents";
                     case "PROBLEM_FLAGGED", "PROBLEM_CLEARED", "FOLLOW_UP_DUE", "NOTE_PINNED" -> "#notes";
+                    case "PROBLEM_ADDED", "PROBLEM_SOLVED" -> "#problems";   // fix289
                     default -> "#overview";
                 };
                 return "/folder/" + id + hash;
@@ -261,10 +273,13 @@ public class NotificationController {
     @GetMapping("/prefs")
     public Map<String, Object> prefs(Authentication auth) {
         User u = me(auth);
-        if (noBell(u)) return Map.of("groups", List.of(), "muted", List.of());
+        if (noBell(u)) return Map.of("groups", List.of(), "muted", List.of(), "types", Map.of());
         List<String> mine = groupsFor(u.getRole());
-        List<String> off = muted(u).stream().filter(mine::contains).sorted().toList();
-        return Map.of("groups", mine, "muted", off);
+        Map<String, List<String>> types = typesFor(u.getRole());
+        Set<String> known = new HashSet<>(mine);
+        types.values().forEach(l -> l.forEach(c -> known.add("T:" + c)));
+        List<String> off = muted(u).stream().filter(known::contains).sorted().toList();
+        return Map.of("groups", mine, "muted", off, "types", types);
     }
 
     @PutMapping("/prefs")
@@ -272,14 +287,27 @@ public class NotificationController {
         User u = me(auth);
         if (noBell(u)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This account has no bell");
         List<String> mine = groupsFor(u.getRole());
+        Map<String, List<String>> types = typesFor(u.getRole());
+        Set<String> known = new HashSet<>(mine);
+        types.values().forEach(l -> l.forEach(c -> known.add("T:" + c)));
         List<String> want = body == null || body.get("muted") == null ? List.of() : body.get("muted");
         List<String> off = new ArrayList<>();
         for (String g : want) {
             String gg = g == null ? "" : g.trim().toUpperCase(Locale.ROOT);
-            if (mine.contains(gg) && !off.contains(gg)) off.add(gg);
+            if (known.contains(gg) && !off.contains(gg)) off.add(gg);
         }
-        if (!mine.isEmpty() && off.size() >= mine.size()) {
-            throw new com.gesolutions.erp.common.exception.BusinessException("ALERTS_ALL_OFF: Keep at least one group of bell alerts on.");
+        // at least one alert must stay on: a group not switched off with at least one of its alerts not switched off
+        boolean anyOn = false;
+        for (String g : mine) {
+            if (off.contains(g)) continue;
+            for (String c : types.getOrDefault(g, List.of())) if (!off.contains("T:" + c)) { anyOn = true; break; }
+            if (anyOn) break;
+        }
+        if (!mine.isEmpty() && !anyOn) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("ALERTS_ALL_OFF: Keep at least one bell alert on.");
+        }
+        if (String.join(",", off).length() > 1900) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("ALERTS_TOO_MANY: Switch off whole groups instead of so many single alerts.");
         }
         u.setMutedAlertGroups(off.isEmpty() ? null : String.join(",", off));
         userRepo.save(u);

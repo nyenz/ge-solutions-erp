@@ -127,6 +127,10 @@ export const CATALOG = {
     UNLOCK_M:              { label: 'Callable again',        group: GROUPS.RECOVERY, icon: FiUnlock,      severity: 'INFO' },   // old rows only (fix181)
     NIN_CONFLICT:          { label: 'NIN conflict',          group: GROUPS.RECOVERY, icon: FiAlertTriangle, severity: 'WARN' },
     SITE_VISIT_AUTO:       { label: 'Site visit needed',     group: GROUPS.RECOVERY, icon: FiMapPin,      severity: 'WARN' },
+    // fix289 (David): the Problems subsystem
+    PROBLEM_ADDED:         { label: 'Problem added',         group: GROUPS.PIPELINE, icon: FiFlag,        severity: 'INFO' },
+    PROBLEM_SOLVED:        { label: 'Problem solved',        group: GROUPS.PIPELINE, icon: FiFlag,        severity: 'INFO' },
+    SITE_VISIT_NEEDED:     { label: 'Site visit needed (problem)', group: GROUPS.RECOVERY, icon: FiMapPin, severity: 'WARN' },
     RECOVERY_DUE:          { label: 'Recovery mission due',  group: GROUPS.RECOVERY, icon: FiPhoneCall,   severity: 'WARN' },
 
     /* ── staff ──────────────────────────────────────────────────── */

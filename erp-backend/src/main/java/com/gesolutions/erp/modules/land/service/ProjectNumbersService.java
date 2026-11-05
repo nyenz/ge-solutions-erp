@@ -59,11 +59,15 @@ public class ProjectNumbersService {
 
     /** Checks both numbers for a project (selfId = null for a project that is not saved yet). Returns { invoice, contract }. */
     public String[] check(UUID selfId, String invoice, String contract) {
+        return check(selfId, invoice, contract, null);
+    }
+
+    public String[] check(UUID selfId, String invoice, String contract, java.util.List<LandProject> sameHits) {
         String inv = clean(invoice), con = clean(contract);
         if (inv == null || con == null) {
             throw new BusinessException("NUMBERS_REQUIRED: Enter the invoice number AND the contract number. A project needs both.");
         }
-        return checkEach(selfId, inv, con);
+        return checkEach(selfId, inv, con, sameHits);
     }
 
     /**
@@ -71,18 +75,32 @@ public class ProjectNumbersService {
      * that were typed (length, and that no other live project has them). Returns { invoice, contract }; either may be null.
      */
     public String[] checkEach(UUID selfId, String invoice, String contract) {
+        return checkEach(selfId, invoice, contract, null);
+    }
+
+    /**
+     * fix289 (David): old titles sometimes carry the same number as another project. With sameHits given, a number that is
+     * already used is collected there ("save with problem") instead of refused. A number the project already has is never
+     * refused again (so a project saved that way can still be edited).
+     */
+    public String[] checkEach(UUID selfId, String invoice, String contract, java.util.List<LandProject> sameHits) {
         String inv = clean(invoice), con = clean(contract);
+        LandProject self = selfId != null ? projectRepository.findById(selfId).orElse(null) : null;
+        boolean invKept = self != null && inv != null && inv.equalsIgnoreCase(String.valueOf(self.getInvoiceNumber()));
+        boolean conKept = self != null && con != null && con.equalsIgnoreCase(String.valueOf(self.getContractNumber()));
         if ((inv != null && inv.length() > MAX_LENGTH) || (con != null && con.length() > MAX_LENGTH)) {
             throw new BusinessException("NUMBER_TOO_LONG: An invoice or contract number can be at most " + MAX_LENGTH + " characters.");
         }
-        if (inv != null) for (LandProject o : projectRepository.findLiveByInvoiceNumber(inv)) {
+        if (inv != null && !invKept) for (LandProject o : projectRepository.findLiveByInvoiceNumber(inv)) {
             if (!o.getId().equals(selfId)) {
+                if (sameHits != null) { if (!sameHits.contains(o)) sameHits.add(o); continue; }
                 throw new BusinessException("INVOICE_NUMBER_TAKEN: Invoice number \"" + inv + "\" is already on project #" + o.getProjectIndex()
                         + ". Every project has its own invoice number.");
             }
         }
-        if (con != null) for (LandProject o : projectRepository.findLiveByContractNumber(con)) {
+        if (con != null && !conKept) for (LandProject o : projectRepository.findLiveByContractNumber(con)) {
             if (!o.getId().equals(selfId)) {
+                if (sameHits != null) { if (!sameHits.contains(o)) sameHits.add(o); continue; }
                 throw new BusinessException("CONTRACT_NUMBER_TAKEN: Contract number \"" + con + "\" is already on project #" + o.getProjectIndex()
                         + ". Every project has its own contract number.");
             }
