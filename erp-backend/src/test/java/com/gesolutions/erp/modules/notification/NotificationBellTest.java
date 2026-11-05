@@ -140,7 +140,8 @@ public class NotificationBellTest {
             if (t.audience().contains("ROLE_DIRECTOR")) assertTrue(t.audience().contains("ROLE_ADMIN"), t.code() + " goes to the root too");
         }
         assertTrue(NotificationTypes.of("PAYMENT_REVERSED").audience().contains("ROLE_ADMIN"));
-        assertFalse(NotificationTypes.of("STATUS_ADVANCED").audience().contains("ROLE_ADMIN"), "Manager-only alerts stay with the Manager");
+        // fix289: the root gets every alert of every rank
+        for (NotificationTypes.Type t : NotificationTypes.all().values()) assertTrue(t.audience().contains("ROLE_ADMIN"), t.code() + " goes to the root");
     }
 
     // fix288: a group switched off in Settings leaves the bell, except a CRITICAL alert; all groups off is refused
@@ -160,6 +161,10 @@ public class NotificationBellTest {
         assertThrows(com.gesolutions.erp.common.exception.BusinessException.class, () -> bell.savePrefs(auth(d), Map.of("muted", all)));
         bell.savePrefs(auth(d), Map.of("muted", List.of()));
         assertTrue(bell.list(auth(d), null, 200).stream().anyMatch(r -> "EXPENSE_LOGGED".equals(r.get("type"))), "switched on again, it is back");
+        // fix289: one single alert can be switched off too
+        bell.savePrefs(auth(d), Map.of("muted", List.of("T:EXPENSE_LOGGED")));
+        assertTrue(bell.list(auth(d), null, 200).stream().noneMatch(r -> "EXPENSE_LOGGED".equals(r.get("type"))), "the single alert is hidden");
+        bell.savePrefs(auth(d), Map.of("muted", List.of()));
     }
 
     private static String invokeLink(Notification n, Role r) {

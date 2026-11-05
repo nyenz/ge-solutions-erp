@@ -27,6 +27,7 @@ public class FolderPortalController {
     private final com.gesolutions.erp.modules.land.service.TimelineService timeline;   // fix215: reasons go to the Notes timeline
     private final NotificationService notificationService;
     private final com.gesolutions.erp.modules.land.repository.FollowUpRepository followUpRepository;
+    private final com.gesolutions.erp.modules.land.service.ProblemService problemService;   // fix289
 
     private String op() {
         var a = SecurityContextHolder.getContext().getAuthentication();
@@ -227,6 +228,7 @@ public class FolderPortalController {
             p.setProblemNote(null);
         }
         projectRepository.save(p);
+        problemService.followFlag(p, want, why);   // fix289: the flag shows on the Problems list too
         // fix167: the note is written in the SAME step as the flag (it used to be a second call from the page that could fail alone)
         followUpRepository.save(com.gesolutions.erp.modules.land.model.FollowUpLog.builder().projectId(p.getId())
                 .notes((want ? "[PROBLEM] " : "[PROBLEM CLEARED] ") + why).recordedBy(op()).build());

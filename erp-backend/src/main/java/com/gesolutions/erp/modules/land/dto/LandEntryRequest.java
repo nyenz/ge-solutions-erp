@@ -19,6 +19,14 @@ public class LandEntryRequest {
     private String projectType;
     // fix287: the page's one-time ticket for this entry (see LandProject.entryKey)
     private String entryKey;
+    // fix289 (David): the problems that come with this entry, and "save anyway" when its number is already on another project
+    private java.util.List<ProblemRequest> problems;
+    private boolean allowSameNumber;
+
+    /** fix289: does this entry carry a problem of this kind (for example TITLE_DETAILS lets Area and Title Date stay empty)? */
+    public boolean hasProblem(String kind) {
+        return problems != null && problems.stream().anyMatch(p -> p != null && kind.equalsIgnoreCase(String.valueOf(p.getKind())));
+    }
     // fix180: Topographic Survey only -- the optional Title Details panel is switched on
     @JsonProperty("titleDetailsEnabled")
     private boolean titleDetailsEnabled;
@@ -101,6 +109,18 @@ public class LandEntryRequest {
     // and staff can add them later from the Folder page.
     @Builder.Default
     private List<com.gesolutions.erp.modules.land.dto.ProjectStatusRequest> selectedStatuses = new ArrayList<>();
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProblemRequest {   // fix289: a problem sent with the entry (from a tick or the Other problems box)
+        private String kind;
+        private String label;
+        private String detail;
+        private String solution;
+        private String personNin;          // the person it is about (phone / NIN problems)
+    }
 
     @Data
     @Builder

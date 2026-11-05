@@ -144,6 +144,10 @@ export const ACTION_GROUPS = [
             { code: 'DOCUMENT_UPLOADED', label: 'Document uploaded', severity: 'low'  },
             { code: 'DOCUMENT_DELETED',  label: 'Document deleted',  severity: 'high' },
             { code: 'ARCHIVE_RESTORED',  label: 'Deleted item restored', severity: 'high' },   // fix284 (B1)
+            { code: 'PROBLEM_ADDED',     label: 'Problem added',     severity: 'med'  },   // fix289
+            { code: 'PROBLEM_UPDATED',   label: 'Problem changed',   severity: 'low'  },   // fix289
+            { code: 'PROBLEM_SOLVED',    label: 'Problem solved',    severity: 'med'  },   // fix289
+            { code: 'PROBLEM_REMOVED',   label: 'Problem removed',   severity: 'high' },   // fix289
             { code: 'ARCHIVE_PURGED',    label: 'Archive cleaned (90 days)', severity: 'low' },   // fix284 (B1)
             { code: 'DOCUMENT_CATEGORY_ADDED', label: 'Document category added', severity: 'low' },
             { code: 'REPORT_EXPORT',     label: 'Report exported',   severity: 'low'  },

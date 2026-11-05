@@ -1,0 +1,30 @@
+/* fix289: the problems of one project. Fixed light cards with dark words, so they read the same in every theme. */
+.wrap { display: flex; flex-direction: column; gap: 10px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.count { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; letter-spacing: 0.3px; color: #B45309; background: #FFF4E6; border: 1.5px solid #E8892E; border-radius: 8px; padding: 6px 12px; }
+.card { background: #FFFFFF; border: 1.5px solid #E8892E; border-left-width: 5px; border-radius: 10px; padding: 12px 14px; color: #1A2433; display: flex; flex-direction: column; gap: 4px; }
+.cardSolved { border-color: #9BC5A8; opacity: 0.85; }
+.cardHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: #E8EEF7; color: #0B2250; }
+.chipVisit { background: #FDE8D3; color: #8A3A06; }
+.chipDone { background: #DDF3E4; color: #14532D; }
+.chipSoft { font-size: 10px; font-weight: 700; color: #6B7280; }
+.line { margin: 0; font-size: 12.5px; color: #283548; }
+.meta { margin: 2px 0 0 0; font-size: 11px; color: #6B7280; }
+.link { color: #0B4FB3; font-weight: 800; text-decoration: none; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.solutionPick { min-width: 190px; }
+.input { flex: 1; min-width: 200px; padding: 8px 10px; border: 1.5px solid #C9D3E3; border-radius: 8px; background: #FFFFFF; color: #1A2433; font: inherit; font-size: 13px; }
+.input:focus { outline: none; border-color: #F26A0D; box-shadow: 0 0 0 3px rgba(242,106,13,0.18); }
+.btn, .btnGhost, .btnDanger { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 7px 12px; font-size: 11px; font-weight: 900; letter-spacing: 1px; cursor: pointer; font-family: inherit; }
+.btn { background: #0B2250; color: #FFFFFF; border: 1.5px solid #0B2250; }
+.btn:hover { background: #F26A0D; border-color: #F26A0D; }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btnGhost { background: #FFFFFF; color: #0B2250; border: 1.5px solid #C9D3E3; }
+.btnGhost:hover { border-color: #0B2250; }
+.btnDanger { background: #D93A3A; color: #FFFFFF; border: 1.5px solid #D93A3A; }
+.btnDanger:hover { background: #B42323; }
+.addBox { background: #F7F9FC; border: 1.5px dashed #9AA8BF; border-radius: 10px; padding: 12px 14px; color: #1A2433; }
+.addGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.label { font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: #283548; }
