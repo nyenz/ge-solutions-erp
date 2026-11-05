@@ -17,7 +17,7 @@ import page from '../Audit/AuditPage.module.css';
 import card from '../../components/common/ProjectProblemsPanel.module.css';
 import s from './ProblemsPage.module.css';
 
-const ALL = 'All';
+const ALL = 'All problems', ALL_SOL = 'All solutions', ALL_DIST = 'All districts';   // each filter says what it filters
 
 export default function ProblemsPage() {
     const [params, setParams] = useSearchParams();
@@ -29,8 +29,8 @@ export default function ProblemsPage() {
     const [fault, setFault] = useState('');
     const [q, setQ] = useState(params.get('q') || '');
     const [kind, setKind] = useState(ALL);
-    const [solution, setSolution] = useState(ALL);
-    const [district, setDistrict] = useState(ALL);
+    const [solution, setSolution] = useState(ALL_SOL);
+    const [district, setDistrict] = useState(ALL_DIST);
 
     const load = useCallback(async () => {
         setFault('');
@@ -47,13 +47,13 @@ export default function ProblemsPage() {
 
     const rows = tab === 'SOLVED' ? (solved || []) : (open || []);
     const kinds = [ALL, ...Array.from(new Set(rows.map(r => r.label))).sort()];
-    const districts = [ALL, ...Array.from(new Set([...(open || []), ...(visits || [])].map(r => r.district).filter(Boolean))).sort()];
+    const districts = [ALL_DIST, ...Array.from(new Set([...(open || []), ...(visits || [])].map(r => r.district).filter(Boolean))).sort()];
     const words = q.trim().toLowerCase();
     const hit = (r) => !words || [r.label, r.detail, r.clientName, r.personName, r.clientPhone, r.plotNumber, r.projectIndex, r.district, r.subCounty, r.parish, r.village]
         .some(x => x && String(x).toLowerCase().includes(words));
-    const shown = rows.filter(r => (kind === ALL || r.label === kind) && (solution === ALL || SOLUTION_WORDS[r.solution] === solution)
-        && (district === ALL || r.district === district) && hit(r));
-    const shownVisits = (visits || []).filter(v => (district === ALL || v.district === district)
+    const shown = rows.filter(r => (kind === ALL || r.label === kind) && (solution === ALL_SOL || SOLUTION_WORDS[r.solution] === solution)
+        && (district === ALL_DIST || r.district === district) && hit(r));
+    const shownVisits = (visits || []).filter(v => (district === ALL_DIST || v.district === district)
         && (!words || [v.clientName, v.clientPhone, v.plotNumber, v.projectIndex, v.district, v.subCounty, v.parish, v.village, ...(v.reasons || [])]
             .some(x => x && String(x).toLowerCase().includes(words))));
     const groupMap = new Map();
@@ -83,7 +83,7 @@ export default function ProblemsPage() {
             <div className={s.filters}>
                 <input className={s.search} value={q} onChange={e => setQ(e.target.value)} aria-label="Search problems" placeholder="Search: client, phone, plot, project #, place, words" />
                 {tab !== 'VISITS' && <HardwareSelect compact label="" placeholder="Problem" options={kinds} value={kind} onChange={setKind} />}
-                {tab !== 'VISITS' && <HardwareSelect compact label="" placeholder="Solution" options={[ALL, ...Object.values(SOLUTION_WORDS)]} value={solution} onChange={setSolution} />}
+                {tab !== 'VISITS' && <HardwareSelect compact label="" placeholder="Solution" options={[ALL_SOL, ...Object.values(SOLUTION_WORDS)]} value={solution} onChange={setSolution} />}
                 <HardwareSelect compact label="" placeholder="District" options={districts} value={district} onChange={setDistrict} />
             </div>
             {fault && <p className={s.fault} role="alert">{fault}</p>}
