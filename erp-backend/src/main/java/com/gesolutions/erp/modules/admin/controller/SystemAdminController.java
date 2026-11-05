@@ -77,6 +77,7 @@ public class SystemAdminController {
         "expense_presets",
         "status_templates",
         "scenario_seed_flag",
+        "project_problems",       // fix289: the Problems list (wiped and backed up with the projects)
         "archived_items"          // fix284 (B1): deleted documents, notes, expenses (their files go with deleteAllFiles)
     );
 

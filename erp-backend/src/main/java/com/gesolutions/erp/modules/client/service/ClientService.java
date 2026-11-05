@@ -122,6 +122,12 @@ public class ClientService {
      */
     @Transactional
     public Client findOrCreateClientByNin(String fullName, String nin, String phone, String email) {
+        return findOrCreateClientByNin(fullName, nin, phone, email, false);
+    }
+
+    /** fix289 (David): phoneMayBeEmpty = the entry ticked "Phone missing" for this person (a MISSING_PHONE problem is recorded). */
+    @Transactional
+    public Client findOrCreateClientByNin(String fullName, String nin, String phone, String email, boolean phoneMayBeEmpty) {
         // fix139: one standard phone format (blank is only tolerated for an existing client)
         String cleanPhone = (phone == null || phone.isBlank()) ? null
                 : com.gesolutions.erp.common.util.PhoneUtil.normalizeList(phone);
@@ -160,7 +166,7 @@ public class ClientService {
         Client newClient = Client.builder()
                 .fullName(fullName)
                 .phoneNumber(cleanPhone != null ? cleanPhone
-                        : com.gesolutions.erp.common.util.PhoneUtil.normalizeList(phone))
+                        : phoneMayBeEmpty ? "" : com.gesolutions.erp.common.util.PhoneUtil.normalizeList(phone))
                 .nationalId(normalizedNin)
                 .email(email)
                 .monthlyContactCount(0)

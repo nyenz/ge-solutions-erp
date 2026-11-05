@@ -32,6 +32,7 @@ import { canInsertStageBelow, isInvoiceContractStage, stageTakesDocuments } from
 import { prepareUploads, anyToShrink, DOC_EXTS, DOC_ACCEPT, canPreview } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import MoneyInput from '../../components/common/MoneyInput';   // fix285: commas while typing
+import problemService, { SOLUTION_WORDS } from '../../services/problemService';   // fix289
 import { madeInvoiceNumber, invoicePrefix, paperPart, ninFromName } from '../../utils/legacyNumbers';   // fix285
 import { fmtMoney } from '../../utils/format';
 import useEntryMemory from '../../hooks/useEntryMemory';
@@ -41,7 +42,7 @@ import { errorText } from '../../utils/errorText';   // fix205
 import { flagField, flagServerError, errorCode } from '../../utils/fieldError';   // fix213; fix287: errorCode
 const fmtDMY = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : iso; };   // fix212
 
-const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '', noNin: false });   // fix285: noNin = NIN missing tick
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '', noNin: false, noPhone: false });   // fix285: noNin = NIN missing tick; fix289: noPhone = Phone missing
 const EMPTY_NEIGHBOR = () => ({ fullName: '', phone: '', side: '', plotNumber: '' });
 // fix180: the eight project types. Title Details follow the type (shared list in constants/projectTypes.js).
 const TYPE_ICONS = { FRESH_SURVEY: <FiFolderPlus aria-hidden="true" />, SUBDIVISION: <FiGrid aria-hidden="true" />, LEGACY_TITLES: <FiArchive aria-hidden="true" />,
@@ -79,6 +80,9 @@ const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
 const LAST_TYPE_KEY = (u) => 'geSolutions.intake.lastType.' + (u?.username || u?.email || 'me');
 const KEEP_KEY = (u) => 'geSolutions.intake.keepNext.' + (u?.username || u?.email || 'me');
 const KEEP_DEFAULT = { place: true, clients: true, owners: true, prices: false };
+// fix289: the problem types picked in the "Other problems" box, and the solutions (shown as words, sent as codes)
+const OTHER_KINDS = { WRONG_NUMBER: 'Wrong number', SAME_NUMBER: 'Same number as another project', OTHER: 'Other' };
+const codeOf = (map, word) => (Object.entries(map).find(([, w]) => w === word) || [])[0];
 // fix287 (David): the MISSING ticks become this person's defaults; the next plot travels to the Ledger and back in here
 const MISSING_KEY = (u) => 'geSolutions.intake.missing.' + (u?.username || u?.email || 'me');
 const NEXT_KEY = 'geSolutions.intake.nextPlot';
@@ -127,6 +131,20 @@ export default function IntakePage() {
     const savingRef = useRef(false);                         // fix287: a second press while saving does nothing
     const [progress, setProgress] = useState(null);         // fix287: upload % while saving (null = not saving)
     const [focusNext, setFocusNext] = useState(null);       // fix287: the box to go to after SAVE + DUPLICATE
+    // fix289 (David): problems that come with the entry -- panel ticks and the "Other problems" rows
+    const [locationProblem, setLocationProblem] = useState(false);
+    const [locationNote, setLocationNote] = useState('');
+    const [titleProblem, setTitleProblem] = useState(false);
+    const [titleNote, setTitleNote] = useState('');
+    const [otherProblems, setOtherProblems] = useState([]);  // [{ kind, label, detail, solution }]
+    const [problemKinds, setProblemKinds] = useState({ kinds: [], remembered: [] });
+    const sameOkRef = useRef(false);                         // "SAVE WITH PROBLEM" after a number already used
+    const lastActionRef = useRef('save');                    // which button to press again after SAVE WITH PROBLEM
+    useEffect(() => {
+        let alive = true;
+        problemService.kinds().then(k => { if (alive) setProblemKinds(k || { kinds: [], remembered: [] }); }).catch(() => {});
+        return () => { alive = false; };
+    }, []);
     const [numbersTick, setNumbersTick] = useState(0);      // asks the server for the next free number again
     const [titleSwitch, setTitleSwitch] = useState(false);          // fix180: Topographic Survey only
     const [subdivisionCount, setSubdivisionCount] = useState('');   // fix180: Subdivision only
@@ -484,19 +502,23 @@ export default function IntakePage() {
         problems = [];
         const loc = () => {
             if (!district.trim()) fail('District is required.', 'District', 'Location');
-            if (!county.trim()) fail('County is required.', 'County', 'Location');
-            if (!subCounty.trim()) fail('Sub-county is required.', 'Sub-county', 'Location');
-            if (!parish.trim()) fail('Parish is required.', 'Parish', 'Location');
-            if (!village.trim()) fail('Village is required.', 'Village', 'Location');
+            if (!locationProblem) {   // fix289: "Problem with location" -- only the District is needed
+                if (!county.trim()) fail('County is required (or tick Problem with location).', 'County', 'Location');
+                if (!subCounty.trim()) fail('Sub-county is required (or tick Problem with location).', 'Sub-county', 'Location');
+                if (!parish.trim()) fail('Parish is required (or tick Problem with location).', 'Parish', 'Location');
+                if (!village.trim()) fail('Village is required (or tick Problem with location).', 'Village', 'Location');
+            }
             if (!isTitleSectionVisible && area.trim() && !(Number(area) > 0)) fail('Area (hectares) must be a number more than 0, for example 0.405.', 'Area (hectares)', 'Location');
         };
         const titleChecks = () => {
             if (!plotNumber.trim()) fail('Plot Number is required.', 'Plot Number', 'Title');
             if (!block.trim()) fail('Block is required.', 'Block', 'Title');
-            if (!(Number(areaHectares) > 0)) fail('Area (hectares) is required and must be more than 0.', 'Area (hectares)', 'Title');
-            if (!titleIssueDate) fail('Title Date is required.', 'Title date', 'Title');
+            // fix289: "Problem with title details" -- Area and Title Date may stay empty
+            if (!(titleProblem && !String(areaHectares || '').trim()) && !(Number(areaHectares) > 0)) fail('Area (hectares) is required and must be more than 0 (or tick Problem with title details).', 'Area (hectares)', 'Title');
+            if (!titleIssueDate && !titleProblem) fail('Title Date is required (or tick Problem with title details).', 'Title date', 'Title');
         };
         loc();
+        otherProblems.forEach((r, i) => { if (r.kind === 'OTHER' && !String(r.label || '').trim()) fail('Problem ' + (i + 1) + ': write what the other problem is (or remove the row).', 'Other problem ' + (i + 1), 'Problems'); });
         validateRest(quiet, titleChecks);
         return problems;
     };
@@ -515,7 +537,8 @@ export default function IntakePage() {
         const checkPerson = (o, i, what) => {
             if (!o.nationalId.trim()) fail(`${what} ${i + 1}: NIN is required (or tick NIN missing).`, `NIN of ${what} ${i + 1}`, what);
             if (!o.fullName.trim()) fail(`${what} ${i + 1}: Full Name is required.`, `Full name of ${what} ${i + 1}`, what);
-            if (!o.phone.trim()) return fail(`${what} ${i + 1}: Phone is required (use / for multiple numbers).`, `Phone of ${what} ${i + 1}`, what);
+            if (o.noPhone) return true;   // fix289: Phone missing (a problem is recorded)
+            if (!o.phone.trim()) return fail(`${what} ${i + 1}: Phone is required (or tick Phone missing).`, `Phone of ${what} ${i + 1}`, what);
             const ph = normalizePhones(o.phone);
             if (!ph.ok) fail(`${what} ${i + 1}: ${ph.error}`, `Phone of ${what} ${i + 1}`, what);
             return true;
@@ -584,6 +607,23 @@ export default function IntakePage() {
         fullName: o.fullName.trim().toUpperCase(), phone: normalizePhones(o.phone).value || o.phone.trim(),
         email: o.email.trim().toLowerCase(), nationalId: o.nationalId.trim().toUpperCase(), address: o.address.trim(),
     });
+    // fix289 (David): every tick becomes its problem by itself; the "Other problems" rows are added as typed
+    const entryProblems = () => {
+        const out = [];
+        const people = ownersLinked ? clients : clients.concat(owners);
+        const seen = new Set();
+        people.forEach(o => {
+            const nin = o.noNin ? ninFromName(o.fullName) : String(o.nationalId || '').trim().toUpperCase();
+            if (o.noNin && !seen.has('N' + nin)) { seen.add('N' + nin); out.push({ kind: 'NO_NIN', personNin: nin }); }
+            if (o.noPhone && !seen.has('P' + nin)) { seen.add('P' + nin); out.push({ kind: 'MISSING_PHONE', personNin: nin }); }
+        });
+        if (invoiceMissing) out.push({ kind: 'MISSING_INVOICE', detail: paperNo.trim() ? 'Made from the old paper number ' + paperNo.trim() + '.' : 'Number made by the system.' });
+        if (contractMissing) out.push({ kind: 'MISSING_CONTRACT', detail: 'The invoice number is used.' });
+        if (locationProblem) out.push({ kind: 'LOCATION', detail: locationNote.trim() || null });
+        if (titleProblem && isTitleSectionVisible) out.push({ kind: 'TITLE_DETAILS', detail: titleNote.trim() || null });
+        otherProblems.forEach(r => out.push({ kind: r.kind, label: r.kind === 'OTHER' ? String(r.label || '').trim() : null, detail: String(r.detail || '').trim() || null, solution: r.solution || null }));
+        return out;
+    };
     const doSave = async () => {
         if (savingRef.current) return false;   // fix287: already saving (a double press)
         setJustSaved(null);   // fix287: the green box is about the last plot; a new save attempt hides it
@@ -595,6 +635,7 @@ export default function IntakePage() {
             if (noteText && !/^\[\d{2}\/\d{2}\/\d{4}\]/.test(noteText)) noteText = `[${todayDMY()}] ${noteText}`;
             const payload = {
                 entryKey: ticketRef.current,   // fix287: the same ticket on a second try = 'already saved', never a copy
+                problems: entryProblems(), allowSameNumber: sameOkRef.current,   // fix289
                 district: district.trim().toUpperCase(), county: county.trim().toUpperCase(),
                 subCounty: subCounty.trim().toUpperCase(), parish: parish.trim().toUpperCase(),
                 village: village.trim().toUpperCase(), area: isTitleSectionVisible ? String(areaHectares || '').trim() : area.trim(),   // fix203: one Area
@@ -623,7 +664,7 @@ export default function IntakePage() {
                 payload.plotNumber = plotNumber.trim().toUpperCase();
                 payload.tenure = tenure;
                 payload.block = block.trim().toUpperCase();
-                payload.areaHectares = Number(areaHectares);
+                payload.areaHectares = String(areaHectares || '').trim() ? Number(areaHectares) : null;   // fix289: empty with a title problem
                 payload.volume = volume.trim().toUpperCase();
                 payload.folio = folio.trim().toUpperCase();
                 payload.titleIssueDate = titleIssueDate || null;
@@ -662,6 +703,7 @@ export default function IntakePage() {
             dirtyRef.current = false; setDirty(false);
             setProblemBox(null);
             ticketRef.current = newTicket();   // fix287: the next entry gets its own ticket
+            sameOkRef.current = false;          // fix289
             writeJSON(MISSING_KEY(user), { nin: !!(clients[0] && clients[0].noNin), invoice: invoiceMissing, contract: contractMissing });   // fix287
             return true;
         } catch (err) {
@@ -677,7 +719,8 @@ export default function IntakePage() {
             // that already has the number or the plot
             const text = errorText(err), code = errorCode(err);
             const found = /project #\s*([A-Z0-9-]+)/i.exec(String((err && err.response && err.response.data && (err.response.data.message || err.response.data.error)) || text));
-            setProblemBox({ list: [], server: { msg: text, projectIndex: found ? found[1] : null } });
+            const sameNumber = /INVOICE_NUMBER_TAKEN|CONTRACT_NUMBER_TAKEN/.test(code) && !isEmployee;   // fix289
+            setProblemBox({ list: [], server: { msg: text, projectIndex: found ? found[1] : null, sameNumber } });
             const up = (v) => String(v || '').trim().toUpperCase();
             const raw = up(text);
             const rowHit = (rows, what) => { const i = rows.findIndex(o => (up(o.nationalId) && raw.includes(up(o.nationalId))) || (up(o.fullName) && raw.includes(up(o.fullName)))); return i >= 0 ? [what, i] : null; };
@@ -691,6 +734,7 @@ export default function IntakePage() {
     const liveProblems = problemBox && !problemBox.server ? collectProblems(true) : [];   // fix287: the box follows the fixes
     const handleSubmit = async () => {
         if (leaving) return;
+        lastActionRef.current = 'save';   // fix289
         const ok = await doSave();
         if (ok) {
             setLeaving(true);
@@ -723,6 +767,7 @@ export default function IntakePage() {
             ownersLinked: keep.owners ? (keep.clients ? ownersLinked : false) : true,
             prices: keep.prices ? { totalCost, initialStorageFee, monthlyStorageFee } : null,
             invoiceMissing, contractMissing,
+            locationProblem, locationNote,   // fix289: a kept location keeps its problem
             saved: { index: (savedNow && savedNow.projectIndex) || nextIndex, plot: plotNumber.trim().toUpperCase(), pending: !!(savedNow && savedNow.pending) },
             nextPlot: nextPlotOf(plotNumber.trim().toUpperCase()),
         };
@@ -742,6 +787,8 @@ export default function IntakePage() {
         setLastPaidDate(localISO()); setReceivablesSince(''); setTitlePayerIdx(0); setFeesPayerIdx(0); setPayMethod('OFFICE'); setPayRef('');   // fix172; fix199: same defaults as a new form
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         setLastSaved(st.saved); setNextPlot(st.nextPlot || ''); setProblemBox(null);
+        setLocationProblem(!!(st.place && st.locationProblem)); setLocationNote(st.place && st.locationProblem ? st.locationNote || '' : '');   // fix289
+        setTitleProblem(false); setTitleNote(''); setOtherProblems([]);
         const kept = KEEP_OPTIONS.filter(([k]) => st.keep && st.keep[k]).map(([, w]) => w);
         setJustSaved({ ...st.saved, kept });
         loadTypeStatuses(st.projectType);
@@ -768,6 +815,7 @@ export default function IntakePage() {
     }, [focusNext]);
     const handleDuplicate = async () => {
         if (leaving) return;
+        lastActionRef.current = 'dup';   // fix289
         const ok = await doSave();
         if (!ok) return;
         const st = nextPlotState();
@@ -816,7 +864,7 @@ export default function IntakePage() {
     const nTitle = isTitleSectionVisible ? ++n : null;
     const nLocation = ++n, nNeighbors = ++n, nStatuses = ++n;
     const nFinancials = isEmployee ? null : ++n;
-    const nDocuments = ++n, nNotes = ++n;
+    const nDocuments = ++n, nProblems = ++n, nNotes = ++n;   // fix289: Problems before Notes
     // one Client / Owner row (same fields for both panels)
     // fix188: LOCATION HELPERS. The five boxes share one memory (utils/entryMemory.js). A box that is already filled
     // narrows what the others offer; a pick fills the boxes it can be sure of; a likely typo gets a "did you mean".
@@ -872,12 +920,19 @@ export default function IntakePage() {
                     onChange={v => (o.noNin ? onFill(idx, { fullName: v, nationalId: ninFromName(v) }) : onChange(idx, 'fullName', v))} onPick={pickPerson(idx, onFill)} />
             </div>
             <div className={styles.field}>
-                <label className={`${styles.label} ${styles.required}`}>Phone</label>
-                <SuggestInput className={styles.input} value={o.phone} aria-label={'Phone of ' + what + ' ' + (idx + 1)} hint="Known clients" inputMode="tel"
-                    suggestions={suggestForRow(people, 'phone', o)}
-                    onChange={v => onChange(idx, 'phone', v)} onPick={pickPerson(idx, onFill)}
-                    onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX" title="One phone number, or two separated by /" />
-                <p className={styles.hint}>Multiple: separate with /</p>
+                <label className={`${styles.label} ${o.noPhone ? '' : styles.required}`}>Phone</label>
+                {o.noPhone
+                    ? <input className={`${styles.input} ${styles.inputLocked}`} value="" readOnly aria-label={'Phone of ' + what + ' ' + (idx + 1)} placeholder="Missing (a problem is recorded)" />
+                    : <SuggestInput className={styles.input} value={o.phone} aria-label={'Phone of ' + what + ' ' + (idx + 1)} hint="Known clients" inputMode="tel"
+                        suggestions={suggestForRow(people, 'phone', o)}
+                        onChange={v => onChange(idx, 'phone', v)} onPick={pickPerson(idx, onFill)}
+                        onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) onChange(idx, 'phone', r.value); }} placeholder="07XX XXX XXX" title="One phone number, or two separated by /" />}
+                {/* fix289 (David): old titles often have no phone; the entry saves and a "Missing telephone" problem is recorded */}
+                <label className={`${styles.label} ${styles.missingTick}`}>
+                    <input type="checkbox" checked={!!o.noPhone} aria-label={'Phone missing for ' + what + ' ' + (idx + 1)}
+                        onChange={e => onFill(idx, e.target.checked ? { noPhone: true, phone: '' } : { noPhone: false })} />
+                    Phone missing
+                </label>
             </div>
             <div className={styles.field}>
                 <label className={styles.label}>Email</label>
@@ -922,6 +977,9 @@ export default function IntakePage() {
                     <strong>NOT SAVED. {problemBox.server ? 'The server refused it:' : liveProblems.length === 1 ? '1 thing to fix:' : liveProblems.length + ' things to fix:'}</strong>
                     <button type="button" className={styles.boxClose} onClick={() => setProblemBox(null)} aria-label="Hide this message"><FiX /></button></div>
                 {problemBox.server && (<p className={styles.problemServer}>{problemBox.server.msg}
+                    {/* fix289 (David): old titles sometimes share a number -- save it anyway and record the problem on both projects */}
+                    {problemBox.server.sameNumber && <button type="button" className={styles.problemBtn} disabled={saving || leaving}
+                        onClick={() => { sameOkRef.current = true; setProblemBox(null); (lastActionRef.current === 'dup' ? handleDuplicate : handleSubmit)(); }}>SAVE WITH PROBLEM (SAME NUMBER)</button>}
                     {problemBox.server.projectIndex && <button type="button" className={styles.problemBtn} onClick={() => window.open('/land/projects?q=' + encodeURIComponent(problemBox.server.projectIndex), '_blank', 'noopener')}>FIND PROJECT #{problemBox.server.projectIndex}</button>}</p>)}
                 {!problemBox.server && (<ol className={styles.problemList}>{liveProblems.map((p, i) => (
                     <li key={i}><button type="button" className={styles.problemLine} onClick={() => flagField(p.field, { section: p.section })}>{p.msg}</button></li>))}</ol>)}
@@ -1042,6 +1100,15 @@ export default function IntakePage() {
                                 )}
                             </div>
                         </div>
+                    {/* fix289 (David): a problem in this panel -- the entry saves and the problem is recorded */}
+                    <div className={styles.panelProblem}>
+                        <label className={`${styles.label} ${styles.missingTick}`}>
+                            <input type="checkbox" checked={titleProblem} aria-label="Problem with title details" onChange={e => { setTitleProblem(e.target.checked); markDirty(); }} />
+                            Problem with title details (Area and Title Date may stay empty)
+                        </label>
+                        {titleProblem && <input className={styles.input} value={titleNote} maxLength={300} aria-label="Problem with title details note" placeholder="What is wrong with the title details? (optional)"
+                            onChange={e => { setTitleNote(e.target.value); markDirty(); }} />}
+                    </div>
                     </CollapsibleSection>
                 )}
 
@@ -1062,6 +1129,15 @@ export default function IntakePage() {
                             <p className={styles.hint}>The size of the land, in hectares (digits only). Optional until the project has a title.</p>
                         </div>
                         )}
+                    </div>
+                    {/* fix289 (David): a problem in this panel -- the entry saves and the problem is recorded */}
+                    <div className={styles.panelProblem}>
+                        <label className={`${styles.label} ${styles.missingTick}`}>
+                            <input type="checkbox" checked={locationProblem} aria-label="Problem with location" onChange={e => { setLocationProblem(e.target.checked); markDirty(); }} />
+                            Problem with location (only the District is needed)
+                        </label>
+                        {locationProblem && <input className={styles.input} value={locationNote} maxLength={300} aria-label="Problem with location note" placeholder="What is missing or wrong in the location? (optional)"
+                            onChange={e => { setLocationNote(e.target.value); markDirty(); }} />}
                     </div>
                 </CollapsibleSection>
 
@@ -1322,6 +1398,39 @@ export default function IntakePage() {
                         )}
                         <DocDropzone compact={fileQueue.length > 0} required onClick={triggerFileInput} />
                         <input ref={fileInputRef} type="file" multiple accept={DOC_ACCEPT} onChange={handleFileUpload} style={{ display: 'none' }} />
+                    </CollapsibleSection>
+                    {/* fix289 (David): every problem of this entry. The ticks above add theirs by themselves; other problems are added here. */}
+                    <CollapsibleSection icon={<FiAlertTriangle />} title={`${nProblems}. Problems`}>
+                        {(() => {
+                            const fromTicks = entryProblems().filter(x => !['OTHER', 'WRONG_NUMBER', 'SAME_NUMBER'].includes(x.kind) || false).slice(0, 50);
+                            const word = (k) => ((problemKinds.kinds || []).find(x => x.code === k) || {}).label || k;
+                            return fromTicks.length > 0
+                                ? <p className={styles.hint}>From your ticks: {fromTicks.map(x => word(x.kind) + (x.personNin ? ' (' + x.personNin + ')' : '')).join(', ')}.</p>
+                                : <p className={styles.hint}>No problems from ticks. Tick NIN / Phone / Invoice / Contract missing, or a panel problem, or add one below.</p>;
+                        })()}
+                        {otherProblems.map((r, i) => (
+                            <div key={i} className={styles.grid3}>
+                                <HardwareSelect label={'Problem ' + (i + 1)} options={Object.values(OTHER_KINDS)}
+                                    value={OTHER_KINDS[r.kind]} onChange={w => { const v = codeOf(OTHER_KINDS, w) || 'OTHER'; setOtherProblems(list => list.map((x, j) => (j === i ? { ...x, kind: v } : x))); markDirty(); }} />
+                                {r.kind === 'OTHER'
+                                    ? <div className={styles.field}><label className={`${styles.label} ${styles.required}`}>What is it?</label>
+                                        <SuggestInput className={styles.input} value={r.label} aria-label={'Other problem ' + (i + 1)} hint="Problems used before"
+                                            suggestions={(problemKinds.remembered || []).filter(w => !r.label || w.toLowerCase().includes(String(r.label).toLowerCase())).slice(0, 12).map(w => ({ key: w, value: w }))}
+                                            onChange={v => { setOtherProblems(list => list.map((x, j) => (j === i ? { ...x, label: v } : x))); markDirty(); }}
+                                            onPick={sg => setOtherProblems(list => list.map((x, j) => (j === i ? { ...x, label: (sg && sg.value) || '' } : x)))} />
+                                    </div>
+                                    : <div className={styles.field}><label className={styles.label}>Details</label>
+                                        <input className={styles.input} value={r.detail} maxLength={300} aria-label={'Problem ' + (i + 1) + ' details'} placeholder={r.kind === 'SAME_NUMBER' ? 'Which number, which project?' : 'Which number is wrong?'}
+                                            onChange={e => { const v = e.target.value; setOtherProblems(list => list.map((x, j) => (j === i ? { ...x, detail: v } : x))); markDirty(); }} /></div>}
+                                <div className={styles.field}>
+                                    <HardwareSelect label="Solution" options={Object.values(SOLUTION_WORDS)} value={SOLUTION_WORDS[r.solution]} onChange={w => { const v = codeOf(SOLUTION_WORDS, w) || 'LATER'; setOtherProblems(list => list.map((x, j) => (j === i ? { ...x, solution: v } : x))); markDirty(); }} />
+                                    <button type="button" className={styles.clearLink} onClick={() => { setOtherProblems(list => list.filter((x, j) => j !== i)); markDirty(); }}>Remove this problem</button>
+                                </div>
+                            </div>
+                        ))}
+                        <button type="button" className={styles.addBtn} onClick={() => { setOtherProblems(list => [...list, { kind: 'OTHER', label: '', detail: '', solution: 'LATER' }]); markDirty(); }}>
+                            <FiPlus /> Add a problem
+                        </button>
                     </CollapsibleSection>
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
                         <div className={styles.notesWrap}>

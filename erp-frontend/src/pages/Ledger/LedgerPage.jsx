@@ -2,6 +2,7 @@
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { scrollBehavior } from '../../utils/motion';   // fix285
+import problemService from '../../services/problemService';   // fix289
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
@@ -92,6 +93,9 @@ const LedgerPage = () => {
     const tableScrollRef = useTableScrollHandoff();
     // fix285 (David): after SAVE on New Project the Ledger opens with ?new=<id>; that row is found, its page is shown
     // and it is lit up for a few seconds so the new entry is easy to see.
+    // fix289 (David): open problems per project, for the PROBLEM tag on each row
+    const [problemCounts, setProblemCounts] = useState({});
+    useEffect(() => { let alive = true; problemService.openCounts().then(c => { if (alive) setProblemCounts(c || {}); }).catch(() => {}); return () => { alive = false; }; }, []);
     const newId = ledgerParams.get('new');
     // fix287 (David): after SAVE + DUPLICATE the Ledger shows the new row, then goes back to New Project for the next plot
     const goBack = ledgerParams.get('next') === '1';
@@ -158,7 +162,7 @@ const LedgerPage = () => {
         if (activeFilter === 'PAID')        filtered = filtered.filter(p => isTitleFullyPaid(p) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
         if (activeFilter === 'CRITICAL')    filtered = filtered.filter(isCriticalProject);
-        if (activeFilter === 'PROBLEM')     filtered = filtered.filter(p => !!p.problem);
+        if (activeFilter === 'PROBLEM')     filtered = filtered.filter(p => !!p.problem || problemCounts[p.id] > 0);   // fix289: any open problem
         filtered.sort((a, b) => {
             let aVal, bVal;
             if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
@@ -175,7 +179,7 @@ const LedgerPage = () => {
             return sortConfig.direction === 'asc' ? cmp : -cmp;
         });
         return filtered;
-    }, [projects, searchTerm, activeFilter, sortConfig, statusMap]);
+    }, [projects, searchTerm, activeFilter, sortConfig, statusMap, problemCounts]);
     useEffect(() => {
         if (!newId || flashDone.current) return;
         const at = processedData.findIndex(p => p.id === newId);
@@ -341,7 +345,8 @@ const LedgerPage = () => {
                                                     {proj.invoiceNumber && <span className={styles.stackSub} title="Invoice number">{invoiceText(proj.invoiceNumber)}</span>}
                                                     {proj.contractNumber && <span className={styles.stackSub} title="Contract number">{contractText(proj.contractNumber)}</span>}
                                                     {proj.pending && <span className={styles.stackSub} title="How long this entry has been waiting for the office">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
-                                                    {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
+                                                    {/* fix289: how many open problems this project has (the old flag is one of them) */}
+                                                    {(problemCounts[proj.id] || proj.problem) && <span className={styles.problemTag} title="Open problems (see the PROBLEMS tab of the folder)">{problemCounts[proj.id] > 1 ? problemCounts[proj.id] + ' PROBLEMS' : 'PROBLEM'}</span>}
                                                 </div>
                                             </div>
                                         </td>

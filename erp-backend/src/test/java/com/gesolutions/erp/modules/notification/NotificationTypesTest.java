@@ -21,14 +21,9 @@ public class NotificationTypesTest {
     }
 
     @Test
-    public void adminGetsItsOwnAlertsAndEveryDirectorAlert() {
-        // fix288 (David): the owner's root (Admin) account gets every Director alert, plus System / Staff / books / deleted
-        for (NotificationTypes.Type t : NotificationTypes.all().values()) {
-            if (!t.audience().contains("ROLE_ADMIN")) continue;
-            boolean allowed = t.group() == NotificationTypes.Group.SYSTEM || t.group() == NotificationTypes.Group.STAFF
-                    || t.code().equals("BOOKS_MISMATCH") || t.code().equals("PROJECT_DELETED") || t.audience().contains("ROLE_DIRECTOR");
-            assertTrue(allowed, t.code() + " should not go to the Admin");
-        }
+    public void adminGetsEveryAlert() {
+        // fix289 (David): the owner's root (Admin) account gets every alert of every rank
+        for (NotificationTypes.Type t : NotificationTypes.all().values()) assertTrue(t.audience().contains("ROLE_ADMIN"), t.code() + " goes to the root");
     }
 
     @Test

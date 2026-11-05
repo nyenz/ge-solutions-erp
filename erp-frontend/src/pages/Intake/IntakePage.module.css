@@ -264,3 +264,6 @@ button.keepChip { padding: 4px 12px; font-size: var(--fs-meta); }
     font-size: 13px; font-weight: 800; letter-spacing: 0.4px; box-shadow: 0 10px 28px rgba(0,0,0,0.3); }
 .savingBar { width: 120px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.25); overflow: hidden; display: inline-block; }
 .savingBar > span { display: block; height: 100%; background: #F26A0D; transition: width 0.3s; }
+
+/* fix289: the "problem in this panel" tick under Location and Title Details */
+.panelProblem { display: flex; flex-direction: column; gap: 6px; margin-top: var(--gap-md); padding-top: 10px; border-top: 1px dashed rgba(var(--ink-rgb), 0.18); }

@@ -90,7 +90,7 @@ public class User {
 
     // fix288 (David): the bell groups this person switched OFF in Settings (comma list, e.g. "MONEY,NOTES").
     // A CRITICAL alert always shows. Empty = every group on.
-    @Column(name = "muted_alert_groups", length = 200)
+    @Column(name = "muted_alert_groups", length = 2000)   // fix289: groups and single alerts (T:CODE)
     private String mutedAlertGroups;
 
     // fix262 (David): a new account sees the short guide once, at its first visit (it can skip it). null = not offered

@@ -43,6 +43,7 @@ const LedgerPage          = lazyPage(() => import('./pages/Ledger/LedgerPage'));
 const GuidePage           = lazyPage(() => import('./pages/Guide/GuidePage'));   // fix231
 const FolderPage          = lazyPage(() => import('./pages/DigitalFolder/FolderPage'));
 const RecoveryPortal      = lazyPage(() => import('./pages/Recovery/RecoveryPortal'));
+const ProblemsPage        = lazyPage(() => import('./pages/Problems/ProblemsPage'));   // fix289
 const ClientLedgerPage    = lazyPage(() => import('./pages/Clients/ClientLedgerPage'));
 const ClientPortfolioPage = lazyPage(() => import('./pages/Clients/ClientPortfolioPage'));
 const PaymentsPage        = lazyPage(() => import('./pages/Payments/PaymentsPage'));
@@ -154,6 +155,7 @@ const router = createBrowserRouter([
                     { path: "land/projects", element: <ProtectedRoute><LedgerPage /></ProtectedRoute> },
                     { path: "folder/:id", element: <ProtectedRoute><FolderPage /></ProtectedRoute> },
                     { path: "recovery", element: <ProtectedRoute><RecoveryPortal /></ProtectedRoute> },
+                    { path: "problems", element: <ProtectedRoute><ProblemsPage /></ProtectedRoute> },   // fix289
                     { path: "clients", element: <ProtectedRoute><ClientLedgerPage /></ProtectedRoute> },
                     { path: "client/:id", element: <ProtectedRoute><ClientPortfolioPage /></ProtectedRoute> },
                     { path: "payments", element: <ProtectedRoute managerPlus><PaymentsPage /></ProtectedRoute> },   // fix206: Manager sees lines only

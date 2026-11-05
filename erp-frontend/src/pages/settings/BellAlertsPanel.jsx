@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { FiBell } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
+import { CATALOG } from '../../components/common/notificationCatalog';   // fix289: the name of each single alert
 import { errorText } from '../../utils/errorText';
 import styles from './SettingsPage.module.css';
 
@@ -19,29 +20,39 @@ const GROUP_INFO = {
 export default function BellAlertsPanel({ toast }) {
     const [groups, setGroups] = useState(null);
     const [muted, setMuted] = useState([]);
-    const [busy, setBusy] = useState('');
+    const [types, setTypes] = useState({});          // fix289: { GROUP: [CODE, ...] } -- the single alerts
+    const [open, setOpen] = useState('');            // fix289: the group whose single alerts are shown
+    const [busy, setBusy] = useState('');   // the thing being saved
     const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         let alive = true;
         recoveryService.getAlertPrefs()
-            .then(p => { if (alive) { setGroups(p.groups || []); setMuted(p.muted || []); } })
+            .then(p => { if (alive) { setGroups(p.groups || []); setMuted(p.muted || []); setTypes(p.types || {}); } })
             .catch(() => { if (alive) setFailed(true); });
         return () => { alive = false; };
     }, []);
 
-    const turn = async (g, on) => {
+    // fix289: save a new list of switched-off groups / single alerts (T:CODE)
+    const save = async (next, what) => {
         if (busy) return;
-        const next = on ? muted.filter(x => x !== g) : [...muted, g];
-        if (groups && next.length >= groups.length) { toast('Keep at least one group of bell alerts on.', 'error'); return; }
-        setBusy(g);
+        setBusy(what);
         try {
             const p = await recoveryService.saveAlertPrefs(next);
             setMuted(p.muted || []);
-            toast((GROUP_INFO[g] ? GROUP_INFO[g][0] : g) + ' alerts ' + (on ? 'ON' : 'OFF') + '. The bell follows within a minute.', 'success');
+            toast(what + '. The bell follows within a minute.', 'success');
         } catch (err) { toast(errorText(err), 'error'); }
         finally { setBusy(''); }
     };
+    const turn = (g, on) => {
+        const next = on ? muted.filter(x => x !== g && !(types[g] || []).includes(x.slice(2))) : [...muted.filter(x => !(types[g] || []).map(c => 'T:' + c).includes(x)), g];
+        save(next, (GROUP_INFO[g] ? GROUP_INFO[g][0] : g) + ' alerts ' + (on ? 'ON' : 'OFF'));
+    };
+    const turnOne = (code, on) => {
+        const key = 'T:' + code;
+        save(on ? muted.filter(x => x !== key) : [...muted, key], ((CATALOG[code] && CATALOG[code].label) || code) + (on ? ' ON' : ' OFF'));
+    };
+    const allOn = () => save([], 'Every alert ON');
 
     if (failed) return null;
     // drawn inside the Appearance > NOTIFICATIONS card, under Notification refresh
@@ -54,6 +65,12 @@ export default function BellAlertsPanel({ toast }) {
                 </div>
             </div>
             {groups === null && <div className={styles.prefRow}><div className={styles.prefLabel}><span>Loading...</span></div></div>}
+            {groups && groups.length > 0 && (<div className={styles.prefRow}>
+                <div className={styles.prefLabel}><strong>All alerts</strong><span>{muted.length ? muted.length + ' switched off.' : 'Every alert is on.'}</span></div>
+                <div className={styles.prefOptions}>
+                    <button type="button" className={muted.length ? styles.prefBtn : styles.prefBtnActive} aria-pressed={!muted.length} disabled={!!busy || !muted.length} onClick={allOn}>ALL ON</button>
+                </div>
+            </div>)}
             {(groups || []).map(g => {
                 const on = !muted.includes(g);
                 const [label, hint] = GROUP_INFO[g] || [g, ''];
@@ -63,7 +80,21 @@ export default function BellAlertsPanel({ toast }) {
                         <div className={styles.prefOptions} role="group" aria-label={label + ' alerts'}>
                             <button type="button" className={on ? styles.prefBtnActive : styles.prefBtn} aria-pressed={on} disabled={!!busy} onClick={() => !on && turn(g, true)}>ON</button>
                             <button type="button" className={!on ? styles.prefBtnActive : styles.prefBtn} aria-pressed={!on} disabled={!!busy} onClick={() => on && turn(g, false)}>OFF</button>
+                            {on && (types[g] || []).length > 1 && <button type="button" className={open === g ? styles.prefBtnActive : styles.prefBtn} aria-expanded={open === g}
+                                onClick={() => setOpen(open === g ? '' : g)}>CHOOSE ({(types[g] || []).length})</button>}
                         </div>
+                        {/* fix289: each single alert of this group, switched on or off one by one */}
+                        {on && open === g && (<div className={styles.alertList}>
+                            {(types[g] || []).map(code => {
+                                const oneOn = !muted.includes('T:' + code);
+                                return (<div key={code} className={styles.alertItem}>
+                                    <span>{(CATALOG[code] && CATALOG[code].label) || code}</span>
+                                    <button type="button" className={oneOn ? styles.prefBtnActive : styles.prefBtn} aria-pressed={oneOn} disabled={!!busy}
+                                        aria-label={((CATALOG[code] && CATALOG[code].label) || code) + (oneOn ? ': on, press to switch off' : ': off, press to switch on')}
+                                        onClick={() => turnOne(code, !oneOn)}>{oneOn ? 'ON' : 'OFF'}</button>
+                                </div>);
+                            })}
+                        </div>)}
                     </div>
                 );
             })}

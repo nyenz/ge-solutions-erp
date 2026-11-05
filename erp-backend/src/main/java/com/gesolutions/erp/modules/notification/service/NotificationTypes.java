@@ -37,9 +37,10 @@ public final class NotificationTypes {
     private static final Map<String, Type> TYPES = new LinkedHashMap<>();
 
     private static void add(String code, Group g, String severity, Repeat r, String... audience) {
-        // fix288 (David): the owner's root (Admin) account gets every alert the Director gets, on top of its own
+        // fix288 / fix289 (David): the owner's root (Admin) account gets EVERY alert of every rank; Settings > Bell alerts
+        // lets the person switch off a group or a single alert
         java.util.LinkedHashSet<String> who = new java.util.LinkedHashSet<>(List.of(audience));
-        if (who.contains(DIR)) who.add(ADM);
+        who.add(ADM);
         TYPES.put(code, new Type(code, g, severity, r, List.copyOf(who)));
     }
 
@@ -75,6 +76,10 @@ public final class NotificationTypes {
         add("LOCKED",                Group.RECOVERY, "INFO", Repeat.EVERY_TIME, SEC, MGR);
         add("UNLOCK",                Group.RECOVERY, "INFO", Repeat.ONCE_PER_EVENT_DATE, SEC, MGR);
         add("SITE_VISIT_AUTO",       Group.RECOVERY, "WARN", Repeat.EVERY_TIME, SEC, MGR, DIR);
+        // fix289 (David): the Problems subsystem (one alert per entry, however many problems it brought)
+        add("PROBLEM_ADDED",         Group.PIPELINE, "INFO", Repeat.EVERY_TIME, SEC, MGR, DIR);
+        add("PROBLEM_SOLVED",        Group.PIPELINE, "INFO", Repeat.EVERY_TIME, MGR, DIR);
+        add("SITE_VISIT_NEEDED",     Group.RECOVERY, "WARN", Repeat.ONCE_PER_DAY, SEC, MGR, DIR);
         add("NIN_CONFLICT",          Group.RECOVERY, "WARN", Repeat.ONCE_PER_DAY, SEC, MGR);
         // NOTES (fix259, David: their own group in the bell, next to Money, Pipeline, Recovery, Staff and System)
         add("FOLLOW_UP_DUE",         Group.NOTES, "INFO",     Repeat.ONCE_PER_EVENT_DATE, SEC, MGR, DIR);   // fix215: a note's follow-up day

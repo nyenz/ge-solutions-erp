@@ -69,8 +69,8 @@ fs.writeFileSync(SCAN, PNG);
         await page.getByLabel('NIN missing for client 1').check();
         await page.getByLabel('Full name of client 1').fill('Test Legacy Person');
         await page.keyboard.press('Escape');
-        await page.getByLabel('Phone of client 1').fill('0772405913');
-        await page.keyboard.press('Escape');
+        // fix289: Phone missing instead of a phone (old titles); the problem is recorded by itself
+        await page.getByLabel('Phone missing for client 1').check();
         check((await value('NIN of client 1')) === 'TESTLEGACYPERSON', 'NIN missing gives the name in capitals with no spaces');
         await fillLabel('District', 'KAMULI');
         await fillLabel('County', 'BUGABULA');
@@ -133,6 +133,7 @@ fs.writeFileSync(SCAN, PNG);
         check(await page.locator('button:has-text("FIND PROJECT")').count() > 0, 'the red box offers FIND PROJECT');
         check(/land\/new/.test(page.url()), 'the form stays open (nothing cleared)');
         await shot('server-refused');
+        check(await page.locator('button:has-text("SAVE WITH PROBLEM")').count() > 0, 'the red box offers SAVE WITH PROBLEM for a used number');
 
         // 6. SAVE (single) after the fix, pressed twice fast: saved once, always the Ledger, the new row lit up
         await page.getByLabel('Old paper number').fill('');
@@ -143,6 +144,51 @@ fs.writeFileSync(SCAN, PNG);
         await page.waitForTimeout(2000);
         check(await page.locator('[class*="rowNew"]').count() > 0, 'SAVE goes to the Ledger with the new row lit up');
         await shot('save-goes-to-ledger');
+
+        // 7. (fix289) the problems: the Problems page lists them, the Site Visits tab groups by place, the folder has a PROBLEMS tab
+        await page.goto(WEB + '/problems');
+        await page.waitForTimeout(2500);
+        check(await page.locator('text=Missing telephone').count() > 0, 'the Problems page lists "Missing telephone" (from the Phone missing tick)');
+        check(await page.locator('text=No NIN').count() > 0, 'the Problems page lists "No NIN" (from the NIN missing tick)');
+        check(await page.locator('text=Missing invoice number').count() > 0, 'the Problems page lists "Missing invoice number"');
+        await shot('problems-page');
+        await page.getByRole('tab', { name: /SITE VISITS/ }).click().catch(async () => { await page.goto(WEB + '/problems?tab=visits'); });
+        await page.waitForTimeout(1500);
+        check(await page.locator('text=KAMULI / NAMWENDWA').count() > 0, 'Site visits are grouped by district and sub-county');
+        await shot('site-visits');
+        await page.goto(WEB + '/problems');
+        await page.waitForTimeout(2000);
+        await page.locator('a[href*="#problems"]').first().click();
+        await page.waitForTimeout(2500);
+        check(await page.locator('text=open problem').count() > 0, 'the folder PROBLEMS tab shows the open problems');
+        await shot('folder-problems-tab');
+
+        // 8. (fix289) a used number saved anyway with SAVE WITH PROBLEM
+        await page.goto(WEB + '/land/new');
+        await page.waitForSelector('text=New Project', { timeout: 30000 });
+        await page.getByRole('radio', { name: /Fresh Survey/ }).click();
+        await page.getByLabel('Full name of client 1').fill('Second Legacy Person'); await page.keyboard.press('Escape');
+        await page.getByLabel('NIN missing for client 1').check().catch(() => {});
+        await page.getByLabel('Phone missing for client 1').check().catch(() => {});
+        await fillLabel('District', 'KAMULI'); await fillLabel('County', 'BUGABULA'); await fillLabel('Sub-county', 'NAMWENDWA');
+        await fillLabel('Parish', 'BUKONTE'); await fillLabel('Village', 'KASAMBIRA');
+        if (!(await page.getByLabel('Invoice number missing').isChecked())) await page.getByLabel('Invoice number missing').check();
+        await page.getByLabel('Old paper number').fill('7');
+        if (!(await page.getByLabel('Contract number missing').isChecked())) await page.getByLabel('Contract number missing').check();
+        const cost3 = page.getByLabel('Total Cost');
+        await cost3.click(); await cost3.press('Control+A'); await cost3.pressSequentially('700000');
+        await addScan();
+        await page.getByRole('button', { name: /Save Project/ }).click();
+        await page.waitForTimeout(2500);
+        await top();
+        const again = page.locator('button:has-text("SAVE WITH PROBLEM")');
+        check(await again.count() > 0, 'KAM-NAM-0007 is refused again and SAVE WITH PROBLEM is offered');
+        await shot('same-number-offer');
+        await again.first().click();
+        await page.waitForURL(/land\/projects\?new=/, { timeout: 20000 }).catch(() => {});
+        check(/land\/projects\?new=/.test(page.url()), 'SAVE WITH PROBLEM saves it (the Ledger opens)');
+        await page.waitForTimeout(1500);
+        await shot('saved-with-problem');
     } catch (e) {
         say('FAIL  the test stopped: ' + (e && e.message ? e.message.split('\n')[0] : e));
         try { await shot('where-it-stopped', true); } catch { /* */ }
