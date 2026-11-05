@@ -133,7 +133,13 @@ const TASKS = (P, C) => [
         try { await post('/profile/guide-seen', {}, r.token); } catch { /* older server: the session flag below is enough */ }
         if (r.user) r.user.showGuide = false;
     }
-    const projectId = firstId(await get('/land/ledger?page=0&size=20', tok.director.token), ['id', 'projectId']);
+    // fix290: the guide folder must be a demo project that still owes money (RECORD PAYMENT is greyed on a paid one),
+    // is not Pending and, if possible, has its title details. The ledger order is by id, so pick it on purpose.
+    const ledger = await get('/land/ledger?page=0&size=200', tok.director.token);
+    const rows = (ledger && (ledger.content || ledger)) || [];
+    const owes = (x) => (Number(x.totalCost || 0) + Number(x.storageFeesAccumulated || 0) - Number(x.amountPaid || 0)) > 0;
+    const pick = rows.find(x => !x.pending && !x.deleted && owes(x) && x.landTitle) || rows.find(x => !x.pending && !x.deleted && owes(x));
+    const projectId = (pick && pick.id) || firstId(ledger, ['id', 'projectId']);
     const clientId = firstId(await get('/recovery/clients/ledger', tok.director.token), ['clientId', 'id']);
     const P = 'folder/' + projectId;
     const tasks = TASKS(P, 'client/' + clientId);
