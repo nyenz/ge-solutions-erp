@@ -1,5 +1,5 @@
 {
- "made": "2026-11-04T09:57:19.556Z",
+ "made": "2026-11-05T13:39:19.783Z",
  "size": {
   "width": 1280,
   "height": 720
@@ -334,8 +334,8 @@
      "cap": "Every payment is listed in Payment History. A mistake is REVERSED (never deleted) and the reason is kept.",
      "box": {
       "x": 79,
-      "y": 447,
-      "w": 224,
+      "y": 375,
+      "w": 226,
       "h": 34
      }
     }
@@ -401,7 +401,7 @@
      "box": {
       "x": 241,
       "y": 465,
-      "w": 1190,
+      "w": 1189,
       "h": 83
      }
     }
