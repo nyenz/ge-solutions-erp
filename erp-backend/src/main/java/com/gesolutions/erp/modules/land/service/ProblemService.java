@@ -282,11 +282,11 @@ public class ProblemService {
             m.put("projectDeleted", p.isDeleted());
             Client first = p.getClients().stream().min(Comparator.comparing(c -> String.valueOf(c.getFullName()))).orElse(null);
             m.put("clientName", first != null ? first.getFullName() : null);
-            m.put("clientPhone", first != null ? first.getPhone() : null);
+            m.put("clientPhone", first != null ? first.getPhoneNumber() : null);
         }
         if (pp.getClientId() != null) {
             Client c = people.get(pp.getClientId());
-            if (c != null) { m.put("personName", c.getFullName()); m.put("personPhone", c.getPhone()); }
+            if (c != null) { m.put("personName", c.getFullName()); m.put("personPhone", c.getPhoneNumber()); }
         }
         return m;
     }
@@ -366,7 +366,7 @@ public class ProblemService {
             v.put("parish", p.getParish()); v.put("village", p.getVillage());
             Client first = p.getClients().stream().min(Comparator.comparing(c -> String.valueOf(c.getFullName()))).orElse(null);
             v.put("clientName", first != null ? first.getFullName() : null);
-            v.put("clientPhone", first != null ? first.getPhone() : null);
+            v.put("clientPhone", first != null ? first.getPhoneNumber() : null);
             v.put("reasons", new ArrayList<String>());
             return v;
         });

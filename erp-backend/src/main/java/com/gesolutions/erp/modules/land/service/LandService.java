@@ -600,12 +600,12 @@ public class LandService {
         // fix172: the clients by NIN, so the client who paid the intake money can be named
         java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
         for (LandEntryRequest.OwnerRequest o : clientRows) {
-            Client c = personFromRow(o, "Client");
+            Client c = personFromRow(o, "Client", phoneMissing(request, o));   // fix289
             project.addClient(c);
             ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
         }
         for (LandEntryRequest.OwnerRequest o : ownerRows) {
-            project.addProprietor(personFromRow(o, "Owner"));
+            project.addProprietor(personFromRow(o, "Owner", phoneMissing(request, o)));   // fix289
         }
 
         // fix172 / fix181 (12.2): who paid, the payment lines and the last payment date -- one shared method
@@ -860,10 +860,14 @@ public class LandService {
 
     // fix180: one Client / Owner row from the form -> the person (by NIN, the identity rule)
     private Client personFromRow(LandEntryRequest.OwnerRequest o, String what) {
+        return personFromRow(o, what, false);
+    }
+
+    private Client personFromRow(LandEntryRequest.OwnerRequest o, String what, boolean phoneMayBeEmpty) {
         if (o.getNationalId() == null || o.getNationalId().isBlank()) {
             throw new BusinessException("NIN_REQUIRED: " + what + " \"" + o.getFullName() + "\" is missing a National ID (NIN).");
         }
-        Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
+        Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail(), phoneMayBeEmpty);
         // fix194 (review S01): an Employee never changes the contacts of a client the office already has
         if (o.getAddress() != null && !o.getAddress().isBlank() && !clientService.contactsLockedForCaller(c)) c.setHomeAddress(o.getAddress());
         return c;
@@ -1046,6 +1050,14 @@ public class LandService {
                     numbersShared(saved, o) + " also on project #" + saved.getProjectIndex() + ".", null, null, saved.getId(), true)), false);
         }
         problemService.alertAdded(saved, made);
+    }
+
+    /** fix289: the entry ticked "Phone missing" for this person. */
+    private static boolean phoneMissing(LandEntryRequest r, LandEntryRequest.OwnerRequest o) {
+        if (r.getProblems() == null || o.getNationalId() == null) return false;
+        String nin = o.getNationalId().trim().toUpperCase();
+        return r.getProblems().stream().anyMatch(p -> p != null && "MISSING_PHONE".equalsIgnoreCase(String.valueOf(p.getKind()))
+                && p.getPersonNin() != null && nin.equals(p.getPersonNin().trim().toUpperCase()));
     }
 
     private static String numbersShared(LandProject a, LandProject b) {

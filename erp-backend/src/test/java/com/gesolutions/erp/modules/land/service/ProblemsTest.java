@@ -71,7 +71,7 @@ public class ProblemsTest {
         LandEntryRequest r = new LandEntryRequest();
         r.setProjectType("FRESH_SURVEY");
         r.setDistrict("KAMULI"); r.setSubCounty("NAMWENDWA");
-        r.setClients(new ArrayList<>(List.of(LandEntryRequest.OwnerRequest.builder().fullName("Problem Client " + nin).phone(null).nationalId(nin).build())));
+        r.setClients(new ArrayList<>(List.of(LandEntryRequest.OwnerRequest.builder().fullName("Problem Client " + nin).phone("0772405913").nationalId(nin).build())));
         r.setInvoiceNumber("P-INV-" + tag()); r.setContractNumber("P-CON-" + tag());
         r.setTotalCost(new BigDecimal("900000")); r.setInitialPayment(BigDecimal.ZERO);
         return r;
@@ -86,6 +86,7 @@ public class ProblemsTest {
         as(Role.ROLE_SECRETARY);
         String nin = "PROBLEMCLIENT" + tag();
         LandEntryRequest r = entry(nin);
+        r.getClients().get(0).setPhone(null);   // Phone missing
         r.setProblems(List.of(pr("NO_NIN", null, nin), pr("MISSING_PHONE", null, nin), pr("OTHER", "Wrong village on invoice " + tag().substring(0, 2), null)));
         LandProject p = land.atomicIntake(r, null);
         List<ProjectProblem> list = problemRepo.findByProjectIdOrderByCreatedAtDesc(p.getId());
