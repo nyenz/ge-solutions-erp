@@ -636,3 +636,8 @@
 .rankChoice { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; cursor: pointer; font-size: 13px; }
 .rankChoice input { margin-top: 3px; }
 .rankChoice em { display: block; font-style: normal; font-size: 12px; color: rgba(var(--ink-rgb), 0.6); }
+
+/* fix289: the single alerts inside a Bell alerts group */
+.alertList { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; width: 100%; max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.alertItem { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
+.alertItem button { padding: 4px 10px; min-width: 52px; }

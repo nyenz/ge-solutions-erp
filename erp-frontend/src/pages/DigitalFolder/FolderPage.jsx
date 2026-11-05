@@ -50,6 +50,7 @@ import { readShillings, MONEY_BAD } from '../../utils/money';   // fix199 (test 
 import { PAY_METHODS, methodLine, checkMethod, referenceLabel } from '../../utils/paymentMethods';   // fix214
 import { categoryForStage } from '../../utils/stageCategory';   // fix199 (test note 22)
 import ProjectFilePrint from '../../components/print/ProjectFilePrint';   // fix199 (test note 10)
+import ProjectProblemsPanel from '../../components/common/ProjectProblemsPanel';   // fix289
 import NotesTimeline from '../../components/notes/NotesTimeline';   // fix215
 import ReasonPrompt from '../../components/common/ReasonPrompt';   // fix223
 import { explainFor } from '../../utils/explainers';   // fix226
@@ -396,7 +397,7 @@ const REASON_KINDS = {
         picks: ['Collected by the client in person, National ID checked', 'Collected by the client\'s agent with a signed letter', 'Collected by the client\'s lawyer, ID checked'] },
 };
 const TYPE_LABELS = { STANDARD: 'PAYMENT', INITIAL_DEPOSIT: 'DEPOSIT AT INTAKE', RECEIVABLE_PARTIAL: 'PAYMENT (IN RECEIVABLES)', REVERSAL: 'REVERSAL' };
-const TAB_SHORT = { OVERVIEW: 'OV', FINANCIALS: 'FIN', PEOPLE: 'PPL', DOCUMENTS: 'DOC', NOTES: 'NTS' };
+const TAB_SHORT = { OVERVIEW: 'OV', FINANCIALS: 'FIN', PEOPLE: 'PPL', DOCUMENTS: 'DOC', PROBLEMS: 'PRB', NOTES: 'NTS' };
 // fix180: one Client / Owner row and one Neighbor row in the EDIT buffer
 const personToRow = (p) => ({ fullName: p.fullName || '', phone: p.phoneNumber || '', nationalId: p.nationalId || '', address: p.homeAddress || '', email: p.email || '' });
 const EMPTY_PERSON = () => ({ fullName: '', phone: '', nationalId: '', address: '', email: '' });
@@ -452,8 +453,9 @@ const FolderPage = () => {
     const [titleErr, setTitleErr] = useState('');
     const [titleSaving, setTitleSaving] = useState(false);
     const [liveStages, setLiveStages] = useState(null);   // fix185: the stage list as the checklist has it now (null = not loaded yet)
-    const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
-    const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
+    const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'PROBLEMS', 'NOTES'];   // fix289: PROBLEMS
+    const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', PROBLEMS: 'red', NOTES: 'red' };
+    const [problemCount, setProblemCount] = useState(0);   // fix289: open problems (shown on the tab)
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     // fix181 (16.12b): one id per payment; a retry after a slow network sends the same id and the server refuses a second save
@@ -533,6 +535,7 @@ const FolderPage = () => {
         } else if (hash === 'notes' || hash === 'calls') setActiveTab('NOTES');
         else if (hash === 'identity' || hash === 'owners' || hash === 'clients' || hash === 'people') setActiveTab('PEOPLE');
         else if (hash === 'vault' || hash === 'documents') setActiveTab('DOCUMENTS');
+        else if (hash === 'problems') setActiveTab('PROBLEMS');   // fix289
         else window.scrollTo({ top: 0, behavior: scrollBehavior() });
     }, [id]);
     useEffect(() => { if (isEditing) setTimeout(() => firstInputRef.current?.focus(), 120); }, [isEditing]);
@@ -1168,7 +1171,7 @@ const FolderPage = () => {
                         {TABS.map(tab => (<button type="button" key={tab} role="tab" aria-selected={activeTab === tab}
                             data-accent={TAB_ACCENTS[tab]}
                             className={activeTab === tab ? styles.tabOn : styles.tab} onClick={() => setActiveTab(tab)} title={'Show ' + tab.toLowerCase()}>
-                            <span className={styles.tabFull}>{tab}</span><span className={styles.tabShort}>{TAB_SHORT[tab]}</span>
+                            <span className={styles.tabFull}>{tab}{tab === 'PROBLEMS' && problemCount > 0 ? ' (' + problemCount + ')' : ''}</span><span className={styles.tabShort}>{TAB_SHORT[tab]}{tab === 'PROBLEMS' && problemCount > 0 ? ' ' + problemCount : ''}</span>
                         </button>))}
                     </div>
                 </div>
@@ -1524,6 +1527,17 @@ const FolderPage = () => {
                             </>)}
                     </div></div>
                 </section>
+                {/* fix289 (David): the problems of this project -- add, choose what will be done, solve (each writes a note) */}
+                <div className={styles.tabWrap} data-print-section="PROBLEMS" style={activeTab !== 'PROBLEMS' ? { display: 'none' } : {}}>
+                    <section className={styles.hwPanel} aria-label="Problems">
+                        <DrawerHeader label="PROBLEMS" isOpen icon={FiAlertTriangle} count={problemCount} onClick={() => {}} />
+                        <div className={`${styles.panelBody} ${styles.bodyOpen}`}><div className={styles.panelInner}>
+                            <ProjectProblemsPanel projectId={id} canWrite={flags.isStaff && !isDeleted} canRemove={flags.isOwnerLevel}
+                                people={[...(project.clients || []), ...(project.proprietors || [])].filter((p, i, a) => p && p.id && a.findIndex(x => x.id === p.id) === i).map(p => ({ id: p.id, name: p.fullName }))}
+                                onToast={(t, k) => toast(t, k === 'error' ? 'error' : k, 3500)} onCount={setProblemCount} onChanged={loadFolderData} />
+                        </div></div>
+                    </section>
+                </div>
                 <div className={styles.tabWrap} data-print-section="NOTES" style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
                     {/* fix215 (David): ONE Notes timeline -- notes, decisions, money, events and recovery calls, summary first */}
                     <section className={styles.hwPanel} aria-label="Notes and history">

@@ -3,7 +3,7 @@ import { roleFlags } from '../../utils/roles';
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
+FiGrid, FiPlusSquare, FiLayers, FiPhoneCall, FiAlertTriangle,
     FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers, FiInbox, FiHelpCircle } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { Tooltip } from '../common/Tooltip';
@@ -27,6 +27,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         { path: '/my-entries',    label: 'MY ENTRIES',  icon: <FiInbox        aria-hidden="true" />, access: flags.isEmployee,    hint: 'The projects you entered, and what the office did with them' },
         { path: '/land/projects', label: 'LEDGER',      icon: <FiLayers       aria-hidden="true" />, access: flags.isStaff,       hint: 'Every project, searchable by stage, client and debt' },
         { path: '/recovery',      label: 'RECOVERY',    icon: <FiPhoneCall    aria-hidden="true" />, access: flags.isStaff,       hint: 'Who to call about money owed, and who is due today' },
+        { path: '/problems',      label: 'PROBLEMS',    icon: <FiAlertTriangle aria-hidden="true" />, access: flags.isStaff,      hint: 'What is wrong on which project, and the site visits' },   // fix289
         { path: '/clients',       label: 'CLIENTS',     icon: <FiUsers        aria-hidden="true" />, access: flags.isStaff,       hint: 'Client register and full dossiers' },
         { path: '/payments',      label: 'PAYMENTS',    icon: <FiDollarSign   aria-hidden="true" />, access: hasManagerAccess,   hint: flags.isOwnerLevel ? 'Every payment received, across all projects' : 'Payments of the last 90 days, line by line (no totals)' },
         { path: '/financials',    label: 'EXPENSES',    icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess,    hint: "The company's own costs -- not project costs" },
