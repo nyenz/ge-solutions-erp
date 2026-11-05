@@ -37,18 +37,41 @@ const TASKS = (P, C) => [
     { id: 'new-project', role: 'Secretary', who: 'secretary', title: 'Register a new project', why: 'Enter a new job: who pays, where the land is, the stages and the money.', steps: [
         { go: 'land/new', hi: 'ENTRY MODE', cap: 'New Project. Pick the project type first. The index number is given by the app.' },
         { go: 'land/new', hi: { css: 'h2:has-text("Clients")' }, cap: 'Clients: the people who pay. Type the NIN first — a person already saved is filled in for you.' },
+        { go: 'land/new', hi: 'Phone missing', cap: 'No NIN or no phone on the old papers? Tick NIN missing (the name in capitals is used) or Phone missing. The entry saves and the problem is recorded by itself.' },
         { go: 'land/new', hi: 'LOCATION', cap: 'Location: district down to village, and the size in hectares (digits only).' },
         { go: 'land/new', hi: 'STAGES', cap: 'Stages: the steps of the work. The usual list is ready; tick what is already done.' },
-        { go: 'land/new', hi: 'FINANCIALS', cap: 'Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending.' },
+        { go: 'land/new', hi: 'FINANCIALS', cap: 'Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending. Prices get their commas as you type.' },
+        { go: 'land/new', hi: 'Invoice number missing', cap: 'No invoice or contract number? Tick the MISSING box: the app makes one from the place (for example KAM-NAM-0007) and records the problem. These ticks are remembered for your next entry.' },
         { go: 'land/new', hi: 'DOCUMENTS', cap: 'Documents: add scans and choose their type. PDF, photos, Word and Excel are accepted.' },
-        { go: 'land/new', hi: 'SAVE', cap: 'Press SAVE. Anything missing is listed in a red box at the top; click a line to go to that box. SAVE + DUPLICATE saves, shows it on the Ledger, and comes back ready for the next plot.' },
+        { go: 'land/new', hi: { css: 'h2:has-text("Problems")' }, cap: 'Problems: what your ticks recorded is listed here. ADD A PROBLEM for anything else (wrong number, same number, or Other — words used before are offered again).' },
+        { go: 'land/new', hi: 'Keep for next', cap: 'KEEP FOR NEXT: what SAVE + DUPLICATE keeps for the next plot (Location, Clients, Owners, Prices). Orange = kept. Your choice is remembered.' },
+        { go: 'land/new', hi: 'SAVE', cap: 'Press SAVE. Anything missing is listed in a red box at the top; click a line to go to that box. A number already used? The box offers SAVE WITH PROBLEM. SAVE + DUPLICATE saves, shows it on the Ledger, and comes back ready for the next plot.' },
     ] },
     { id: 'find', role: 'Secretary', who: 'secretary', title: 'Find a project and open its folder', why: 'Every project lives in its folder: details, stages, money, documents and notes.', steps: [
         { go: 'land/projects', hi: { css: 'input[type="search"], input[placeholder*="Search"]' }, cap: 'Project Ledger: type any part of a name, phone, plot, NIN or index in the search box.' },
         { go: 'land/projects', hi: 'ALL PROJECTS', cap: 'The tabs narrow the list: no title details yet, legacy, receivables, critical, problem, pending.' },
         { go: 'land/projects', hi: { css: 'tbody tr' }, cap: 'Press a row to open that project’s folder.' },
         { go: P, hi: { css: 'header h1, h1' }, cap: 'The folder title: PLOT and its number (or PROJECT and the index). Under it: type, status and what the project is waiting for.' },
-        { go: P, hi: { css: 'button:has-text("OVERVIEW"), [role="tab"]:has-text("OVERVIEW")' }, cap: 'The folder tabs: Overview, Financials, People, Documents, Notes.' },
+        { go: P, hi: { css: 'button:has-text("OVERVIEW"), [role="tab"]:has-text("OVERVIEW")' }, cap: 'The folder tabs: Overview, Financials, People, Documents, Problems, Notes.' },
+        { go: P, hi: { css: 'button:has-text("EDIT")' }, cap: 'EDIT changes the folder: people, place, title details, neighbours and stages. The Secretary may edit too; money (cost, payments, storage fees) stays with the Manager and up.' },
+    ] },
+    // fix290 (David): old titles with missing or wrong details
+    { id: 'legacy', role: 'Secretary', who: 'secretary', title: 'Enter an old (legacy) title with missing details', why: 'Old papers often miss the NIN, phone or numbers. Enter them anyway; the gaps become problems to follow up.', steps: [
+        { go: 'land/new', click: { css: 'button:has-text("Legacy Titles"), [role="radio"]:has-text("Legacy Titles")' }, hi: 'ENTRY MODE', cap: 'Pick Legacy Titles. The app remembers your last type, so the next entry starts on it.' },
+        { go: 'land/new', click: [{ css: 'button:has-text("Legacy Titles"), [role="radio"]:has-text("Legacy Titles")' }, { css: 'input[aria-label="NIN missing for client 1"]' }, { css: 'input[aria-label="Phone missing for client 1"]' }], hi: 'Phone missing', cap: 'Ticked: NIN missing and Phone missing. The NIN box follows the name (no spaces); the phone may stay empty.' },
+        { go: 'land/new', click: [{ css: 'button:has-text("Legacy Titles"), [role="radio"]:has-text("Legacy Titles")' }, { css: 'input[aria-label="Problem with title details"]' }], hi: 'Problem with title details', cap: 'Something wrong in the title details? Tick it: Area and Title Date may stay empty. Plot and Block are still needed.' },
+        { go: 'land/new', click: { css: 'input[aria-label="Problem with location"]' }, hi: 'Problem with location', cap: 'Location not complete? Tick Problem with location: only the District is then needed. Write what is missing in the box.' },
+        { go: 'land/new', click: [{ css: 'input[aria-label="Invoice number missing"]' }, { css: 'input[aria-label="Contract number missing"]' }], hi: { css: 'input[aria-label="Old paper number"]' }, cap: 'Invoice missing: type the old paper number (or leave it empty for the next free one). Contract missing copies the invoice number.' },
+        { go: 'land/new', click: [{ css: 'input[aria-label="Invoice number missing"]' }], hi: 'MISSING ticks on', cap: 'The orange strip reminds you which MISSING ticks are on. Untick them for a recent project that has its real numbers.' },
+    ] },
+    // fix290: the Problems subsystem
+    { id: 'problems', role: 'Secretary', who: 'secretary', title: 'Follow up problems and site visits', why: 'Every gap or mistake on a project, what will be done about it, and the site visits.', steps: [
+        { go: 'problems', hi: { css: 'h1' }, cap: 'Problems (left menu): every open problem, newest first. Each shows the project, the client and phone, the place and what will be done.' },
+        { go: 'problems', hi: { css: 'input[aria-label="Search problems"]' }, cap: 'Search by client, phone, plot, project # or place, and filter by problem, solution or district.' },
+        { go: 'problems?tab=visits', hi: 'SITE VISITS', cap: 'Site visits: one row per project, grouped by district and sub-county, so one trip covers many plots. Problems marked Needs a site visit and clients Recovery could not reach both land here.' },
+        { go: P + '#problems', hi: 'ADD A PROBLEM', cap: 'In a folder, the PROBLEMS tab: the problems of that project. ADD A PROBLEM: pick it, the person, details and what will be done.' },
+        { go: P + '#problems', click: 'ADD A PROBLEM', hi: { css: '[class*="addBox"]' }, cap: 'Solutions: Needs a site visit, Call the client, Fix in the office, Decide later. Every change writes a note in Notes.' },
+        { go: 'problems?tab=solved', hi: 'SOLVED', cap: 'When it is fixed, press SOLVED on the problem and write what was done. Solved problems are kept here. Only a Director can remove one added by mistake.' },
     ] },
     { id: 'stage', role: 'Secretary', who: 'secretary', title: 'Tick a stage and attach its document', why: 'Keep the work up to date; every tick is saved with your name and the date.', steps: [
         { go: P, hi: 'STAGE CHECKLIST', cap: 'On the Overview tab, the Stage checklist shows every step and how many are done.' },
@@ -91,6 +114,7 @@ const TASKS = (P, C) => [
     { id: 'staff', role: 'Director', who: 'director', title: 'Staff and settings', why: 'Add staff, reset a key, and set how the app looks for you.', steps: [
         { go: 'settings', click: { css: 'button:has-text("STAFF")' }, hi: { css: 'button:has-text("ADD STAFF")' }, cap: 'Settings > Staff: add a person and give them a rank. They get a temporary key and choose their own at first sign-in.' },
         { go: 'settings', click: { css: 'button:has-text("APPEARANCE")' }, hi: { css: '[class*="panelHeadTitle"]' }, cap: 'Settings > Appearance: theme, size, explainers, animation — saved for you on this device.' },
+        { go: 'settings', click: { css: 'button:has-text("APPEARANCE")' }, hi: 'Bell alerts', cap: 'Bell alerts: choose what rings your bell. ALL ON, a whole group ON or OFF, or CHOOSE single alerts. Saved for your account on every device; critical alerts always show.' },
     ] },
     { id: 'field', role: 'Employee', who: 'employee', title: 'Enter a project from the field', why: 'Field staff enter the land and the people; the office adds the money.', steps: [
         { go: 'land/new', hi: 'ENTRY MODE', cap: 'New Project: enter the type, clients, owners, neighbours, location and stages. No money boxes for field staff.' },
@@ -109,7 +133,13 @@ const TASKS = (P, C) => [
         try { await post('/profile/guide-seen', {}, r.token); } catch { /* older server: the session flag below is enough */ }
         if (r.user) r.user.showGuide = false;
     }
-    const projectId = firstId(await get('/land/ledger?page=0&size=20', tok.director.token), ['id', 'projectId']);
+    // fix290: the guide folder must be a demo project that still owes money (RECORD PAYMENT is greyed on a paid one),
+    // is not Pending and, if possible, has its title details. The ledger order is by id, so pick it on purpose.
+    const ledger = await get('/land/ledger?page=0&size=200', tok.director.token);
+    const rows = (ledger && (ledger.content || ledger)) || [];
+    const owes = (x) => (Number(x.totalCost || 0) + Number(x.storageFeesAccumulated || 0) - Number(x.amountPaid || 0)) > 0;
+    const pick = rows.find(x => !x.pending && !x.deleted && owes(x) && x.landTitle) || rows.find(x => !x.pending && !x.deleted && owes(x));
+    const projectId = (pick && pick.id) || firstId(ledger, ['id', 'projectId']);
     const clientId = firstId(await get('/recovery/clients/ledger', tok.director.token), ['clientId', 'id']);
     const P = 'folder/' + projectId;
     const tasks = TASKS(P, 'client/' + clientId);

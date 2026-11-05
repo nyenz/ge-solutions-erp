@@ -23,7 +23,7 @@
 - **Working with David:** load the skill `nyenz-app-design` first. One server step = ONE paste, say what he should see. He types
   secrets only in the server terminal. I cannot reach the server from the cloud box (port 22 blocked).
 - **GUIDE PICTURES RULE (fix284):** any change David can SEE (a page, a theme, a button name) means the in-app GUIDE pictures are retaken in the same fix: push the branch to `screens`, wait for the run, copy `guide/*.jpg` + `guide.json` from branch `screens-out` into `erp-frontend/public/guide/`, run `node docs/guide/build-guide.mjs`, and check `guide-log.txt` is EMPTY (every step pressed and highlighted). They were last retaken on 1 Nov 2026; before that they were stale since fix262 and covered by the welcome pop-up.
-- **Shipping a change:** section 2 below; next number **fix290**; commit trailers = the session's attribution reminder.
+- **Shipping a change:** section 2 below; next number **fix291**; commit trailers = the session's attribution reminder.
 
 ## THE FINISH LINE (everything left, in order). When all of A and B are ticked, the app is DONE and live.
 ### A. David's own steps -- STATUS 30 Oct 2026 (afternoon): DONE = 1 server updated (deploy.sh --force path found a bug, fixed in fix282), 2 upload test, 3 BACKUP ZIP saved,
@@ -55,6 +55,8 @@ fix286: the auto NIN has no spaces (NAMUGANZASARAH). fix287 (4 Nov 2026): New Pr
 fix288 (4 Nov 2026, David chose C): the root account gets every Director alert too; every person picks which bell alert groups they get in Settings > Appearance > Bell alerts (critical alerts always show).
 
 fix289 (5 Nov 2026): PROBLEMS subsystem (see LLM_CONTEXT_GUIDE 'PROBLEMS SUBSYSTEM'): ticks on New Project add problems by themselves, Other problems that remember, solutions incl. site visit, notes, SAVE WITH PROBLEM for a used number, folder PROBLEMS tab, Problems page + Site visits, Ledger tags. The root gets every alert (Settings: ALL ON, groups, single alerts). Not yet: problems on the Clients page / client portfolio, Problems reports and dashboard box, visit reports that correct data (next steps David agreed in principle).
+
+fix290 (6 Nov 2026): menu order -- PROBLEMS just before EXPENSES, SETTINGS last after GUIDE. Guide: new tasks 'Enter an old (legacy) title with missing details' and 'Follow up problems and site visits', more New Project steps (ticks, Problems, Keep for next, Save with problem), Secretary EDIT, Bell alerts. The guide folder is picked as a demo project that still owes money (ledger order is by id). Never push the screens branch twice in a row: two runs clash and the second cannot save its pictures.
 Must do before real client data (small, safe, additive):
 - B1 **Archive for deleted documents, notes and expenses, 90 days, a Director can restore** (Q5 = A; today only whole
   projects go to the Archive). medium.
