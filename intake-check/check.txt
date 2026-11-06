@@ -1,0 +1,32 @@
+PASS  SAVE on an empty form lists every problem at once (9 lines)
+PASS  NIN missing gives the name in capitals with no spaces
+PASS  the red list shrinks while the boxes are fixed (9 -> 1)
+PASS  invoice number made from the place: KAM-NAM-0007
+PASS  contract number copies the invoice number
+PASS  price shows commas while typing: 1,500,000
+PASS  the Ledger says it goes back to New Project
+PASS  back on the form with the green "Ready for the next plot" box
+PASS  NIN missing is still ticked
+PASS  Invoice number missing is still ticked
+PASS  the place is kept
+PASS  the documents are empty for the next plot
+PASS  the cursor goes to the first box that must change (no title on this type, prices not kept): Total Cost
+PASS  KEEP FOR NEXT offers Location
+PASS  empty paper number takes the next free one: KAM-NAM-0008
+PASS  a used invoice number is refused and shown in the red box
+PASS  the red box offers FIND PROJECT
+PASS  the form stays open (nothing cleared)
+PASS  the red box offers SAVE WITH PROBLEM for a used number
+PASS  SAVE goes to the Ledger with the new row lit up
+PASS  the Problems page lists "Missing telephone" (from the Phone missing tick)
+PASS  the Problems page lists "No NIN" (from the NIN missing tick)
+PASS  the Problems page lists "Missing invoice number"
+PASS  Site visits are grouped by district and sub-county
+PASS  the folder PROBLEMS tab shows the open problems
+PASS  a NIN / phone / number problem offers FIX AND SOLVE
+PASS  FIX AND SOLVE saves the real value (Real contract number) and solves the problem
+PASS  each site visit has a VISIT DONE button
+PASS  VISIT DONE records the visit (note on the folder and on Recovery)
+PASS  KAM-NAM-0007 is refused again and SAVE WITH PROBLEM is offered
+PASS  SAVE WITH PROBLEM saves it (the Ledger opens)
+PASS  no page errors
