@@ -28,3 +28,8 @@
 .addGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .label { font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: #283548; }
+
+/* fix291: the solve box (real value boxes + what was done) */
+.solveBox { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 100%; }
+.solveBtns { display: inline-flex; gap: 8px; }
+.visitBox { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }

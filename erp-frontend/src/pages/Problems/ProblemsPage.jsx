@@ -6,7 +6,7 @@
 //  - SOLVED: what was fixed, and how.
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { FiAlertTriangle, FiMapPin, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiAlertTriangle, FiMapPin, FiCheckCircle, FiRefreshCw, FiCheck } from 'react-icons/fi';
 import TabDock from '../../components/common/TabDock';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -31,6 +31,10 @@ export default function ProblemsPage() {
     const [kind, setKind] = useState(ALL);
     const [solution, setSolution] = useState(ALL_SOL);
     const [district, setDistrict] = useState(ALL_DIST);
+    const [visiting, setVisiting] = useState(null);   // fix291: { projectId, note } -- VISIT DONE
+    const [busy, setBusy] = useState(false);
+    const [okMsg, setOkMsg] = useState('');
+    const toast = (t, kind) => { if (kind === 'error') { setOkMsg(''); setFault(t); } else { setFault(''); setOkMsg(t); } };
 
     const load = useCallback(async () => {
         setFault('');
@@ -60,6 +64,19 @@ export default function ProblemsPage() {
     shownVisits.forEach(v => { const k = (v.district || 'NO DISTRICT') + ' / ' + (v.subCounty || 'no sub-county'); if (!groupMap.has(k)) groupMap.set(k, []); groupMap.get(k).push(v); });
     const groups = Array.from(groupMap.entries());
 
+    // fix291: VISIT DONE -- solves the plot's visit problems and writes "site visit done" on Recovery
+    const visitDone = async () => {
+        if (busy || !visiting) return;
+        if (String(visiting.note || '').trim().length < 3) { toast('Write what was found on the visit.', 'error'); return; }
+        setBusy(true);
+        try {
+            const r = await problemService.visitDone(visiting.projectId, visiting.note);
+            toast('Visit recorded' + (r && r.solved ? '; ' + r.solved + ' problem' + (r.solved === 1 ? '' : 's') + ' solved.' : '.') + ' A note was written.', 'success');
+            setVisiting(null); setSolved(null); await load();
+        } catch (err) { toast(errorText(err), 'error'); }
+        finally { setBusy(false); }
+    };
+
     const setTab = (t) => { const p = new URLSearchParams(params); p.set('tab', t.toLowerCase()); setParams(p, { replace: true }); };
     const place = (r) => [r.village, r.parish, r.subCounty, r.district].filter(Boolean).join(', ');
     const projectLink = (r) => (<Link className={card.link} to={'/folder/' + r.projectId + '#problems'}>#{r.projectIndex}{r.plotNumber ? ' (plot ' + r.plotNumber + ')' : ''}</Link>);
@@ -87,6 +104,7 @@ export default function ProblemsPage() {
                 <HardwareSelect compact label="" placeholder="District" options={districts} value={district} onChange={setDistrict} />
             </div>
             {fault && <p className={s.fault} role="alert">{fault}</p>}
+            {okMsg && <p className={s.ok} role="status">{okMsg}</p>}
 
             {tab !== 'VISITS' && ((tab === 'SOLVED' ? solved : open) === null ? <LoadingState label="Loading problems" /> : (
                 <div className={s.list}>
@@ -117,6 +135,19 @@ export default function ProblemsPage() {
                                     <div className={card.cardHead}>{projectLink(v)}<strong>{v.clientName || 'No client name'}</strong><span className={card.chip}>{v.clientPhone || 'no phone'}</span></div>
                                     <p className={card.line}>{[v.village, v.parish].filter(Boolean).join(', ') || 'Village not known'}</p>
                                     <ul className={s.reasons}>{(v.reasons || []).map((x, i) => <li key={i}>{x}</li>)}</ul>
+                                    {visiting && visiting.projectId === v.projectId ? (
+                                        <div className={card.visitBox}>
+                                            <input className={card.input} value={visiting.note} maxLength={500} autoFocus aria-label="What was found on the visit"
+                                                placeholder="What was found on the visit? (it goes in the Notes and on Recovery)" onChange={e => setVisiting({ ...visiting, note: e.target.value })}
+                                                onKeyDown={e => { if (e.key === 'Enter') visitDone(); }} />
+                                            <button type="button" className={card.btn} disabled={busy} onClick={visitDone}><FiCheck aria-hidden="true" /> CONFIRM</button>
+                                            <button type="button" className={card.btnGhost} onClick={() => setVisiting(null)}>CANCEL</button>
+                                        </div>
+                                    ) : (
+                                        <div className={card.actions}>
+                                            <button type="button" className={card.btn} onClick={() => setVisiting({ projectId: v.projectId, note: '' })}><FiCheck aria-hidden="true" /> VISIT DONE</button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </section>

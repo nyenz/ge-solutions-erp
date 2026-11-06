@@ -9,7 +9,9 @@ const problemService = {
     siteVisits: () => api.get('/problems/site-visits').then(r => r.data),
     add: (body) => api.post('/problems', body).then(r => r.data),
     update: (id, body) => api.put('/problems/' + id, body).then(r => r.data),
-    solve: (id, note) => api.post('/problems/' + id + '/solve', { note }).then(r => r.data),
+    // fix291: values = the real nin / phone / invoice / contract (and personId) put in while solving
+    solve: (id, note, values = {}) => api.post('/problems/' + id + '/solve', { ...values, note }).then(r => r.data),
+    visitDone: (projectId, note) => api.post('/problems/site-visits/' + projectId + '/done', { note }).then(r => r.data),
     remove: (id, reason) => api.delete('/problems/' + id, { params: { reason } }).then(r => r.data),
 };
 
