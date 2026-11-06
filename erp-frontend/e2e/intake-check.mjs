@@ -163,6 +163,35 @@ fs.writeFileSync(SCAN, PNG);
         check(await page.locator('text=open problem').count() > 0, 'the folder PROBLEMS tab shows the open problems');
         await shot('folder-problems-tab');
 
+        // 7b. (fix291) FIX AND SOLVE puts the real value on the project; VISIT DONE on the Site Visits list
+        const fixBtn = page.locator('button:has-text("FIX AND SOLVE")').first();
+        check(await fixBtn.count() > 0, 'a NIN / phone / number problem offers FIX AND SOLVE');
+        if (await fixBtn.count() > 0) {
+            await fixBtn.click();
+            await page.waitForTimeout(500);
+            const box = page.locator('input[aria-label^="Real "]').first();
+            const what = (await box.getAttribute('aria-label')) || '';
+            const value = /NIN/.test(what) ? 'CM' + Date.now().toString().slice(-8) + 'XY' : /phone/.test(what) ? '0772 555 123' : 'REAL-' + Date.now().toString().slice(-6);
+            await box.fill(value);
+            await shot('fix-and-solve-box');
+            await page.locator('button:has-text("CONFIRM")').first().click();
+            await page.waitForTimeout(2500);
+            check(await page.locator('text=Saved on the project and solved').count() > 0, 'FIX AND SOLVE saves the real value (' + what + ') and solves the problem');
+            await shot('fix-and-solve-done');
+        }
+        await page.goto(WEB + '/problems?tab=visits');
+        await page.waitForTimeout(2500);
+        const visitBtn = page.locator('button:has-text("VISIT DONE")').first();
+        check(await visitBtn.count() > 0, 'each site visit has a VISIT DONE button');
+        if (await visitBtn.count() > 0) {
+            await visitBtn.click();
+            await page.getByLabel('What was found on the visit').fill('Met the client at the plot, boundary marks seen');
+            await page.locator('button:has-text("CONFIRM")').first().click();
+            await page.waitForTimeout(2500);
+            check(await page.locator('text=Visit recorded').count() > 0, 'VISIT DONE records the visit (note on the folder and on Recovery)');
+            await shot('visit-done');
+        }
+
         // 8. (fix289) a used number saved anyway with SAVE WITH PROBLEM
         await page.goto(WEB + '/land/new');
         await page.waitForSelector('text=New Project', { timeout: 30000 });

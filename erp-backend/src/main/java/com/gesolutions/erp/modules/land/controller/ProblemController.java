@@ -29,7 +29,8 @@ public class ProblemController {
         List<Map<String, Object>> ks = new ArrayList<>();
         for (ProblemService.Kind k : ProblemService.KINDS) {
             if ("FLAGGED".equals(k.code())) continue;   // made by the folder's PROBLEM switch, not picked
-            ks.add(Map.of("code", k.code(), "label", k.label(), "solution", k.solution(), "person", k.person()));
+            ks.add(Map.of("code", k.code(), "label", k.label(), "solution", k.solution(), "person", k.person(),
+                    "fix", ProblemService.fixFields(k.code())));   // fix291: the real values asked for when it is solved
         }
         List<Map<String, String>> sols = new ArrayList<>();
         for (String s : ProblemService.SOLUTIONS) sols.add(Map.of("code", s, "label", ProblemService.SOLUTION_WORDS.get(s)));
@@ -71,8 +72,19 @@ public class ProblemController {
 
     @PostMapping("/{id}/solve")
     public ResponseEntity<Map<String, Object>> solve(@PathVariable UUID id, @RequestBody Map<String, String> body) {
-        ProjectProblem pp = problems.solve(id, body.get("note"));
-        return ResponseEntity.ok(Map.of("id", pp.getId(), "status", pp.getStatus()));
+        Map<String, String> values = new HashMap<>();   // fix291: the real NIN / phone / invoice / contract, when typed
+        for (String k : List.of("nin", "phone", "invoice", "contract", "personId")) {
+            if (body.get(k) != null && !body.get(k).isBlank()) values.put(k, body.get(k));
+        }
+        ProjectProblem pp = problems.solve(id, body.get("note"), values);
+        return ResponseEntity.ok(Map.of("id", pp.getId(), "status", pp.getStatus(), "note", String.valueOf(pp.getSolvedNote())));
+    }
+
+    /** fix291: VISIT DONE on the Site Visits list (solves the visit problems, writes the Recovery note). */
+    @PostMapping("/site-visits/{projectId}/done")
+    public ResponseEntity<Map<String, Object>> siteVisitDone(@PathVariable UUID projectId, @RequestBody Map<String, String> body) {
+        int n = problems.siteVisitDone(projectId, body.get("note"));
+        return ResponseEntity.ok(Map.of("solved", n));
     }
 
     @DeleteMapping("/{id}")

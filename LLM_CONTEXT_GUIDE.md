@@ -1798,3 +1798,13 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here).
   SITE_VISIT + Recovery clients in the SITE state, one row per project, grouped by district / sub-county.
 - Every add / change / solve / remove writes a FollowUpLog note (topic PROBLEM) and an audit line (PROBLEM_*).
 - Tests: `ProblemsTest`, click test steps 7-8 in `e2e/intake-check.mjs`.
+- fix291 FIX AND SOLVE: `ProblemService.fixFields(kind)` (NO_NIN -> nin, MISSING_PHONE -> phone, MISSING_INVOICE -> invoice,
+  MISSING_CONTRACT -> contract, WRONG_NUMBER / SAME_NUMBER -> invoice + contract; sent in /problems/kinds as `fix`).
+  POST /problems/{id}/solve takes nin / phone / invoice / contract / personId with the note (note optional when a value is
+  given; the system writes what was put in). NIN: capitals, no spaces, refused when another client has it (nothing changes).
+  Numbers go through ProjectNumbersService.checkEach; a SAME_NUMBER pair that no longer clashes is solved on both projects.
+- fix291 RECOVERY: the queue rows carry openProblems, problemCounts (per project), problemLabels, phoneWarning (open
+  MISSING_PHONE for that person, or no phone). Folder notes with topic PROBLEM show as PROBLEM in the call history.
+  Solving a SITE_VISIT problem, or VISIT DONE on the Site Visits list (POST /problems/site-visits/{projectId}/done),
+  writes a `site visit done` RecoveryNote (tone INFO, not a call). RecoveryStateService.siteVisit counts only missed
+  days AFTER the latest visit note (cards without one are counted as before).

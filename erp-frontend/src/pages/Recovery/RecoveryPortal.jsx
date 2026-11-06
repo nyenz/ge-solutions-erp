@@ -5,7 +5,7 @@ import { roleFlags } from '../../utils/roles';
 import { useSearchParams } from 'react-router-dom';
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import ReactDOM from 'react-dom';
-import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw, FiInfo } from 'react-icons/fi';
+import { FiTrash2, FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw, FiInfo, FiAlertTriangle } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import { errorText } from '../../utils/errorText';
 import { useAuth } from '../../hooks/useAuth';
@@ -211,7 +211,10 @@ export default function RecoveryPortal() {
                     <span className={`${styles.callPos} ${styles['qp_' + tab]}`}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
                     <PaymentHealthDot days={c.daysSincePayment} />
                     {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
-                    {c.problem && <span className={styles.chipNeg} title="One of this client's plots is flagged as a PROBLEM. Open the folder to read what it is before calling.">PROBLEM</span>}
+                    {c.openProblems > 0
+                      ? <span className={styles.chipNeg} title={'Open problems on this client\'s plots: ' + (c.problemLabels || []).join(', ') + '. Open the card to see them before calling.'}>{c.openProblems} PROBLEM{c.openProblems === 1 ? '' : 'S'}</span>
+                      : c.problem && <span className={styles.chipNeg} title="One of this client's plots is flagged as a PROBLEM. Open the folder to read what it is before calling.">PROBLEM</span>}
+                    {c.phoneWarning && <span className={styles.chipNeg} title={c.phoneWarning}>CHECK PHONE</span>}
                     {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}
                     <span className={styles.reason}>{c.reason}</span>
                     <FiChevronDown className={`${styles.chev} ${isOpen ? styles.chevOpen : ''}`} aria-hidden="true" />
@@ -223,14 +226,21 @@ export default function RecoveryPortal() {
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>CONTACT</label>
                       <span className={styles.nin}>{c.nin}</span>
+                      {c.phoneWarning && <span className={styles.phoneWarn} role="note"><FiAlertTriangle aria-hidden="true" /> {c.phoneWarning}</span>}
                       <span className={styles.monoRow}><FiPhoneCall aria-hidden="true" />{splitPhones(c.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} onClick={(e) => e.stopPropagation()} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span>
                       {(c.places && c.places.length > 0 ? c.places : (c.district ? [c.district + (c.subCounty ? ' - ' + c.subCounty : '') + (c.village ? ' - ' + c.village : '')] : [])).map((pl, i) => (<span key={i} className={styles.loc}><FiMapPin aria-hidden="true" /> {pl}</span>))}
                     </span>
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>PROJECTS ({c.projectCount || (c.projectIds || []).length})</label>
                       <span className={styles.projLine}>
-                        {(c.projectIds || []).map((pid, i) => (<a key={pid} className={styles.projLink} href={'/folder/' + pid} onClick={(e) => e.stopPropagation()} title={(c.problemIds || []).includes(pid) ? 'This plot is flagged as a PROBLEM' : 'Open this folder'} style={(c.problemIds || []).includes(pid) ? { color: '#f87171' } : undefined}>#{c.indexes[i] || pid}{(c.problemIds || []).includes(pid) ? ' (PROBLEM)' : ''}</a>))}
+                        {(c.projectIds || []).map((pid, i) => {
+                          const n = (c.problemCounts || {})[pid] || 0;
+                          const flagged = n > 0 || (c.problemIds || []).includes(pid);
+                          return (<a key={pid} className={`${styles.projLink} ${flagged ? styles.projLinkProblem : ''}`} href={'/folder/' + pid + (flagged ? '#problems' : '')} onClick={(e) => e.stopPropagation()}
+                            title={flagged ? 'Open this plot\'s PROBLEMS tab' : 'Open this folder'}>#{c.indexes[i] || pid}{n > 0 ? ' (' + n + ' problem' + (n === 1 ? '' : 's') + ')' : flagged ? ' (PROBLEM)' : ''}</a>);
+                        })}
                       </span>
+                      {(c.problemLabels || []).length > 0 && (<span className={styles.problemLine}><FiAlertTriangle aria-hidden="true" /> {(c.problemLabels || []).join(', ')}</span>)}
                       {(c.coOwners || []).length > 0 && (
                         <span className={styles.coLine}>
                           <FiUser aria-hidden="true" /> Joint with:
@@ -270,6 +280,8 @@ export default function RecoveryPortal() {
         {sel && (<>
           <div className={styles.modalBody}>
           <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span>{splitPhones(sel.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span></div>
+          {sel.phoneWarning && (<div className={styles.phoneWarnBanner} role="note"><FiAlertTriangle aria-hidden="true" /> {sel.phoneWarning}</div>)}
+          {sel.openProblems > 0 && (<div className={styles.lockBanner} role="note"><FiAlertTriangle aria-hidden="true" /> Open problems: {(sel.problemLabels || []).join(', ')}. Read them on the folder before talking about them.</div>)}
           {(sel.unlock || sel.state === 'LOCKED') && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}
           <div className={styles.tagwall}>
             <label className={styles.wallLabel}>CALL (WE SPOKE)</label>

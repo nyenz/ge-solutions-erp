@@ -679,3 +679,14 @@
 .clientNote { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; padding: 10px 14px; border-radius: 8px;
     background: #E4EEFB; border-left: 6px solid #4F8FE0; color: #0B2250; font-size: 12.5px; font-weight: 700; line-height: 1.5; }
 .clientNote svg { flex-shrink: 0; margin-top: 2px; color: #2A5AA3; }
+
+/* fix291 (David): problems and phone warnings on the call card */
+.phoneWarn, .problemLine { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-ui, 'DM Sans'), sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 800; }
+.phoneWarn { color: var(--tx-red, #fca5a5); }
+.problemLine { color: var(--tx-yellow, #fcd34d); margin-top: 4px; }
+.projLinkProblem { color: var(--tx-red, #f87171); }
+.phoneWarnBanner {
+  display: flex; align-items: center; gap: 8px; background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.4); border-radius: 6px; padding: 10px 12px;
+  font-family: var(--font-ui, 'DM Sans'), sans-serif; font-size: var(--fs-meta); font-weight: 800; color: var(--tx-red, #fca5a5); margin-bottom: 10px;
+}

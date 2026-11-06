@@ -34,6 +34,7 @@ public final class AuditActions {
     public static final String PROBLEM_ADDED = "PROBLEM_ADDED";         // fix289
     public static final String PROBLEM_UPDATED = "PROBLEM_UPDATED";     // fix289
     public static final String PROBLEM_SOLVED = "PROBLEM_SOLVED";       // fix289
+    public static final String SITE_VISIT_DONE = "SITE_VISIT_DONE";     // fix291
     public static final String PROBLEM_REMOVED = "PROBLEM_REMOVED";     // fix289
     public static final String ARCHIVE_PURGED = "ARCHIVE_PURGED";       // fix284 (B1)
     public static final String DOCUMENT_UPLOADED = "DOCUMENT_UPLOADED";
@@ -126,7 +127,7 @@ public final class AuditActions {
     /** Every code current server code may write. */
     public static final Set<String> ALL = Set.of(
             ACCESS_DENIED,
-            PROBLEM_ADDED, PROBLEM_UPDATED, PROBLEM_SOLVED, PROBLEM_REMOVED,
+            PROBLEM_ADDED, PROBLEM_UPDATED, PROBLEM_SOLVED, PROBLEM_REMOVED, SITE_VISIT_DONE,
             ARCHIVE_PURGED,
             ARCHIVE_RESTORED,
             AUDIT_EXPORT,

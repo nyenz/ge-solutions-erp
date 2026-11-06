@@ -151,8 +151,24 @@ public class RecoveryStateService {
         return unlock;
     }
 
+    /** fix291 (David): the note a finished site visit leaves on the Recovery card (tone INFO, not a call). */
+    public static final String VISIT_DONE_TAG = "site visit done";
+
+    /**
+     * fix291: after a site visit is recorded as done, only the missed calls AFTER it count towards the next visit (the
+     * visit itself answered the old ones). Cards with no visit note are counted exactly as before.
+     */
     public boolean siteVisit(List<RecoveryNote> ns, LocalDateTime now) {
-        return miss30(ns, now) >= SITE_VISIT_MISS_THRESHOLD && succ30(ns, now) == 0;
+        LocalDateTime visited = null;
+        for (RecoveryNote x : ns) {
+            if (VISIT_DONE_TAG.equals(x.getTag()) && x.getCreatedAt() != null && (visited == null || x.getCreatedAt().isAfter(visited))) visited = x.getCreatedAt();
+        }
+        if (visited == null) return miss30(ns, now) >= SITE_VISIT_MISS_THRESHOLD && succ30(ns, now) == 0;
+        Set<LocalDate> days = new HashSet<>();
+        for (RecoveryNote x : ns) {
+            if ("NEGATIVE".equals(x.getTone()) && x.isCountsAsAttempt() && within30(x, now) && x.getCreatedAt().isAfter(visited)) days.add(x.getCreatedAt().toLocalDate());
+        }
+        return days.size() >= SITE_VISIT_MISS_THRESHOLD && succ30(ns, now) == 0;
     }
 
     public String state(List<LandProject> ps, List<RecoveryNote> ns, LocalDateTime now) {
