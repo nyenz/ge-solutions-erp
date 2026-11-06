@@ -25,12 +25,15 @@ fi
 # fix274: a locked copy to Google Drive (only when infra/setup-offsite.sh has been run). A failure here never stops the local copy.
 export RCLONE_CONFIG=/root/.config/rclone/rclone.conf
 if [ -f "$RCLONE_CONFIG" ] && grep -q '^\[gescrypt\]' "$RCLONE_CONFIG" && command -v rclone >/dev/null 2>&1; then
-    if rclone copy "$FILE" gescrypt:db/ --log-level ERROR \
-        && rclone delete gescrypt:db --min-age 30d --log-level ERROR \
-        && { [ ! -d "$DIR/files-latest" ] || rclone sync "$DIR/files-latest" gescrypt:files --log-level ERROR; }; then
+    # fix292: Google Drive refuses too many questions per minute (403 rate limit). Ask slowly (--tpslimit), keep the long
+    # Google error text out of the screen (it goes to offsite.log), and a refusal still never stops the update.
+    OPTS=(--tpslimit 4 --tpslimit-burst 4 --retries 5 --low-level-retries 10 --log-level ERROR --log-file "$DIR/offsite.log")
+    if rclone copy "$FILE" gescrypt:db/ "${OPTS[@]}" \
+        && rclone delete gescrypt:db --min-age 30d "${OPTS[@]}" \
+        && { [ ! -d "$DIR/files-latest" ] || rclone sync "$DIR/files-latest" gescrypt:files "${OPTS[@]}"; }; then
         echo "$(date) offsite copy ok"
     else
-        echo "$(date) OFFSITE COPY FAILED" >&2
+        echo "$(date) Google Drive copy not finished this time (Google was busy). The copy on this server is safe; the next one tries again." >&2
     fi
 fi
 echo "$(date) backup ok: $FILE ($(du -h "$FILE" | cut -f1))"
