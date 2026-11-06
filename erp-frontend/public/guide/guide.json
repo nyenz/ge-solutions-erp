@@ -1,5 +1,5 @@
 {
- "made": "2026-11-05T13:39:19.783Z",
+ "made": "2026-11-05T23:21:48.210Z",
  "size": {
   "width": 1280,
   "height": 720
@@ -81,6 +81,16 @@
     },
     {
      "img": "new-project-3.jpg",
+     "cap": "No NIN or no phone on the old papers? Tick NIN missing (the name in capitals is used) or Phone missing. The entry saves and the problem is recorded by itself.",
+     "box": {
+      "x": 755,
+      "y": 674,
+      "w": 169,
+      "h": 30
+     }
+    },
+    {
+     "img": "new-project-4.jpg",
      "cap": "Location: district down to village, and the size in hectares (digits only).",
      "box": {
       "x": 255,
@@ -90,7 +100,7 @@
      }
     },
     {
-     "img": "new-project-4.jpg",
+     "img": "new-project-5.jpg",
      "cap": "Stages: the steps of the work. The usual list is ready; tick what is already done.",
      "box": {
       "x": 255,
@@ -100,8 +110,8 @@
      }
     },
     {
-     "img": "new-project-5.jpg",
-     "cap": "Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending.",
+     "img": "new-project-6.jpg",
+     "cap": "Financials: invoice number, contract number and total cost. Without all three the project is saved as Pending. Prices get their commas as you type.",
      "box": {
       "x": 255,
       "y": 375,
@@ -110,7 +120,17 @@
      }
     },
     {
-     "img": "new-project-6.jpg",
+     "img": "new-project-7.jpg",
+     "cap": "No invoice or contract number? Tick the MISSING box: the app makes one from the place (for example KAM-NAM-0007) and records the problem. These ticks are remembered for your next entry.",
+     "box": {
+      "x": 263,
+      "y": 377,
+      "w": 243,
+      "h": 30
+     }
+    },
+    {
+     "img": "new-project-8.jpg",
      "cap": "Documents: add scans and choose their type. PDF, photos, Word and Excel are accepted.",
      "box": {
       "x": 255,
@@ -120,8 +140,28 @@
      }
     },
     {
-     "img": "new-project-7.jpg",
-     "cap": "Press SAVE. Anything missing is listed in a red box at the top; click a line to go to that box. SAVE + DUPLICATE saves, shows it on the Ledger, and comes back ready for the next plot.",
+     "img": "new-project-9.jpg",
+     "cap": "Problems: what your ticks recorded is listed here. ADD A PROBLEM for anything else (wrong number, same number, or Other — words used before are offered again).",
+     "box": {
+      "x": 778,
+      "y": 375,
+      "w": 131,
+      "h": 34
+     }
+    },
+    {
+     "img": "new-project-10.jpg",
+     "cap": "KEEP FOR NEXT: what SAVE + DUPLICATE keeps for the next plot (Location, Clients, Owners, Prices). Orange = kept. Your choice is remembered.",
+     "box": {
+      "x": 799,
+      "y": 611,
+      "w": 117,
+      "h": 28
+     }
+    },
+    {
+     "img": "new-project-11.jpg",
+     "cap": "Press SAVE. Anything missing is listed in a red box at the top; click a line to go to that box. A number already used? The box offers SAVE WITH PROBLEM. SAVE + DUPLICATE saves, shows it on the Ledger, and comes back ready for the next plot.",
      "box": {
       "x": 1045,
       "y": 91,
@@ -179,12 +219,158 @@
     },
     {
      "img": "find-5.jpg",
-     "cap": "The folder tabs: Overview, Financials, People, Documents, Notes.",
+     "cap": "The folder tabs: Overview, Financials, People, Documents, Problems, Notes.",
      "box": {
       "x": 70,
       "y": 275,
       "w": 129,
       "h": 47
+     }
+    },
+    {
+     "img": "find-6.jpg",
+     "cap": "EDIT changes the folder: people, place, title details, neighbours and stages. The Secretary may edit too; money (cost, payments, storage fees) stays with the Manager and up.",
+     "box": {
+      "x": 292,
+      "y": 192,
+      "w": 98,
+      "h": 54
+     }
+    }
+   ]
+  },
+  {
+   "id": "legacy",
+   "role": "Secretary",
+   "title": "Enter an old (legacy) title with missing details",
+   "why": "Old papers often miss the NIN, phone or numbers. Enter them anyway; the gaps become problems to follow up.",
+   "steps": [
+    {
+     "img": "legacy-1.jpg",
+     "cap": "Pick Legacy Titles. The app remembers your last type, so the next entry starts on it.",
+     "box": {
+      "x": 107,
+      "y": 175,
+      "w": 148,
+      "h": 34
+     }
+    },
+    {
+     "img": "legacy-2.jpg",
+     "cap": "Ticked: NIN missing and Phone missing. The NIN box follows the name (no spaces); the phone may stay empty.",
+     "box": {
+      "x": 690,
+      "y": 377,
+      "w": 195,
+      "h": 30
+     }
+    },
+    {
+     "img": "legacy-3.jpg",
+     "cap": "Something wrong in the title details? Tick it: Area and Title Date may stay empty. Plot and Block are still needed.",
+     "box": {
+      "x": 101,
+      "y": 378,
+      "w": 1130,
+      "h": 30
+     }
+    },
+    {
+     "img": "legacy-4.jpg",
+     "cap": "Location not complete? Tick Problem with location: only the District is then needed. Write what is missing in the box.",
+     "box": {
+      "x": 100,
+      "y": 448,
+      "w": 1132,
+      "h": 30
+     }
+    },
+    {
+     "img": "legacy-5.jpg",
+     "cap": "Invoice missing: type the old paper number (or leave it empty for the next free one). Contract missing copies the invoice number.",
+     "box": {
+      "x": 110,
+      "y": 448,
+      "w": 211,
+      "h": 40
+     }
+    },
+    {
+     "img": "legacy-6.jpg",
+     "cap": "The orange strip reminds you which MISSING ticks are on. Untick them for a recent project that has its real numbers.",
+     "box": {
+      "x": 66,
+      "y": 162,
+      "w": 1200,
+      "h": 46
+     }
+    }
+   ]
+  },
+  {
+   "id": "problems",
+   "role": "Secretary",
+   "title": "Follow up problems and site visits",
+   "why": "Every gap or mistake on a project, what will be done about it, and the site visits.",
+   "steps": [
+    {
+     "img": "problems-1.jpg",
+     "cap": "Problems (left menu): every open problem, newest first. Each shows the project, the client and phone, the place and what will be done.",
+     "box": {
+      "x": 241,
+      "y": 85,
+      "w": 887,
+      "h": 48
+     }
+    },
+    {
+     "img": "problems-2.jpg",
+     "cap": "Search by client, phone, plot, project # or place, and filter by problem, solution or district.",
+     "box": {
+      "x": 224,
+      "y": 228,
+      "w": 464,
+      "h": 48
+     }
+    },
+    {
+     "img": "problems-3.jpg",
+     "cap": "Site visits: one row per project, grouped by district and sub-county, so one trip covers many plots. Problems marked Needs a site visit and clients Recovery could not reach both land here.",
+     "box": {
+      "x": 241,
+      "y": 120,
+      "w": 887,
+      "h": 28
+     }
+    },
+    {
+     "img": "problems-4.jpg",
+     "cap": "In a folder, the PROBLEMS tab: the problems of that project. ADD A PROBLEM: pick it, the person, details and what will be done.",
+     "box": {
+      "x": 1068,
+      "y": 415,
+      "w": 168,
+      "h": 46
+     }
+    },
+    {
+     "img": "problems-5.jpg",
+     "cap": "Solutions: Needs a site visit, Call the client, Fix in the office, Decide later. Every change writes a note in Notes.",
+     "box": {
+      "x": 106,
+      "y": 463,
+      "w": 1120,
+      "h": 138
+     }
+    },
+    {
+     "img": "problems-6.jpg",
+     "cap": "When it is fixed, press SOLVED on the problem and write what was done. Solved problems are kept here. Only a Director can remove one added by mistake.",
+     "box": {
+      "x": 505,
+      "y": 175,
+      "w": 74,
+      "h": 30
      }
     }
    ]
@@ -334,8 +520,8 @@
      "cap": "Every payment is listed in Payment History. A mistake is REVERSED (never deleted) and the reason is kept.",
      "box": {
       "x": 79,
-      "y": 375,
-      "w": 226,
+      "y": 447,
+      "w": 224,
       "h": 34
      }
     }
@@ -401,7 +587,7 @@
      "box": {
       "x": 241,
       "y": 465,
-      "w": 1189,
+      "w": 1187,
       "h": 83
      }
     }
@@ -497,6 +683,16 @@
       "y": 235,
       "w": 159,
       "h": 34
+     }
+    },
+    {
+     "img": "staff-3.jpg",
+     "cap": "Bell alerts: choose what rings your bell. ALL ON, a whole group ON or OFF, or CHOOSE single alerts. Saved for your account on every device; critical alerts always show.",
+     "box": {
+      "x": 884,
+      "y": 539,
+      "w": 333,
+      "h": 31
      }
     }
    ]

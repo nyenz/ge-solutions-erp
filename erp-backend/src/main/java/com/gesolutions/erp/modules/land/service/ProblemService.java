@@ -5,6 +5,9 @@ import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.common.exception.BusinessException;
 import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.client.model.RecoveryNote;
+import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
+import com.gesolutions.erp.common.util.PhoneUtil;
 import com.gesolutions.erp.modules.client.service.RecoveryStateService;
 import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
@@ -62,6 +65,9 @@ public class ProblemService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final RecoveryStateService recoveryState;
+    private final ClientRepository clientRepo;            // fix291: solving puts the real NIN / phone on the person
+    private final RecoveryNoteRepository recoveryNoteRepo; // fix291: a finished site visit leaves a note on the Recovery card
+    private final ProjectNumbersService numbers;          // fix291: solving puts the real invoice / contract number on the project
 
     public static Kind kind(String code) {
         for (Kind k : KINDS) if (k.code().equals(code)) return k;
@@ -176,11 +182,45 @@ public class ProblemService {
     /** Mark a problem solved, with what was done. Solving a FLAGGED problem also clears the old flag on the project. */
     @Transactional
     public ProjectProblem solve(UUID id, String note) {
-        String why = clean(note, MAX_DETAIL);
-        if (why == null || why.length() < 3) throw new BusinessException("REASON_REQUIRED: Write what was done to solve it (at least 3 characters).");
+        return solve(id, note, Map.of());
+    }
+
+    /** Which real values a problem type can take when it is solved (the page shows these boxes). */
+    public static List<String> fixFields(String kind) {
+        return switch (kind == null ? "" : kind) {
+            case "NO_NIN" -> List.of("nin");
+            case "MISSING_PHONE" -> List.of("phone");
+            case "MISSING_INVOICE" -> List.of("invoice");
+            case "MISSING_CONTRACT" -> List.of("contract");
+            case "WRONG_NUMBER", "SAME_NUMBER" -> List.of("invoice", "contract");
+            default -> List.of();
+        };
+    }
+
+    /**
+     * fix291 (David): solve a problem AND put the real value in, in one step. values may hold nin, phone, invoice,
+     * contract and personId (which person, when the problem is not tied to one). Empty values change nothing. When a value
+     * is given, the note may be left empty; the system writes what was put in.
+     */
+    @Transactional
+    public ProjectProblem solve(UUID id, String note, Map<String, String> values) {
         ProjectProblem pp = problemRepo.findById(id).orElseThrow(() -> new BusinessException("PROBLEM_NOT_FOUND: That problem is gone. Reload the page."));
         if (!pp.isOpen()) throw new BusinessException("PROBLEM_SOLVED: Someone already marked this problem solved. Reload the page.");
         LandProject p = projectRepo.findById(pp.getProjectId()).orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND: No such project."));
+        Map<String, String> v = values == null ? Map.of() : values;
+        List<String> changed = fixValues(pp, p, v);
+        String why = clean(note, MAX_DETAIL);
+        if (why == null && !changed.isEmpty()) why = String.join("; ", changed);
+        else if (why != null && !changed.isEmpty()) why = clean(why + " (" + String.join("; ", changed) + ")", MAX_DETAIL);
+        if (why == null || why.length() < 3) throw new BusinessException("REASON_REQUIRED: Write what was done to solve it (at least 3 characters).");
+        close(pp, p, why);
+        if ("SITE_VISIT".equals(pp.getSolution())) visitNote(p, pp.getClientId(), pp.getLabel() + ": " + why);
+        if (v.containsKey("invoice") || v.containsKey("contract")) closeSameNumber(p);
+        return pp;
+    }
+
+    /** Marks one problem solved: note in the Notes, audit line, bell alert. */
+    private void close(ProjectProblem pp, LandProject p, String why) {
         pp.setStatus("SOLVED"); pp.setSolvedBy(op()); pp.setSolvedAt(LocalDateTime.now()); pp.setSolvedNote(why);
         problemRepo.save(pp);
         if ("FLAGGED".equals(pp.getKind()) && p.isProblem()) {
@@ -191,7 +231,150 @@ public class ProblemService {
                 .notes("[PROBLEM SOLVED] " + pp.getLabel() + ": " + why).recordedBy(op()).build());
         auditService.logActionAfterCommit("PROBLEM_SOLVED", "Operator [" + op() + "] solved problem \"" + pp.getLabel() + "\" on " + where(p) + ": " + why + ".");
         notificationService.emitToAudience("PROBLEM_SOLVED", "Problem \"" + pp.getLabel() + "\" on " + where(p) + " solved by " + op() + ".", "PROJECT", p.getId());
-        return pp;
+    }
+
+    /** Puts the real values on the person / project. Returns the words for the note ("NIN set to ..."). */
+    private List<String> fixValues(ProjectProblem pp, LandProject p, Map<String, String> v) {
+        List<String> out = new ArrayList<>();
+        List<String> allowed = fixFields(pp.getKind());
+        String nin = allowed.contains("nin") ? clean(v.get("nin"), 100) : null;
+        String phone = allowed.contains("phone") ? clean(v.get("phone"), 200) : null;
+        String inv = allowed.contains("invoice") ? clean(v.get("invoice"), 200) : null;
+        String con = allowed.contains("contract") ? clean(v.get("contract"), 200) : null;
+        if (nin != null || phone != null) {
+            Client c = personFor(pp, p, v.get("personId"));
+            if (nin != null) {
+                nin = nin.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+                if (nin.length() < 5) throw new BusinessException("NIN_INVALID: Type the full National ID.");
+                if (!nin.equals(c.getNationalId())) {
+                    var other = clientRepo.findByNationalId(nin);
+                    if (other.isPresent() && !other.get().getId().equals(c.getId())) {
+                        throw new BusinessException("NIN_TAKEN: This National ID already belongs to another client (" + other.get().getFullName()
+                                + "). Check the number, or ask a Director to put that client on the project.");
+                    }
+                    String old = c.getNationalId();
+                    c.setNationalId(nin);
+                    clientRepo.save(c);
+                    auditService.logActionAfterCommit("CLIENT_NIN_CORRECTED", "National ID of " + c.getFullName() + " corrected from " + old + " to " + nin
+                            + " (problem solved by " + op() + " on " + where(p) + ").");
+                    out.add("NIN of " + c.getFullName() + " set to " + nin);
+                }
+            }
+            if (phone != null) {
+                String norm = PhoneUtil.normalizeList(phone);
+                if (!norm.equals(c.getPhoneNumber())) {
+                    String old = c.getPhoneNumber();
+                    c.setPhoneNumber(norm);
+                    clientRepo.save(c);
+                    auditService.logActionAfterCommit("CLIENT_UPDATED", "Phone of " + c.getFullName() + " (NIN " + c.getNationalId() + ") changed from "
+                            + (old == null || old.isBlank() ? "(none)" : old) + " to " + norm + " (problem solved by " + op() + " on " + where(p) + ").");
+                    out.add("phone of " + c.getFullName() + " set to " + norm);
+                }
+            }
+        }
+        if (inv != null || con != null) {
+            LandProject locked = projectRepo.findByIdForUpdate(p.getId()).orElse(p);
+            String oldInv = ProjectNumbersService.clean(locked.getInvoiceNumber()), oldCon = ProjectNumbersService.clean(locked.getContractNumber());
+            String[] n = numbers.checkEach(locked.getId(), inv != null ? inv : oldInv, con != null ? con : oldCon);
+            boolean invChanged = inv != null && !String.valueOf(n[0]).equals(String.valueOf(oldInv));
+            boolean conChanged = con != null && !String.valueOf(n[1]).equals(String.valueOf(oldCon));
+            if (invChanged) locked.setInvoiceNumber(n[0]);
+            if (conChanged) locked.setContractNumber(n[1]);
+            if (invChanged || conChanged) {
+                projectRepo.save(locked);
+                if (ProjectNumbersService.hasBoth(locked)) numbers.tickStage(locked.getId());
+                auditService.logActionAfterCommit("PROJECT_NUMBERS_CHANGED", "Operator [" + op() + "] set the numbers of project #" + locked.getProjectIndex()
+                        + " while solving a problem. Invoice: " + (oldInv == null ? "(none)" : oldInv) + " -> " + locked.getInvoiceNumber()
+                        + ". Contract: " + (oldCon == null ? "(none)" : oldCon) + " -> " + locked.getContractNumber() + ".");
+                if (invChanged) out.add("invoice number set to " + locked.getInvoiceNumber());
+                if (conChanged) out.add("contract number set to " + locked.getContractNumber());
+            }
+        }
+        return out;
+    }
+
+    /** The person a NIN / phone goes on: the problem's own person, the one picked, or the only person on the project. */
+    private Client personFor(ProjectProblem pp, LandProject p, String picked) {
+        UUID id = pp.getClientId();
+        if (id == null && picked != null && !picked.isBlank()) {
+            try { id = UUID.fromString(picked.trim()); } catch (IllegalArgumentException e) { id = null; }
+        }
+        if (id == null) {
+            Set<UUID> all = new LinkedHashSet<>();
+            p.getClients().forEach(c -> all.add(c.getId()));
+            p.getProprietors().forEach(c -> all.add(c.getId()));
+            if (all.size() == 1) id = all.iterator().next();
+        }
+        if (id == null) throw new BusinessException("PERSON_REQUIRED: Pick which person the number belongs to.");
+        if (!personOf(p, id)) throw new BusinessException("CLIENT_NOT_ON_PROJECT: That person is not a client or owner of this project.");
+        return clientRepo.findById(id).orElseThrow(() -> new BusinessException("CLIENT_NOT_FOUND: That person is gone. Reload the page."));
+    }
+
+    /** After a number change: a "same number" pair whose numbers no longer match is solved on both projects. */
+    private void closeSameNumber(LandProject p) {
+        LandProject me = projectRepo.findById(p.getId()).orElse(p);
+        for (ProjectProblem pp : problemRepo.findByProjectIdOrderByCreatedAtDesc(me.getId())) {
+            if (!pp.isOpen() || !"SAME_NUMBER".equals(pp.getKind()) || pp.getLinkedProjectId() == null) continue;
+            LandProject other = projectRepo.findById(pp.getLinkedProjectId()).orElse(null);
+            if (other == null || clash(me, other)) continue;
+            close(pp, me, "Numbers are now different from project #" + other.getProjectIndex());
+            for (ProjectProblem back : problemRepo.findByProjectIdOrderByCreatedAtDesc(other.getId())) {
+                if (back.isOpen() && "SAME_NUMBER".equals(back.getKind()) && me.getId().equals(back.getLinkedProjectId())) {
+                    close(back, other, "Numbers changed on project #" + me.getProjectIndex() + "; they are now different");
+                }
+            }
+        }
+        // the other side: problems on other projects that point at this one
+        for (ProjectProblem back : problemRepo.findByStatusOrderByCreatedAtDesc("OPEN")) {
+            if (!"SAME_NUMBER".equals(back.getKind()) || !me.getId().equals(back.getLinkedProjectId())) continue;
+            LandProject other = projectRepo.findById(back.getProjectId()).orElse(null);
+            if (other == null || clash(me, other)) continue;
+            close(back, other, "Numbers changed on project #" + me.getProjectIndex() + "; they are now different");
+        }
+    }
+
+    private static boolean clash(LandProject a, LandProject b) {
+        String ai = ProjectNumbersService.clean(a.getInvoiceNumber()), bi = ProjectNumbersService.clean(b.getInvoiceNumber());
+        String ac = ProjectNumbersService.clean(a.getContractNumber()), bc = ProjectNumbersService.clean(b.getContractNumber());
+        return (ai != null && ai.equalsIgnoreCase(bi)) || (ac != null && ac.equalsIgnoreCase(bc));
+    }
+
+    /**
+     * fix291: a finished site visit writes a "site visit done" line on the Recovery card of the person (or of every client
+     * of the project). It is not a call: it does not change the call counts, but missed calls before it no longer count
+     * towards the next visit.
+     */
+    private void visitNote(LandProject p, UUID personId, String text) {
+        Set<Client> who = new LinkedHashSet<>();
+        if (personId != null) clientRepo.findById(personId).ifPresent(who::add);
+        if (who.isEmpty()) who.addAll(p.billingParties());
+        String t = clean("Project #" + p.getProjectIndex() + ": " + text, 500);
+        for (Client c : who) {
+            recoveryNoteRepo.save(RecoveryNote.builder().client(c).author(null).tag(RecoveryStateService.VISIT_DONE_TAG).tone("INFO")
+                    .countsAsAttempt(false).text(t).build());
+        }
+    }
+
+    /**
+     * fix291 (David): "VISIT DONE" on the Site Visits list. Solves every open problem on the project that waited for a
+     * visit, and writes the "site visit done" line on Recovery (so a visit asked for by Recovery is also cleared).
+     */
+    @Transactional
+    public int siteVisitDone(UUID projectId, String note) {
+        String why = clean(note, MAX_DETAIL);
+        if (why == null || why.length() < 3) throw new BusinessException("REASON_REQUIRED: Write what was found on the visit (at least 3 characters).");
+        LandProject p = projectRepo.findById(projectId).orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND: No such project."));
+        if (p.isDeleted()) throw new BusinessException("PROJECT_DELETED: This project is deleted. Restore it first.");
+        int n = 0;
+        for (ProjectProblem pp : problemRepo.findByProjectIdOrderByCreatedAtDesc(p.getId())) {
+            if (pp.isOpen() && "SITE_VISIT".equals(pp.getSolution())) { close(pp, p, "Site visit: " + why); n++; }
+        }
+        visitNote(p, null, why);
+        followUpRepo.save(FollowUpLog.builder().projectId(p.getId()).topic("SITE_VISIT")
+                .notes("[SITE VISIT DONE] " + why).recordedBy(op()).build());
+        auditService.logActionAfterCommit("SITE_VISIT_DONE", "Operator [" + op() + "] recorded a site visit on " + where(p) + ": " + why
+                + (n > 0 ? " (" + n + " problem" + (n == 1 ? "" : "s") + " solved)." : "."));
+        return n;
     }
 
     /** Director and up: take away a problem that was added by mistake. The note stays in the Notes; the audit keeps the reason. */
@@ -337,6 +520,7 @@ public class ProblemService {
             LandProject p = ps.computeIfAbsent(pp.getProjectId(), k -> projectRepo.findById(k).orElse(null));
             if (p == null || p.isDeleted()) continue;
             reasonsOf(visits, p).add(pp.getLabel() + (pp.getDetail() != null ? ": " + pp.getDetail() : ""));
+            flagOf(visits, p, "problemCount");
         }
         try {
             LocalDateTime now = LocalDateTime.now();
@@ -347,6 +531,7 @@ public class ProblemService {
                 for (LandProject p : e.getValue()) {
                     if (p.isDeleted() || !RecoveryStateService.counts(p, now)) continue;
                     reasonsOf(visits, p).add("Recovery: the client missed " + RecoveryStateService.SITE_VISIT_MISS_THRESHOLD + " calls on different days");
+                    visits.get(p.getId()).put("fromRecovery", true);
                 }
             }
         } catch (Exception ignore) { /* the problem visits still show */ }
@@ -354,6 +539,11 @@ public class ProblemService {
         out.sort(Comparator.comparing((Map<String, Object> m) -> String.valueOf(m.get("district")))
                 .thenComparing(m -> String.valueOf(m.get("subCounty"))).thenComparing(m -> String.valueOf(m.get("village"))));
         return out;
+    }
+
+    private void flagOf(Map<UUID, Map<String, Object>> visits, LandProject p, String key) {
+        Map<String, Object> m = visits.get(p.getId());
+        if (m != null) m.put(key, ((Number) m.getOrDefault(key, 0)).intValue() + 1);
     }
 
     @SuppressWarnings("unchecked")

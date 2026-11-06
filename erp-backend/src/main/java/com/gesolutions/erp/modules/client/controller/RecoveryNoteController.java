@@ -7,6 +7,8 @@ import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
 import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.ProjectProblem;
+import com.gesolutions.erp.modules.land.repository.ProjectProblemRepository;
 import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
@@ -38,6 +40,7 @@ public class RecoveryNoteController {
     private final NotificationService notificationService;
     private final RecoveryStateService recoveryState;
     private final com.gesolutions.erp.modules.client.service.ClientViewService clientViewService;
+    private final ProjectProblemRepository problemRepo;   // fix291: open problems on the call card
     private static final String[][] TAGS = {
         {"answered call",   "POSITIVE", "true"},
         {"not picking up",  "NEGATIVE", "true"},
@@ -63,7 +66,43 @@ public class RecoveryNoteController {
     private String state(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) { return recoveryState.state(ps, ns, now); }
     private long dayMiss(List<RecoveryNote> ns, LocalDateTime now) { return recoveryState.dayMiss(ns, now); }
     private static final int SITE_N = RecoveryStateService.SITE_VISIT_MISS_THRESHOLD;
-    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns, Map<UUID, List<LandProject>> pm, Map<UUID, List<RecoveryNote>> nm) {
+    /** fix291: every open problem, per project (read once per list). */
+    private Map<UUID, List<ProjectProblem>> openProblems() {
+        Map<UUID, List<ProjectProblem>> m = new HashMap<>();
+        try {
+            for (ProjectProblem pp : problemRepo.findByStatusOrderByCreatedAtDesc("OPEN")) m.computeIfAbsent(pp.getProjectId(), k -> new ArrayList<>()).add(pp);
+        } catch (Exception ignore) { /* the queue still shows without the problem counts */ }
+        return m;
+    }
+
+    /**
+     * fix291 (David): what the caller must know before dialling -- how many problems are open on this person's plots
+     * (per plot, for the links), their names, and a warning when this person's phone is recorded as missing.
+     */
+    private void putProblems(Map<String, Object> m, Client c, List<LandProject> ps, Map<UUID, List<ProjectProblem>> open) {
+        int count = 0;
+        Map<String, Integer> perProject = new LinkedHashMap<>();
+        LinkedHashSet<String> labels = new LinkedHashSet<>();
+        String phoneWarning = null;
+        for (LandProject p : ps) {
+            List<ProjectProblem> list = open.getOrDefault(p.getId(), List.of());
+            if (list.isEmpty()) continue;
+            perProject.put(p.getId().toString(), list.size());
+            count += list.size();
+            for (ProjectProblem pp : list) {
+                labels.add(pp.getLabel());
+                boolean mine = pp.getClientId() == null || pp.getClientId().equals(c.getId());
+                if (mine && "MISSING_PHONE".equals(pp.getKind())) phoneWarning = "Phone is recorded as missing. The number shown may not be the client's.";
+            }
+        }
+        if (phoneWarning == null && (c.getPhoneNumber() == null || c.getPhoneNumber().isBlank())) phoneWarning = "No phone number. A site visit is needed.";
+        m.put("openProblems", count);
+        m.put("problemCounts", perProject);
+        m.put("problemLabels", new ArrayList<>(labels));
+        m.put("phoneWarning", phoneWarning);
+    }
+
+    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns, Map<UUID, List<LandProject>> pm, Map<UUID, List<RecoveryNote>> nm, Map<UUID, List<ProjectProblem>> open) {
         Map<String, Object> m = new LinkedHashMap<>();
         String st = state(c, now, ps, ns);
         LocalDate unlock = lockedUntil(c, now, ps, ns);
@@ -92,6 +131,7 @@ public class RecoveryNoteController {
         List<String> probIds = new ArrayList<>();
         for (LandProject p : ps) if (p.isProblem()) probIds.add(p.getId().toString());
         m.put("problemIds", probIds); m.put("problem", !probIds.isEmpty());
+        putProblems(m, c, ps, open);
         m.put("indexes", idx); m.put("projectIds", pids); m.put("coNames", co);
         m.put("coOwners", cos); m.put("projectCount", ps.size());
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
@@ -175,6 +215,7 @@ public class RecoveryNoteController {
         LocalDateTime now = LocalDateTime.now();
         Map<UUID, List<RecoveryNote>> nm = noteMap();
         Map<UUID, List<LandProject>> pm = projMap();
+        Map<UUID, List<ProjectProblem>> open = openProblems();
         List<Map<String, Object>> out = new ArrayList<>();
         for (Client c : clientRepo.findAll()) {
             List<LandProject> ps = projectsOf(pm, c.getId());
@@ -183,7 +224,7 @@ public class RecoveryNoteController {
             String st = state(c, now, ps, ns);
             boolean inAll = st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED");
             if (queue.equals("ALL") ? !inAll : !st.equals(queue)) continue;
-            out.add(clientDto(c, now, ps, ns, pm, nm));
+            out.add(clientDto(c, now, ps, ns, pm, nm, open));
         }
         out.sort((x, y) -> {
             LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");
@@ -258,7 +299,9 @@ public class RecoveryNoteController {
             }
             for (LandProject p : pm.getOrDefault(c.getId(), List.of())) for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", log.getId()); m.put("tag", "FOLDER NOTE"); m.put("tone", "INFO");
+                String topic = log.getTopic() == null ? "" : log.getTopic();   // fix291: problem notes say what they are
+                if ("SITE_VISIT".equals(topic)) continue;                       // the "site visit done" Recovery line already says it
+                m.put("id", log.getId()); m.put("tag", "PROBLEM".equals(topic) ? "PROBLEM" : "FOLDER NOTE"); m.put("tone", "INFO");
                 m.put("text", log.getNotes()); m.put("countsAsAttempt", false);
                 m.put("createdAt", log.getTimestamp()); m.put("source", "FOLDER"); m.put("author", log.getRecordedBy());
                 out.add(m);

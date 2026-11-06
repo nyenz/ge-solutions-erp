@@ -53,6 +53,8 @@ public class ProblemsTest {
     @Autowired private UserRepository users;
     @Autowired private LandService land;
     @Autowired private ProblemService problems;
+    @Autowired private com.gesolutions.erp.modules.client.repository.ClientRepository clientRepo;
+    @Autowired private com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNotes;
 
     @AfterEach
     void clear() { SecurityContextHolder.clearContext(); }
@@ -158,5 +160,90 @@ public class ProblemsTest {
         ProjectProblem f = problemRepo.findByProjectIdOrderByCreatedAtDesc(p.getId()).stream().filter(x -> x.getKind().equals("FLAGGED")).findFirst().orElseThrow();
         problems.solve(f.getId(), "Agreed with the neighbour");
         assertFalse(projects.findById(p.getId()).orElseThrow().isProblem(), "solving it clears the old flag");
+    }
+
+    // ── fix291: solving with the real value ──
+
+    @Test
+    public void solvingNoNinAndMissingPhonePutsTheRealValuesOnTheClient() throws Exception {
+        as(Role.ROLE_SECRETARY);
+        String made = "MADENIN" + tag();
+        LandEntryRequest r = entry(made);
+        r.getClients().get(0).setPhone(null);
+        r.setProblems(List.of(pr("NO_NIN", null, made), pr("MISSING_PHONE", null, made)));
+        LandProject p = land.atomicIntake(r, null);
+        List<ProjectProblem> list = problemRepo.findByProjectIdOrderByCreatedAtDesc(p.getId());
+        ProjectProblem nin = list.stream().filter(x -> x.getKind().equals("NO_NIN")).findFirst().orElseThrow();
+        ProjectProblem phone = list.stream().filter(x -> x.getKind().equals("MISSING_PHONE")).findFirst().orElseThrow();
+        String real = "CM" + tag() + "AB";
+        problems.solve(nin.getId(), null, java.util.Map.of("nin", real.toLowerCase()));
+        assertTrue(clientRepo.findByNationalId(real).isPresent(), "the real NIN is on the client (in capitals)");
+        assertTrue(clientRepo.findByNationalId(made).isEmpty(), "the made-up NIN is gone");
+        assertTrue(problemRepo.findById(nin.getId()).orElseThrow().getSolvedNote().contains(real), "the note says what was put in");
+        problems.solve(phone.getId(), "Got it from the LC1", java.util.Map.of("phone", "0772 405 999"));
+        assertEquals("0772405999", clientRepo.findByNationalId(real).orElseThrow().getPhoneNumber().replaceAll("\\D", "").replaceFirst("^256", "0"));
+        assertEquals("SOLVED", problemRepo.findById(phone.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    public void aNinOfAnotherClientIsRefusedAndNothingChanges() throws Exception {
+        as(Role.ROLE_SECRETARY);
+        String other = "OTHERNIN" + tag();
+        land.atomicIntake(entry(other), null);
+        String made = "MADEB" + tag();
+        LandEntryRequest r = entry(made);
+        r.setProblems(List.of(pr("NO_NIN", null, made)));
+        LandProject p = land.atomicIntake(r, null);
+        ProjectProblem nin = problemRepo.findByProjectIdOrderByCreatedAtDesc(p.getId()).get(0);
+        assertThrows(BusinessException.class, () -> problems.solve(nin.getId(), null, java.util.Map.of("nin", other)));
+        assertTrue(clientRepo.findByNationalId(made).isPresent(), "the client keeps its NIN");
+        assertEquals("OPEN", problemRepo.findById(nin.getId()).orElseThrow().getStatus(), "the problem stays open");
+    }
+
+    @Test
+    public void fixingTheSameNumberSolvesItOnBothProjects() throws Exception {
+        as(Role.ROLE_SECRETARY);
+        LandEntryRequest a = entry("SAMEX" + tag());
+        LandProject first = land.atomicIntake(a, null);
+        LandEntryRequest b = entry("SAMEY" + tag());
+        b.setContractNumber(a.getContractNumber());
+        b.setAllowSameNumber(true);
+        LandProject second = land.atomicIntake(b, null);
+        ProjectProblem mine = problemRepo.findByProjectIdOrderByCreatedAtDesc(second.getId()).stream().filter(x -> x.getKind().equals("SAME_NUMBER")).findFirst().orElseThrow();
+        String fresh = "P-CON-NEW-" + tag();
+        problems.solve(mine.getId(), null, java.util.Map.of("contract", fresh));
+        assertEquals(fresh, projects.findById(second.getId()).orElseThrow().getContractNumber());
+        assertFalse(problems.hasOpen(second.getId(), "SAME_NUMBER"), "solved here");
+        assertFalse(problems.hasOpen(first.getId(), "SAME_NUMBER"), "and on the other project");
+    }
+
+    @Test
+    public void visitDoneSolvesVisitProblemsAndWritesTheRecoveryNote() throws Exception {
+        as(Role.ROLE_SECRETARY);
+        String nin = "VISIT" + tag();
+        LandEntryRequest r = entry(nin);
+        r.setProblems(List.of(pr("LOCATION", null, null)));
+        LandProject p = land.atomicIntake(r, null);
+        assertTrue(problems.siteVisits().stream().anyMatch(v -> p.getId().equals(v.get("projectId"))));
+        assertEquals(1, problems.siteVisitDone(p.getId(), "Plot is in Bugaya village, boundary marked"));
+        assertFalse(problems.hasOpen(p.getId(), "LOCATION"));
+        assertFalse(problems.siteVisits().stream().anyMatch(v -> p.getId().equals(v.get("projectId"))), "off the Site Visits list");
+        var c = clientRepo.findByNationalId(nin).orElseThrow();
+        assertTrue(recoveryNotes.findByClientOrderByCreatedAtDesc(c).stream()
+                .anyMatch(n -> com.gesolutions.erp.modules.client.service.RecoveryStateService.VISIT_DONE_TAG.equals(n.getTag()) && !n.isCountsAsAttempt()),
+                "a site visit line on Recovery that is not a call");
+    }
+
+    @Test
+    public void missedCallsBeforeAVisitNoLongerAskForAnotherVisit() {
+        var rs = new com.gesolutions.erp.modules.client.service.RecoveryStateService(null, null);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        List<com.gesolutions.erp.modules.client.model.RecoveryNote> ns = new ArrayList<>();
+        for (int d = 1; d <= 6; d++) ns.add(com.gesolutions.erp.modules.client.model.RecoveryNote.builder().tag("not picking up").tone("NEGATIVE")
+                .countsAsAttempt(true).createdAt(now.minusDays(d + 2)).build());
+        assertTrue(rs.siteVisit(ns, now), "six missed days: visit needed (as before)");
+        ns.add(0, com.gesolutions.erp.modules.client.model.RecoveryNote.builder().tag(com.gesolutions.erp.modules.client.service.RecoveryStateService.VISIT_DONE_TAG)
+                .tone("INFO").countsAsAttempt(false).createdAt(now.minusDays(1)).build());
+        assertFalse(rs.siteVisit(ns, now), "after the visit the old misses do not count");
     }
 }

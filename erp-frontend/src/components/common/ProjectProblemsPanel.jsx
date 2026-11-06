@@ -18,7 +18,7 @@ export default function ProjectProblemsPanel({ projectId, people = [], canWrite,
     const [rows, setRows] = useState(null);
     const [kinds, setKinds] = useState({ kinds: [], remembered: [] });
     const [adding, setAdding] = useState(null);      // { kind, label, detail, solution, clientId }
-    const [solving, setSolving] = useState(null);    // { id, note }
+    const [solving, setSolving] = useState(null);    // { id, note, nin, phone, invoice, contract, personId }
     const [removing, setRemoving] = useState(null);  // { id, reason }
     const [showSolved, setShowSolved] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -57,6 +57,19 @@ export default function ProjectProblemsPanel({ projectId, people = [], canWrite,
         if (ok) setAdding(null);
     };
 
+    // fix291 (David): solving a NIN / phone / number problem takes the real value and puts it on the project in the same step
+    const FIX_WORDS = { nin: 'Real NIN', phone: 'Real phone number', invoice: 'Real invoice number', contract: 'Real contract number' };
+    const FIX_HINTS = { nin: 'CM12345678ABCD', phone: '0772 123 456', invoice: 'Leave empty to keep it', contract: 'Leave empty to keep it' };
+    const fixOf = (r) => (kindOf(r.kind).fix || []);
+    const confirmSolve = (r) => {
+        const values = {};
+        ['nin', 'phone', 'invoice', 'contract', 'personId'].forEach(k => { if (solving[k] && String(solving[k]).trim()) values[k] = String(solving[k]).trim(); });
+        const typed = ['nin', 'phone', 'invoice', 'contract'].some(k => values[k]);
+        if (!typed && String(solving.note || '').trim().length < 3) { toast(fixOf(r).length ? 'Type the real value, or write what was done.' : 'Write what was done to solve it.', 'error'); return; }
+        if (typed && (values.nin || values.phone) && !r.clientId && people.length > 1 && !values.personId) { toast('Pick which person the number belongs to.', 'error'); return; }
+        done(() => problemService.solve(r.id, solving.note, values), typed ? 'Saved on the project and solved. A note was written.' : 'Problem solved. A note was written.')
+            .then(ok => ok && setSolving(null));
+    };
     const open = (rows || []).filter(r => r.status === 'OPEN');
     const solved = (rows || []).filter(r => r.status !== 'OPEN');
     const personWords = Object.fromEntries(people.map(p => [p.id, p.name]));
@@ -80,14 +93,26 @@ export default function ProjectProblemsPanel({ projectId, people = [], canWrite,
                             onChange={w => { const v = codeOf(SOLUTION_WORDS, w); if (v && v !== r.solution) done(() => problemService.update(r.id, { solution: v }), 'Solution changed: ' + w + '.'); }} />
                     </div>
                     {solving && solving.id === r.id
-                        ? (<>
-                            <input className={s.input} value={solving.note} maxLength={500} autoFocus aria-label="What was done to solve it"
-                                placeholder="What was done to solve it?" onChange={e => setSolving({ ...solving, note: e.target.value })}
-                                onKeyDown={e => { if (e.key === 'Enter') done(() => problemService.solve(r.id, solving.note), 'Problem solved. A note was written.').then(ok => ok && setSolving(null)); }} />
-                            <button type="button" className={s.btn} disabled={busy} onClick={() => done(() => problemService.solve(r.id, solving.note), 'Problem solved. A note was written.').then(ok => ok && setSolving(null))}><FiCheck /> CONFIRM</button>
-                            <button type="button" className={s.btnGhost} onClick={() => setSolving(null)}>CANCEL</button>
-                        </>)
-                        : <button type="button" className={s.btn} onClick={() => setSolving({ id: r.id, note: '' })}><FiCheck /> SOLVED</button>}
+                        ? (<div className={s.solveBox}>
+                            {fixOf(r).length > 0 && !r.clientId && people.length > 1 && fixOf(r).some(k => k === 'nin' || k === 'phone') && (
+                                <HardwareSelect compact label="" placeholder="Which person" options={people.map(p => p.name)} value={personWords[solving.personId] || ''}
+                                    onChange={w => { const p = people.find(x => x.name === w); setSolving({ ...solving, personId: p ? p.id : '' }); }} />)}
+                            {fixOf(r).map((k, i) => (
+                                <input key={k} className={s.input} value={solving[k] || ''} maxLength={k === 'phone' ? 60 : 80} autoFocus={i === 0} aria-label={FIX_WORDS[k]}
+                                    placeholder={FIX_WORDS[k] + ' (' + FIX_HINTS[k] + ')'}
+                                    onChange={e => setSolving({ ...solving, [k]: k === 'nin' ? e.target.value.toUpperCase().replace(/\s+/g, '') : e.target.value })}
+                                    onKeyDown={e => { if (e.key === 'Enter') confirmSolve(r); }} />
+                            ))}
+                            <input className={s.input} value={solving.note} maxLength={500} autoFocus={fixOf(r).length === 0} aria-label="What was done to solve it"
+                                placeholder={fixOf(r).length ? 'What was done? (optional when the real value is typed)' : 'What was done to solve it?'}
+                                onChange={e => setSolving({ ...solving, note: e.target.value })}
+                                onKeyDown={e => { if (e.key === 'Enter') confirmSolve(r); }} />
+                            <span className={s.solveBtns}>
+                                <button type="button" className={s.btn} disabled={busy} onClick={() => confirmSolve(r)}><FiCheck /> CONFIRM</button>
+                                <button type="button" className={s.btnGhost} onClick={() => setSolving(null)}>CANCEL</button>
+                            </span>
+                        </div>)
+                        : <button type="button" className={s.btn} onClick={() => setSolving({ id: r.id, note: '', nin: '', phone: '', invoice: '', contract: '', personId: '' })}><FiCheck /> {fixOf(r).length ? 'FIX AND SOLVE' : 'SOLVED'}</button>}
                     {canRemove && !(solving && solving.id === r.id) && (removing && removing.id === r.id
                         ? (<>
                             <input className={s.input} value={removing.reason} maxLength={300} aria-label="Why remove it" placeholder="Why remove it? (added by mistake...)"
