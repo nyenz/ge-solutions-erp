@@ -6,6 +6,9 @@ import PreferencesProvider from './context/PreferencesProvider'
 import './index.css'
 import './styles/gesday.css'   // fix256: GES DAY page skins (only active when the theme is GES DAY)
 import './styles/midnight.css'   // fix280: the same skins at night (only active when the theme is MIDNIGHT)
+import { registerInstallHelper } from './utils/installApp'   // fix293: "Download app" (installs from the page)
+
+registerInstallHelper()
 
 /**
  * GOLDEN SEED - MAIN BOOTSTRAPPER
