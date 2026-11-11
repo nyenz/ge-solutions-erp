@@ -218,6 +218,30 @@ fs.writeFileSync(SCAN, PNG);
         check(/land\/projects\?new=/.test(page.url()), 'SAVE WITH PROBLEM saves it (the Ledger opens)');
         await page.waitForTimeout(1500);
         await shot('saved-with-problem');
+
+        // 9. (fix293) Download app: the app can be installed from the page
+        const man = await page.evaluate(async () => { const r = await fetch('/manifest.json'); return r.ok ? r.json() : null; });
+        check(!!man && man.display === 'standalone' && (man.icons || []).some(i => i.sizes === '512x512'), 'the app manifest is there (standalone, 512 icon)');
+        const icons = await page.evaluate(async (list) => { const out = []; for (const u of list) { const r = await fetch(u); out.push(r.ok && (r.headers.get('content-type') || '').includes('image')); } return out; },
+            (man && man.icons ? man.icons.map(i => i.src) : []));
+        check(icons.length > 0 && icons.every(Boolean), 'every app icon loads');
+        const sw = await page.evaluate(async () => { if (!('serviceWorker' in navigator)) return 'none'; const r = await navigator.serviceWorker.getRegistration(); return r ? 'yes' : 'no'; });
+        check(sw === 'yes', 'the install helper is running');
+        const dl = page.getByRole('button', { name: 'Download the app' });
+        check(await dl.count() > 0, 'the top bar has a Download app button');
+        if (await dl.count() > 0) {
+            await dl.first().click();
+            await page.waitForTimeout(800);
+            check(await page.locator('text=DOWNLOAD THE APP').count() > 0 && await page.locator('text=Add to Home Screen').count() > 0, 'Download app shows the steps for each device');
+            await shot('download-app');
+            await page.keyboard.press('Escape');
+            await page.setViewportSize({ width: 390, height: 844 });
+            await page.waitForTimeout(600);
+            const box = await page.getByRole('button', { name: 'Download the app' }).first().boundingBox();
+            check(!!box && box.x + box.width <= 390, 'on a phone the Download app button fits in the top bar');
+            await shot('download-app-phone');
+            await page.setViewportSize({ width: 1366, height: 900 });
+        }
     } catch (e) {
         say('FAIL  the test stopped: ' + (e && e.message ? e.message.split('\n')[0] : e));
         try { await shot('where-it-stopped', true); } catch { /* */ }

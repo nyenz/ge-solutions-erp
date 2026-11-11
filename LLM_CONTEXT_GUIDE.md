@@ -1808,3 +1808,14 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here).
   Solving a SITE_VISIT problem, or VISIT DONE on the Site Visits list (POST /problems/site-visits/{projectId}/done),
   writes a `site visit done` RecoveryNote (tone INFO, not a call). RecoveryStateService.siteVisit counts only missed
   days AFTER the latest visit note (cards without one are counted as before).
+
+## DOWNLOAD APP (fix293)
+- The app installs from its own page (PWA): public/manifest.json (Golden Seed, standalone, app-icon-192/512 + maskable,
+  cream background, navy theme), apple-touch-icon.png, public/sw.js, utils/installApp.js (keeps the browser's
+  beforeinstallprompt offer; registers sw.js in the built app only), components/layout/DownloadApp.jsx in the top bar.
+- The button opens the browser's own install popup when offered; otherwise a sheet with the steps for Android, iPhone
+  and laptop (this device first). Hidden when the app runs installed (display-mode standalone).
+- sw.js saves NOTHING: no app files, no API calls, no documents. It only shows its own "No internet" page when a page
+  cannot load at all, and deletes any old caches. nginx serves /sw.js with Cache-Control no-cache. Do not add caching
+  without David's yes (a cached old app after an update would break the no-break rule).
+- Click test: e2e/intake-check.mjs step 9.

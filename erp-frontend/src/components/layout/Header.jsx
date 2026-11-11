@@ -49,6 +49,7 @@ import { IS_LOCAL_API } from '../../api/axios';
 import useAppMode from '../../hooks/useAppMode';   // fix278
 import { anyDirty, allowLeave } from '../../utils/dirtyRegistry';
 import HardwareModal from '../common/HardwareModal';
+import DownloadApp from './DownloadApp';   // fix293: "Download app"
 import { ConfirmDialog } from '../common/Feedback';   // fix223: no browser confirm box
 import { useConfirm } from '../common/useFeedback';
 
@@ -287,6 +288,7 @@ const Header = ({ onToggle }) => {
 
             <div className={styles.headerRight}>
                 <span style={SR_ONLY} aria-live="polite">{notifOpen ? '' : announce}</span>
+                <DownloadApp />
                 {!noBell && (<div className={styles.notifWrap} ref={dropRef}>
                     <button
                         ref={bellRef}
