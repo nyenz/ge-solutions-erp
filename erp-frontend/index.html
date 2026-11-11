@@ -3,11 +3,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/app-icon-192.png" />
     <!-- fix183: interactive-widget=resizes-content makes the page itself get shorter when the phone keyboard opens, so the
          box you are typing in stays in view and no empty strip shows above the keyboard. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <!-- fix293: "Download app" -- the app installs from this page on a phone or laptop (no Play Store) -->
     <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Golden Seed" />
     <meta name="theme-color" content="#1a2e30" />
     <!-- fix181 (15.1d): apply the saved appearance BEFORE the first paint (no cream flash on SLATE, no size jump).
          Same rules as src/context/prefsStore.js: per person, device default otherwise, only allowed values. -->
